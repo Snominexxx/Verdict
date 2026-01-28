@@ -1,0 +1,17 @@
+[build]
+command = "npm run build"
+publish = "build"
+functions = ".netlify/functions"
+
+[functions]
+node_bundler = "esbuild"
+external_node_modules = ["@supabase/supabase-js"]
+
+[dev]
+command = "npm run dev"
+
+[context.production.environment]
+VITE_SUPABASE_URL = "https://your-project.supabase.co"
+VITE_SUPABASE_ANON_KEY = "replace-with-anon-key"
+LLM_API_KEY = "replace-with-provider-key"
+LLM_PROVIDER = "openai"
