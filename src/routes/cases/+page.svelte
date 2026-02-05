@@ -26,7 +26,7 @@
 	const autoFill = async () => {
 		generating = true;
 		try {
-			const response = await fetch('/api/generate-case');
+			const response = await fetch('/api/generate-case', { method: 'POST' });
 			if (!response.ok) throw new Error('Failed to generate case');
 			const data = await response.json();
 			formData = {

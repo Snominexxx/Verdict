@@ -13,7 +13,7 @@ const caseTypes = [
 	'failed home renovation contract'
 ];
 
-export const GET: RequestHandler = async () => {
+export const POST: RequestHandler = async () => {
 	if (!env.LLM_API_KEY) {
 		throw error(500, 'LLM_API_KEY is not configured.');
 	}
@@ -70,12 +70,19 @@ Make it realistic, specific with names/dates/amounts, and based in Quebec or Can
 
 		const parsed = JSON.parse(content.slice(start, end + 1));
 
-		return json({
+		return json(
+			{
 			title: parsed.title ?? 'Sample Case',
 			synopsis: parsed.synopsis ?? 'No synopsis generated.',
 			issues: parsed.issues ?? 'What are the legal issues?',
 			remedy: parsed.remedy ?? 'Compensation.'
-		});
+		},
+		{
+			headers: {
+				'Cache-Control': 'no-store, max-age=0'
+			}
+		}
+		);
 	} catch (err) {
 		console.error('Generate case failed:', err);
 		throw error(500, 'Failed to generate case.');
