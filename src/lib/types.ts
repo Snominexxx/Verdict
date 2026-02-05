@@ -15,12 +15,14 @@ export type CaseSummary = {
 };
 
 export type DebateTurn = {
-	role: 'litigant' | 'ai' | 'juror';
+	role: 'litigant' | 'ai' | 'juror' | 'judge';
 	speaker: string;
 	message: string;
 	timestamp: string;
 	citations?: string[];
 };
+
+export type CourtType = 'jury' | 'bench';
 
 export type StagedCase = {
 	id: string;
@@ -30,13 +32,21 @@ export type StagedCase = {
 	remedy: string;
 	role: 'plaintiff' | 'defendant';
 	sources: string[];
+	courtType: CourtType;
 	createdAt: string;
 };
+
+export type JurorTemperament = 
+	| 'Skeptical Pragmatist'
+	| 'Analytical Thinker'
+	| 'Empathetic Listener'
+	| 'Gut-Instinct'
+	| 'Fair-Minded Moderator';
 
 export type JurorPersona = {
 	id: string;
 	name: string;
-	temperament: 'Textualist' | 'Pragmatist' | 'Rights-First' | 'Strict Constructionist' | 'Equity-Minded';
+	temperament: JurorTemperament;
 	biasVector: string;
 	description: string;
 	signatureMove: string;

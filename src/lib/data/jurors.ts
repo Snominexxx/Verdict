@@ -1,44 +1,44 @@
-import type { JurorPersona } from '$lib/types';
+﻿import type { JurorPersona } from '$lib/types';
 
 export const jurorPersonas: JurorPersona[] = [
 	{
-		id: 'aurora',
-		name: 'Justice Aurora Chen',
-		temperament: 'Textualist',
-		biasVector: 'Tethers every ruling to the exact statutory text provided.',
-		description: 'Ideal for Charter and constitutional drills where precise citations are mandatory.',
-		signatureMove: 'Demands parallel passages from every cited authority before scoring.'
+		id: 'marcus',
+		name: 'Marcus Thompson',
+		temperament: 'Skeptical Pragmatist',
+		biasVector: 'Former small business owner. Trusts common sense over legal jargon. Wants to see real-world impact.',
+		description: '58, retired contractor. Served on two juries before. Cuts through BS quickly.',
+		signatureMove: 'Asks "What would a reasonable person actually do here?"'
 	},
 	{
-		id: 'malik',
-		name: 'Justice Samir Malik',
-		temperament: 'Pragmatist',
-		biasVector: 'Weights policy fallout and practicality of proposed remedies.',
-		description: 'Highlights holes in causation logic when counsel leans on formalism.',
-		signatureMove: 'Adds policy “stress fractures” to the score sheet.'
+		id: 'priya',
+		name: 'Priya Sharma',
+		temperament: 'Analytical Thinker',
+		biasVector: 'Software engineer. Loves logic chains and clear evidence. Dislikes emotional appeals without substance.',
+		description: '34, data-driven mind. Will follow your reasoning step by step—if it holds up.',
+		signatureMove: 'Traces the logical chain: "If A, then B, then C... but you skipped B."'
 	},
 	{
-		id: 'tremblay',
-		name: 'Justice Aïda Tremblay',
-		temperament: 'Rights-First',
-		biasVector: 'Frames every prompt through proportionality and dignity.',
-		description: 'Essential when you rehearse Charter or C.c.Q. personality rights cases.',
-		signatureMove: 'Tracks infringement gravity versus minimal impairment.'
+		id: 'darlene',
+		name: 'Darlene Washington',
+		temperament: 'Empathetic Listener',
+		biasVector: 'Retired nurse. Reads between the lines. Sensitive to who got hurt and why.',
+		description: '62, community volunteer. Weighs human cost heavily. Fairness matters more than technicalities.',
+		signatureMove: 'Focuses on harm: "But what happened to the actual person here?"'
 	},
 	{
-		id: 'dawson',
-		name: 'Justice Emery Dawson',
-		temperament: 'Strict Constructionist',
-		biasVector: 'Skeptical of novel analogies and AI metaphors unless anchored in precedent.',
-		description: 'Useful for honing conservative appellate advocacy.',
-		signatureMove: 'Subtracts points for rhetoric without pinpoint cites.'
+		id: 'jake',
+		name: 'Jake Kowalski',
+		temperament: 'Gut-Instinct',
+		biasVector: 'Union electrician. Trusts his gut, skeptical of slick talkers. Respects straight shooters.',
+		description: '45, blue-collar perspective. Detects dishonesty quickly. Loyalty and integrity matter.',
+		signatureMove: 'Credibility check: "Something about this story doesn\'t add up."'
 	},
 	{
-		id: 'solange',
-		name: 'Justice Solange Fortier',
-		temperament: 'Equity-Minded',
-		biasVector: 'Models fairness remedies and public interest balancing.',
-		description: 'Tests how you integrate discretionary relief within civil law principles.',
-		signatureMove: 'Issues separate concurrences explaining equitable constraints.'
+		id: 'elena',
+		name: 'Elena Rodriguez',
+		temperament: 'Fair-Minded Moderator',
+		biasVector: 'High school teacher. Listens to all sides before deciding. Values clear explanations.',
+		description: '41, patient and thorough. Often the voice of reason. Wants both sides heard fairly.',
+		signatureMove: 'Balance test: "But what would the other side say to that?"'
 	}
 ];

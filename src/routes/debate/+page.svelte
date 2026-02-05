@@ -3,6 +3,7 @@
 	import { debateStore, appendTurn, seedTranscript } from '$lib/stores/debate';
 	import { stagedCaseStore, hydrateStagedCase, clearStagedCase } from '$lib/stores/stagedCase';
 	import { jurorPersonas } from '$lib/data/jurors';
+	import { judgePersona } from '$lib/data/judge';
 	import { libraryDocuments } from '$lib/data/library';
 	import type { DebateTurn, VerdictScore, StagedCase } from '$lib/types';
 	import { fly } from 'svelte/transition';
@@ -16,6 +17,7 @@
 	let prompt = '';
 	let sending = false;
 	let jurorScores: VerdictScore[] = [];
+	let judgeMind: { assessment: string; concerns: string; leaning: string } | null = null;
 	let stagedCase: StagedCase | null = null;
 	let allowedSources = libraryDocuments;
 	let focusArmed = false;
@@ -23,6 +25,7 @@
 	const allJurorIds = jurorPersonas.map((juror) => juror.id);
 
 	$: stagedCase = $stagedCaseStore;
+	$: isBenchTrial = stagedCase?.courtType === 'bench';
 	$: if (data?.stagedCase && !$stagedCaseStore) {
 		hydrateStagedCase(data.stagedCase);
 		seedTranscript(data.stagedCase);
@@ -31,6 +34,14 @@
 		? libraryDocuments.filter((doc) => stagedCase.sources.includes(doc.id))
 		: libraryDocuments;
 	$: jurorScoreMap = Object.fromEntries(jurorScores.map((score) => [score.jurorId, score]));
+	
+	// Jury verdict summary
+	$: plaintiffVotes = jurorScores.filter(s => s.stance === 'plaintiff').length;
+	$: defenseVotes = jurorScores.filter(s => s.stance === 'defense').length;
+	$: hungVotes = jurorScores.filter(s => s.stance === 'hung').length;
+	$: avgScore = jurorScores.length ? Math.round(jurorScores.reduce((sum, s) => sum + s.score, 0) / jurorScores.length) : 0;
+	$: verdictStatus = plaintiffVotes >= 3 ? 'Leaning Plaintiff' : defenseVotes >= 3 ? 'Leaning Defense' : jurorScores.length ? 'Split Jury' : 'Awaiting Arguments';
+	
 	$: if (stagedCase && !focusArmed) {
 		focusMode.set(true);
 		focusArmed = true;
@@ -62,14 +73,48 @@
 					sources: allowedSources
 				})
 			});
+			if (!response.ok) {
+				const text = await response.text();
+				throw new Error(text || 'Debate request failed.');
+			}
 			const data = await response.json();
+
+			// Handle judge interjection (bench trial only)
+			if (data.judgeInterjection) {
+				const prefix = data.judgeInterjection.type
+					? `[${data.judgeInterjection.type.toUpperCase()}] `
+					: '';
+				appendTurn({
+					role: 'judge',
+					speaker: data.judgeInterjection.speaker,
+					message: `${prefix}${data.judgeInterjection.message}`,
+					timestamp: data.judgeInterjection.timestamp
+				});
+			}
+
 			appendTurn({
 				...data.reply,
 				timestamp: new Date().toISOString()
 			});
-			jurorScores = data.jurorScores ?? [];
-		} catch (error) {
-			console.error('Debate endpoint failed', error);
+
+			// Handle scores based on court type
+			if (data.courtType === 'bench') {
+				judgeMind = data.judgeMind ?? null;
+				jurorScores = [];
+			} else {
+				jurorScores = data.jurorScores ?? [];
+				judgeMind = null;
+			}
+		} catch (err) {
+			console.error('Debate endpoint failed', err);
+			const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+			const fallbackSpeaker = isBenchTrial ? judgePersona.name : 'Advocate AI';
+			appendTurn({
+				role: isBenchTrial ? 'judge' : 'ai',
+				speaker: fallbackSpeaker,
+				message: `Unable to process your argument. ${errorMsg}`,
+				timestamp: new Date().toISOString()
+			});
 		} finally {
 			sending = false;
 			prompt = '';
@@ -79,6 +124,7 @@
 	const restartDebate = () => {
 		seedTranscript(stagedCase ?? undefined);
 		jurorScores = [];
+		judgeMind = null;
 		prompt = '';
 	};
 
@@ -213,12 +259,16 @@
 				{#if sending}
 					<div class="flex flex-col max-w-2xl mr-auto items-start" in:fly={{ y: 10, duration: 200 }}>
 						<p class="text-xs uppercase tracking-widest text-white/50 mb-1 px-1">
-							Advocate AI <span class="opacity-50 mx-1">/</span> <span class="font-mono opacity-40">thinking…</span>
+							{isBenchTrial ? judgePersona.name : 'Advocate AI'}
+							<span class="opacity-50 mx-1">/</span>
+							<span class="font-mono opacity-40">thinking…</span>
 						</p>
 						<div class="p-5 text-base leading-relaxed border border-white/10 text-white/80 bg-black/30 rounded-t-lg rounded-br-lg w-full max-w-xl">
 							<div class="flex items-center gap-2">
 								<span class="w-2 h-2 rounded-full bg-white/40 animate-pulse"></span>
-								<span class="text-white/70 font-mono text-sm">Formulating counter-argument…</span>
+								<span class="text-white/70 font-mono text-sm">
+									{isBenchTrial ? 'Reviewing submission…' : 'Formulating counter-argument…'}
+								</span>
 							</div>
 						</div>
 					</div>
@@ -249,58 +299,131 @@
 			</div>
 		</main>
 
-		<!-- Right: Juror Intelligence -->
+		<!-- Right: Judge or Juror Panel -->
 		<aside class="hidden lg:flex flex-col border-l border-white/10 bg-black/20 overflow-hidden min-h-0">
-			<div class="p-5 border-b border-white/5 flex items-center justify-between">
-				<div>
-					<p class="text-xs uppercase tracking-[0.2em] text-white/50">Panel</p>
-					<h2 class="text-base font-display text-white mt-1">Juror Analysis</h2>
+			<div class="p-5 border-b border-white/5">
+				<div class="flex items-center justify-between mb-3">
+					<div>
+						<p class="text-xs uppercase tracking-[0.2em] text-white/50">Panel</p>
+						<h2 class="text-base font-display text-white mt-1">{isBenchTrial ? 'Judge' : 'Jury'}</h2>
+					</div>
+					<div class="flex gap-1">
+						{#if isBenchTrial}
+							<div class="w-2 h-4 rounded-full bg-white/10"></div>
+						{:else}
+							{#each jurorPersonas as juror, i}
+								{@const jurorScore = jurorScoreMap[juror.id]}
+								<div class={`w-2 h-4 rounded-full transition-colors ${
+									jurorScore?.stance === 'plaintiff' ? 'bg-flare' :
+									jurorScore?.stance === 'defense' ? 'bg-pulse' :
+									jurorScore ? 'bg-white/30' : 'bg-white/10'
+								}`}></div>
+							{/each}
+						{/if}
+					</div>
 				</div>
-				<div class="flex gap-1">
-					{#each [1,2,3,4,5] as i}
-						<div class={`w-1 h-3 rounded-full ${jurorScores.length ? 'bg-flare' : 'bg-white/10'}`}></div>
-					{/each}
-				</div>
+				
+				{#if !isBenchTrial && jurorScores.length > 0}
+					<div class="bg-black/30 rounded-md p-3 border border-white/5">
+						<div class="flex justify-between items-center">
+							<div>
+								<p class={`text-sm font-semibold ${
+									plaintiffVotes >= 3 ? 'text-flare' : 
+									defenseVotes >= 3 ? 'text-pulse' : 'text-white/70'
+								}`}>{verdictStatus}</p>
+								<p class="text-[10px] text-white/40 mt-0.5">
+									{plaintiffVotes} Plaintiff · {defenseVotes} Defense · {hungVotes} Undecided
+								</p>
+							</div>
+							<div class="text-right">
+								<p class={`text-xl font-mono font-bold ${getScoreColor(avgScore)}`}>{avgScore}%</p>
+								<p class="text-[9px] text-white/40 uppercase">Avg Score</p>
+							</div>
+						</div>
+					</div>
+				{/if}
 			</div>
 
 			<div class="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide min-h-0">
-				{#each jurorPersonas as juror}
-					{@const score = jurorScoreMap[juror.id]}
-					<div class="group border border-white/5 hover:border-white/10 bg-white/[0.02] p-4 rounded-md transition-all">
-						<div class="flex justify-between items-start mb-2">
-							<div>
-								<h3 class="text-sm font-semibold text-white">{juror.name}</h3>
-								<p class="text-xs text-white/60 uppercase tracking-wider mt-0.5">{juror.temperament}</p>
-							</div>
-							{#if score}
-								<span class={`text-base font-mono font-bold ${getScoreColor(score.score)}`}>
-									{score.score}%
-								</span>
-							{:else}
-								<span class="w-2 h-2 rounded-full bg-white/10 mt-1"></span>
-							{/if}
+				{#if isBenchTrial}
+					<!-- Judge Mind (Bench Trial) -->
+					<div class="group border border-white/10 bg-white/[0.03] p-5 rounded-md transition-all">
+						<div class="mb-3">
+							<h3 class="text-base font-semibold text-white">{judgePersona.name}</h3>
+							<p class="text-xs text-white/50 mt-1">Inside the Judge's Mind</p>
 						</div>
 						
-						{#if score}
-							<p class="text-sm text-white/90 leading-relaxed border-t border-white/5 pt-2 mt-2">
-								{score.rationale}
-							</p>
-							<div class="grid grid-cols-3 gap-1 mt-3">
-								<div class="text-[10px] text-white/50 text-center bg-black/20 py-1 rounded">
-									LOGIC <br/> <span class="text-white font-mono">{Math.round(score.metrics?.logic ?? 0)}</span>
+						{#if judgeMind}
+							<div class="space-y-3 border-t border-white/10 pt-3">
+								<div>
+									<p class="text-[10px] uppercase tracking-wider text-white/40 mb-1">Assessment</p>
+									<p class="text-sm text-white/90 leading-relaxed">{judgeMind.assessment}</p>
 								</div>
-								<div class="text-[10px] text-white/50 text-center bg-black/20 py-1 rounded">
-									SRC <br/> <span class="text-white font-mono">{Math.round(score.metrics?.sources ?? 0)}</span>
+								<div>
+									<p class="text-[10px] uppercase tracking-wider text-white/40 mb-1">Concerns</p>
+									<p class="text-sm text-white/80 leading-relaxed">{judgeMind.concerns}</p>
 								</div>
-								<div class="text-[10px] text-white/50 text-center bg-black/20 py-1 rounded">
-									TONE <br/> <span class="text-white font-mono">{Math.round(score.metrics?.tone ?? 0)}</span>
+								<div>
+									<p class="text-[10px] uppercase tracking-wider text-white/40 mb-1">Leaning</p>
+									<p class="text-sm text-white/80 leading-relaxed">{judgeMind.leaning}</p>
 								</div>
 							</div>
 						{:else}
-							<p class="text-xs text-white/50 italic">Waiting for connection...</p>
+							<p class="text-xs text-white/50 italic border-t border-white/5 pt-3">Listening for details...</p>
 						{/if}
 					</div>
-				{/each}
+				{:else}
+					<!-- Juror Panel (Jury Trial) -->
+					{#each jurorPersonas as juror}
+						{@const score = jurorScoreMap[juror.id]}
+						{@const stanceColor = score?.stance === 'plaintiff' ? 'border-l-flare' : score?.stance === 'defense' ? 'border-l-pulse' : 'border-l-white/20'}
+						<div class={`group border border-white/5 hover:border-white/10 bg-white/[0.02] p-4 rounded-md transition-all ${score ? `border-l-2 ${stanceColor}` : ''}`}>
+							<div class="flex justify-between items-start mb-2">
+								<div>
+									<h3 class="text-sm font-semibold text-white">{juror.name}</h3>
+									<p class="text-xs text-white/50 mt-0.5">{juror.temperament}</p>
+								</div>
+								{#if score}
+									<div class="text-right">
+										<span class={`text-lg font-mono font-bold ${getScoreColor(score.score)}`}>
+											{score.score}%
+										</span>
+										<p class={`text-[9px] uppercase tracking-wider mt-0.5 ${
+											score.stance === 'plaintiff' ? 'text-flare' : 
+											score.stance === 'defense' ? 'text-pulse' : 'text-white/40'
+										}`}>
+											{score.stance === 'plaintiff' ? '→ Plaintiff' : score.stance === 'defense' ? '→ Defense' : 'Undecided'}
+										</p>
+									</div>
+								{:else}
+									<span class="w-2 h-2 rounded-full bg-white/10 mt-1"></span>
+								{/if}
+							</div>
+							
+							{#if score}
+								<p class="text-sm text-white/80 leading-relaxed border-t border-white/5 pt-2 mt-2 italic">
+									"{score.rationale}"
+								</p>
+								<div class="grid grid-cols-3 gap-2 mt-3">
+									<div class="text-center bg-black/30 py-2 rounded border border-white/5">
+										<p class="text-[9px] text-white/40 uppercase tracking-wide">Logic</p>
+										<p class={`text-sm font-mono font-semibold ${getScoreColor(score.metrics?.logic ?? 50)}`}>{Math.round(score.metrics?.logic ?? 0)}</p>
+									</div>
+									<div class="text-center bg-black/30 py-2 rounded border border-white/5">
+										<p class="text-[9px] text-white/40 uppercase tracking-wide">Evidence</p>
+										<p class={`text-sm font-mono font-semibold ${getScoreColor(score.metrics?.sources ?? 50)}`}>{Math.round(score.metrics?.sources ?? 0)}</p>
+									</div>
+									<div class="text-center bg-black/30 py-2 rounded border border-white/5">
+										<p class="text-[9px] text-white/40 uppercase tracking-wide">Tone</p>
+										<p class={`text-sm font-mono font-semibold ${getScoreColor(score.metrics?.tone ?? 50)}`}>{Math.round(score.metrics?.tone ?? 0)}</p>
+									</div>
+								</div>
+							{:else}
+								<p class="text-xs text-white/40 italic">Listening...</p>
+							{/if}
+						</div>
+					{/each}
+				{/if}
 			</div>
 		</aside>
 	</div>

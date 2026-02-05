@@ -1,4 +1,4 @@
-import type { StagedCase } from '$lib/types';
+import type { StagedCase, CourtType } from '$lib/types';
 
 export const mapRowToStagedCase = (row: Record<string, any>): StagedCase => ({
 	id: row.id,
@@ -8,5 +8,6 @@ export const mapRowToStagedCase = (row: Record<string, any>): StagedCase => ({
 	remedy: row.remedy ?? '',
 	role: row.role,
 	sources: row.sources ?? [],
+	courtType: (row.court_type ?? row.courtType ?? 'jury') as CourtType,
 	createdAt: row.created_at ?? row.createdAt ?? new Date().toISOString()
 });

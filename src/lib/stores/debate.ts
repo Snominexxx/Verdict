@@ -40,6 +40,7 @@ export const seedTranscript = (stagedCase?: StagedCase | null) => {
 	}
 
 	let openingText: string;
+	const isBenchTrial = stagedCase.courtType === 'bench';
 
 	if (questions.length > 0) {
 		openingText = `Before we begin, I need some clarity:\n\n` +
@@ -48,6 +49,29 @@ export const seedTranscript = (stagedCase?: StagedCase | null) => {
 	} else {
 		openingText = `Understood. You claim: "${hasSynopsis}"\n\n` +
 			`I'll argue that you're wrong. Present your first argument—cite your sources.`;
+	}
+
+	if (isBenchTrial) {
+		const judgeSummary: DebateTurn = {
+			role: 'judge',
+			speaker: 'Justice Beaumont',
+			message: `**${stagedCase.title}**\n\n` +
+				`This is a bench hearing. You represent yourself as ${youAre}.` +
+				`\nAnswer clearly. Cite the law you rely on.`,
+			timestamp: now
+		};
+
+		const judgeOpening: DebateTurn = {
+			role: 'judge',
+			speaker: 'Justice Beaumont',
+			message: questions.length
+				? `Counsel, start with the basics:\n\n${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}`
+				: `State your claim in one sentence, then tell me the specific law or authority you rely on.`,
+			timestamp: new Date().toISOString()
+		};
+
+		set([judgeSummary, judgeOpening]);
+		return;
 	}
 
 	const summaryTurn: DebateTurn = {

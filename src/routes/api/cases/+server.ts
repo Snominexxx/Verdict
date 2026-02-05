@@ -13,6 +13,7 @@ const normalizePayload = (payload: Record<string, unknown>) => {
 	const remedy = String(payload.remedy ?? '').trim();
 	const role = payload.role === 'defendant' ? 'defendant' : 'plaintiff';
 	const sources = Array.isArray(payload.sources) ? payload.sources.map(String) : [];
+	const courtType = payload.courtType === 'bench' ? 'bench' : 'jury';
 
 	if (!title) {
 		throw error(400, 'Case title is required.');
@@ -22,7 +23,7 @@ const normalizePayload = (payload: Record<string, unknown>) => {
 		throw error(400, 'Synopsis is required.');
 	}
 
-	return { title, synopsis, issues, remedy, role, sources };
+	return { title, synopsis, issues, remedy, role, sources, courtType };
 };
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
@@ -39,7 +40,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			issues: payload.issues,
 			remedy: payload.remedy,
 			role: payload.role,
-			sources: payload.sources
+			sources: payload.sources,
+			court_type: payload.courtType
 		})
 		.select('*')
 		.single();

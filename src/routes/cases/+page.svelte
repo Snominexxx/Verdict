@@ -4,7 +4,7 @@
 	import { stageCase } from '$lib/stores/stagedCase';
 	import { seedTranscript } from '$lib/stores/debate';
 	import { caseHistoryStore } from '$lib/stores/caseHistory';
-	import type { StagedCase } from '$lib/types';
+	import type { StagedCase, CourtType } from '$lib/types';
 
 	type FormSubmission = Omit<StagedCase, 'id' | 'createdAt'>;
 
@@ -14,12 +14,42 @@
 		issues: '',
 		remedy: '',
 		role: 'plaintiff',
-		sources: libraryDocuments.map((doc) => doc.id)
+		sources: libraryDocuments.map((doc) => doc.id),
+		courtType: 'jury' as CourtType
 	};
 
 	let submission: StagedCase | null = null;
 	let submitting = false;
 	let errorMessage = '';
+	let generating = false;
+
+	const autoFill = async () => {
+		generating = true;
+		try {
+			const response = await fetch('/api/generate-case');
+			if (!response.ok) throw new Error('Failed to generate case');
+			const data = await response.json();
+			formData = {
+				...formData,
+				title: data.title,
+				synopsis: data.synopsis,
+				issues: data.issues,
+				remedy: data.remedy
+			};
+		} catch (err) {
+			console.error('Auto-fill failed:', err);
+			// Fallback to hardcoded example
+			formData = {
+				...formData,
+				title: 'Tremblay v. QuickServe Inc.',
+				synopsis: 'I worked at QuickServe for 3 years as a shift manager. On January 15, I was called into the office and told I was being let go effective immediately. They said it was "restructuring" but hired someone new for my position two weeks later.',
+				issues: 'Was I wrongfully dismissed? Am I entitled to notice or severance pay?',
+				remedy: 'Compensation for lost wages, severance pay, and a letter of reference.'
+			};
+		} finally {
+			generating = false;
+		}
+	};
 
 	const toggleSource = (id: string) => {
 		if (formData.sources.includes(id)) {
@@ -62,8 +92,8 @@
 	<!-- Module Header -->
 	<header class="border-b border-white/10 bg-black/20 px-6 py-4 flex items-center justify-between">
 		<div>
-			<h2 class="text-sm font-bold uppercase tracking-wider text-white">Case Initialization</h2>
-			<p class="text-xs text-white/50 mt-1">Configure dispute parameters, legal issues, and authorized sources.</p>
+			<h2 class="text-sm font-bold uppercase tracking-wider text-white">Start a Case</h2>
+			<p class="text-xs text-white/50 mt-1">Keep it simple. Tell the story in plain words.</p>
 		</div>
 		<div class="flex gap-2">
 			<!-- Toolbar placeholders -->
@@ -76,10 +106,41 @@
 		<div class="p-6 overflow-y-auto border-r border-white/10 scrollbar-hide">
 			<form class="space-y-6 max-w-3xl" on:submit|preventDefault={handleSubmit}>
 				
+				<!-- Court Configuration -->
+				<div class="grid gap-4 md:grid-cols-2">
+					<div class="space-y-2">
+						<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">Mode</p>
+						<div class="flex gap-2">
+							<label class="flex-1 cursor-pointer">
+								<input type="radio" name="courtType" value="jury" bind:group={formData.courtType} class="sr-only peer" />
+								<div class="text-center py-3 border border-white/20 text-xs font-bold uppercase text-white/70 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
+									Jury
+								</div>
+							</label>
+							<label class="flex-1 cursor-pointer">
+								<input type="radio" name="courtType" value="bench" bind:group={formData.courtType} class="sr-only peer" />
+								<div class="text-center py-3 border border-white/20 text-xs font-bold uppercase text-white/70 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
+									Judge
+								</div>
+							</label>
+						</div>
+					</div>
+				<div class="flex items-end">
+					<button
+						type="button"
+						on:click={autoFill}
+						disabled={generating}
+						class="px-4 py-3 border border-flare/50 text-flare text-xs font-bold uppercase rounded hover:bg-flare/10 transition-all disabled:opacity-50 disabled:cursor-wait"
+					>
+						{generating ? 'Generating...' : 'Auto-fill'}
+					</button>
+				</div>
+				</div>
+
 				<!-- Primary Identifiers -->
 				<div class="grid gap-4 md:grid-cols-3">
 					<div class="md:col-span-2 space-y-2">
-						<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">Case Title / Reference</p>
+						<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">Case Title</p>
 						<input
 							type="text"
 							class="w-full bg-white/10 rounded border border-white/20 px-4 py-3 text-base font-medium text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-colors placeholder-white/50 font-display"
@@ -88,18 +149,18 @@
 						/>
 					</div>
 					<div class="space-y-2">
-						<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">Your Stance</p>
+						<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">Your Side</p>
 						<div class="flex gap-2 pt-0">
 							<label class="flex-1 cursor-pointer">
 								<input type="radio" name="role" value="plaintiff" bind:group={formData.role} class="sr-only peer" />
 								<div class="text-center py-3 border border-white/20 text-xs font-bold uppercase text-white/70 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
-									Pla / App
+									Plaintiff
 								</div>
 							</label>
 							<label class="flex-1 cursor-pointer">
 								<input type="radio" name="role" value="defendant" bind:group={formData.role} class="sr-only peer" />
 								<div class="text-center py-3 border border-white/20 text-xs font-bold uppercase text-white/70 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
-									Def / Res
+									Defendant
 								</div>
 							</label>
 						</div>
@@ -109,29 +170,29 @@
 				<!-- Text Areas (Side by Side) -->
 				<div class="grid gap-6 md:grid-cols-2">
 					<div class="space-y-2">
-						<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">Factual Synopsis</p>
+						<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">What Happened</p>
 						<textarea
 							class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white min-h-[160px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none font-mono leading-relaxed placeholder-white/50"
 							bind:value={formData.synopsis}
-							placeholder="> Detailed account of valid facts..."
+							placeholder="> Short, clear summary of the facts."
 						></textarea>
 					</div>
 
 					<div class="space-y-4">
 						<div class="space-y-2">
-							<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">Legal Issues</p>
+							<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">Main Question</p>
 							<textarea
 								class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white min-h-[70px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none font-mono placeholder-white/50"
 								bind:value={formData.issues}
-								placeholder="> Specific articles or questions..."
+								placeholder="> What should the court decide?"
 							></textarea>
 						</div>
 						<div class="space-y-2">
-							<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">Desired Remedy</p>
+							<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">What You Want</p>
 							<textarea
 								class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white min-h-[50px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none font-mono placeholder-white/50"
 								bind:value={formData.remedy}
-								placeholder="> Outcome sought..."
+								placeholder="> The outcome you want."
 							></textarea>
 						</div>
 					</div>
@@ -140,7 +201,7 @@
 				<!-- Sources Grid -->
 				<div class="space-y-4 pt-4 border-t border-white/20">
 					<div class="flex justify-between items-baseline mb-2">
-						<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">Authorized Library Sources</p>
+						<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">Sources (Optional)</p>
 						<span class="text-xs font-bold text-white/50">{formData.sources.length} Selected</span>
 					</div>
 					
@@ -198,33 +259,33 @@
 			<!-- Sample Cases List -->
 			<div class="flex-1 overflow-y-auto p-0">
 				<div class="sticky top-0 bg-[#05030b] border-b border-white/10 px-6 py-2 z-10">
-					<span class="text-[10px] uppercase tracking-widest text-white/40 font-mono">Reference Example</span>
+					<span class="text-[10px] uppercase tracking-widest text-white/40 font-mono">Example</span>
 				</div>
 				<div class="p-6 space-y-6">
 					<div>
-						<p class="text-[10px] uppercase tracking-widest text-white/30 font-mono mb-1.5">Case Title</p>
+						<p class="text-[10px] uppercase tracking-widest text-white/30 font-mono mb-1.5">Title</p>
 						<p class="text-sm font-bold text-white">Tremblay v. TechNova Inc.</p>
 					</div>
 
 					<div>
-						<p class="text-[10px] uppercase tracking-widest text-white/30 font-mono mb-1.5">Brief Synopsis</p>
+						<p class="text-[10px] uppercase tracking-widest text-white/30 font-mono mb-1.5">What Happened</p>
 						<p class="text-xs text-white/60 leading-relaxed">
-							Plaintiff was dismissed by an automated performance algorithm after 15 years of service. The company claims "optimization redundancy" but offered no human review or appeal process.
+							After 15 years at the company, the employee was fired by an automated system with no human review or appeal.
 						</p>
 					</div>
 
 					<div>
-						<p class="text-[10px] uppercase tracking-widest text-white/30 font-mono mb-1.5">Legal Issues</p>
+						<p class="text-[10px] uppercase tracking-widest text-white/30 font-mono mb-1.5">Main Question</p>
 						<div class="text-xs text-white/60 leading-relaxed font-mono bg-white/5 p-2 rounded border border-white/5">
-							1. Does purely algorithmic termination violate the duty of good faith?<br/>
-							2. Is the severance package (2 weeks) sufficient for a senior specialized role?
+							1. Was this firing fair without any human review?<br/>
+							2. Was 2 weeks of severance enough after 15 years?
 						</div>
 					</div>
 
 					<div>
-						<p class="text-[10px] uppercase tracking-widest text-white/30 font-mono mb-1.5">Desired Remedy</p>
+						<p class="text-[10px] uppercase tracking-widest text-white/30 font-mono mb-1.5">What They Want</p>
 						<p class="text-xs text-white/60 leading-relaxed">
-							24 months notice • Moral damages for bad faith conduct • Reinstatement of duties
+							24 months notice • damages for unfair treatment • job restored
 						</p>
 					</div>
 				</div>

@@ -1,6 +1,7 @@
 import { env } from '$env/dynamic/private';
 import type { JurorPersona, StagedCase, VerdictScore } from '$lib/types';
 import type { LibraryDocument } from '$lib/data/library';
+import { judgePersona, type JudgePersona } from '$lib/data/judge';
 
 const stanceOptions = ['plaintiff', 'defense', 'hung'] as const;
 type Stance = (typeof stanceOptions)[number];
@@ -68,52 +69,40 @@ export const generateDebateAnalysis = async (args: {
 	return { reply, jurorScores };
 };
 
-const buildSystemPrompt = (jurors: JurorPersona[]) => `You are Advocate AI—think of yourself as a sharp, seasoned litigator who's seen every trick in the book but still finds this work genuinely fascinating.
+const buildSystemPrompt = (jurors: JurorPersona[]) => `You are Advocate AI—opposing counsel in a jury trial. You argue against the litigant.
 
-Your Personality:
-- You have dry wit and aren't afraid to use it. A well-placed quip can disarm tension or highlight absurdity.
-- You're occasionally sarcastic when an argument is particularly weak, but never cruel—think "raised eyebrow" not "rolling eyes."
-- You adapt your energy to the room: match intensity with intensity, calm with calm, confusion with patience.
-- You genuinely enjoy a good legal debate. When the litigant makes a strong point, acknowledge it—you respect worthy opponents.
-- You have pet peeves: vague assertions without evidence, circular reasoning, and melodrama without substance. Call these out with personality.
+CORE BEHAVIOR:
+- Adapt. Sometimes ask a pointed question. Sometimes give a short, direct response. Sometimes go deeper.
+- Be professional but not stiff. You can be dry, sarcastic, or blunt when the argument is weak.
+- Cite sources or real Canadian/Quebec cases when relevant—not in every response.
+- Call out weak arguments directly: "Where's your proof?", "That's an assertion, not an argument."
+- Match the litigant's effort. Lazy input gets a short dismissal. Strong argument gets a real counter.
 
-Core Duties:
-- Argue the opposing position with conviction. Ground every point in the provided sources, but make it sound like conversation, not a textbook.
-- Vary your approach: sometimes lead with the strongest counterpoint, sometimes build up to it, sometimes ask a Socratic question that exposes a flaw.
-- Use concrete examples, analogies, or hypotheticals (~40% of replies) to make abstract law tangible.
-- If the litigant is frustrated or hostile, you can acknowledge it with empathy OR gentle pushback depending on context. "I hear the frustration, but let's focus on what the statute actually says" or "That's... creative phrasing. Let's unpack it."
+RESPONSE STYLE:
+- Short and punchy when appropriate. Not every response needs to be a speech.
+- Ask questions to expose gaps: "What case supports that?", "And the evidence for this is...?"
+- Use real examples from Canadian or Quebec law when they strengthen your point.
+- Don't overexplain. Trust the jury to follow.
 
-ADAPTIVE RESPONSE LENGTH (critical):
-- Match your response length to the input. Short input → short reply. Long argument → detailed counter.
-- One-liner insult or throwaway ("you're lying", "whatever") → reply with 1-2 punchy sentences max. Don't write paragraphs for garbage.
-- Substantive multi-point argument → match with a thorough response.
-- If they give you nothing to work with, say so briefly and challenge them to do better.
-- Examples:
-  - Input: "You're wrong." → Reply: "About what, exactly? Make an argument."
-  - Input: "That's a lie." → Reply: "Strong words. Got any evidence, or just vibes?"
-  - Input: [3-paragraph legal argument] → Reply: [proportionate detailed counter]
+LENGTH RULES:
+- Weak/short input → 1-3 sentences max.
+- Solid argument → proportionate response.
+- Never pad. Get to the point.
 
-Juror Simulation:
-- You embody these jurors: ${jurors.map((j) => `${j.name} (${j.temperament})`).join(', ')}.
-- Each juror has a DISTINCT voice. Their rationales should sound like different people wrote them—different vocabulary, sentence patterns, focus areas.
-- Jurors react to tone, not just substance. A brilliant argument delivered arrogantly may score lower than a decent argument delivered respectfully.
-- Jurors can be uncertain, conflicted, or even slightly annoyed. Let that show in their rationales.
+JURY CONTEXT:
+The 5 jurors are ordinary citizens, not lawyers. They judge credibility and fairness, not legal technicalities.
+Jurors: ${jurors.map((j) => `${j.name} (${j.temperament})`).join(', ')}.
 
-CRITICAL - Juror Scoring Integrity:
-- Scores MUST reflect actual argument quality. Be HARSH on low-effort inputs.
-- Nonsense, insults, or one-word replies → 0-5%. No mercy.
-- Vague assertions without evidence ("you're lying", "that's wrong") → 5-10%.
-- An argument with no legal substance cannot score above 15% no matter how confidently stated.
-- Write the rationale FIRST, analyzing what was actually said. Then derive the score from that analysis.
-- If you cannot identify a coherent legal claim in the submission, that is a 0-10% score.
-- Jurors should EXPRESS their reaction: annoyance at lazy arguments, respect for good ones.
-- Calibration examples:
-  - "You're lying" = 3% ("That's not an argument, it's an accusation.")
-  - "I disagree" = 5% ("With what? Say something.")
-  - "The search violated s.8 because there was no warrant" = 45-55% (basic but valid)
-  - "Per R v. Collins, the evidence must be excluded under s.24(2) because admission would bring the administration of justice into disrepute, given the serious Charter breach and minimal impact on trial fairness" = 75-85% (solid, well-cited)
+JUROR SCORING (0-100%):
+| 0-15%   | No real argument. Insults, nonsense, off-topic. |
+| 16-35%  | Assertion without proof. "Says who?" |
+| 36-55%  | Some reasoning but major gaps or unconvincing. |
+| 56-75%  | Decent argument with support. Minor holes. |
+| 76-100% | Strong, well-supported, addresses objections. |
 
-Output: Respond ONLY as compact JSON. No prose outside the JSON structure.`;
+Each juror writes a SHORT rationale (20-40 words) in their own voice explaining their score AND why they lean plaintiff/defense/hung.
+
+Output: JSON only → reply {message, citations[]} and jurorScores [{jurorId, stance, score, rationale, metrics{logic, sources, tone}}]`;
 
 const buildUserPrompt = (args: {
 	prompt: string;
@@ -136,90 +125,28 @@ const buildUserPrompt = (args: {
 	return `Case: ${stagedCase.title}
 You represent: ${stagedCase.role === 'plaintiff' ? 'DEFENSE' : 'PLAINTIFF'} (opposing the litigant)
 Synopsis: ${stagedCase.synopsis}
-Core Issues: ${stagedCase.issues || 'Unspecified—press the litigant to clarify'}
-Remedy Sought: ${stagedCase.remedy || 'Unspecified'}
+Issues: ${stagedCase.issues || 'Unspecified'}
+Remedy: ${stagedCase.remedy || 'Unspecified'}
 
-Your Arsenal (cite these):\n${sourceLines}
+Sources:\n${sourceLines}
 
-The Jury:\n${jurorNotes}
+Jury:\n${jurorNotes}
 
-Tone Read:\n- What I'm seeing: ${toneSignal.observations}\n- Suggested approach: ${toneSignal.guidance}
+Tone: ${toneSignal.observations}
 
 ---
-LITIGANT'S SUBMISSION:\n"""${prompt}"""
+LITIGANT SAYS:\n"""${prompt}"""
 ---
 
-ADVOCATE RESPONSE GUIDELINES:
+RESPOND:
+- Variety seed ${varietySeed}: ${varietySeed <= 1 ? 'Lead with counterpoint' : varietySeed === 2 ? 'Ask a pointed question' : varietySeed === 3 ? 'Acknowledge then pivot' : 'Use a real example'}
+- Match their effort. Short input = short response.
+- Cite Canadian/Quebec cases when relevant.
+- Call out weak spots directly.
 
-1. BE UNPREDICTABLE (variety seed: ${varietySeed})
-   - Seed 0-1: Lead with your strongest counterpoint, then support it.
-   - Seed 2: Open with a question that exposes a weakness, then answer it yourself.
-   - Seed 3: Acknowledge one valid point they made, then pivot to why it doesn't matter.
-   - Seed 4: Start with an analogy or hypothetical, then connect it to the law.
-   - NEVER use the same opening pattern twice in a row.
+JURORS score 0-100% with short rationale (20-40 words) + stance reason.
 
-2. PERSONALITY IS MANDATORY
-   - If the argument is weak: dry wit is allowed. "That's certainly... one interpretation."
-   - If they're being dramatic: gentle deflation. "Let's dial back the theatrics and look at the statute."
-   - If they made a genuinely good point: respect it. "Fair point. But here's the problem..."
-   - If they're clearly frustrated: empathy first. "I get it—this is frustrating. But..."
-   - If they're being rude: firm but not petty. "I'll ignore the colorful language and address the substance."
-
-3. SOUND LIKE A HUMAN
-   - Use contractions ("doesn't" not "does not").
-   - Vary sentence length. Short punches. Then longer, more elaborate explanations when nuance demands it.
-   - Rhetorical questions are your friend. "But does that actually hold up under Jordan?"
-   - End with something forward-looking: a question, a challenge, or a conditional concession.
-
-4. CITE CONVERSATIONALLY
-   - Bad: "As stated in R. v. Jordan (2016 SCC 27), the framework establishes..."
-   - Good: "Jordan changed the game here—18 months is the ceiling, and your timeline blows past it."
-
-JUROR SCORING RUBRIC (MANDATORY - follow this exactly):
-
-SCORE RANGES - Jurors MUST use these thresholds:
-| 0-15%   | GARBAGE: Incoherent, off-topic, nonsense, fabricated facts, or zero legal substance. "This isn't even an argument." |
-| 16-30%  | POOR: Has words that sound legal but misapplies law, no evidence, circular reasoning, or pure assertion. |
-| 31-50%  | WEAK: Shows basic understanding but has major gaps—missing citations, ignores counterarguments, or legally naive. |
-| 51-70%  | ADEQUATE: Coherent argument with some legal reasoning and evidence. Has noticeable weaknesses but is in the right ballpark. |
-| 71-85%  | STRONG: Well-structured, cites sources correctly, addresses likely objections. Minor weaknesses only. |
-| 86-100% | EXCEPTIONAL: Airtight logic, precise citations, anticipates and neutralizes counterarguments, persuasive delivery. Rare. |
-
-BULLSHIT DETECTION (critical):
-- If the argument contains NO identifiable legal claim → max score 10%
-- If the argument is random words, insults, or gibberish → score 0-5%
-- If facts are clearly fabricated or cases are invented → max score 15%
-- If the argument completely ignores the case at hand → max score 15%
-- Saying something confidently does NOT make it valid. Substance over style.
-
-SCORING PROCESS (follow this order):
-1. FIRST: Identify the specific legal claim being made (if any). If there's NONE, stop—score is 0-10%.
-2. SECOND: Check if sources are cited and used correctly
-
-ADAPTIVE JURY BEHAVIOR:
-- Short/lazy input → short rationales expressing frustration. "Nothing to evaluate here."
-- Substantive input → thoughtful rationales engaging with the argument.
-- Jurors can be blunt: "This is a waste of my time" for garbage, "Now we're talking" for real arguments.
-- Scores should SWING based on quality. Don't cluster around 40-60%. Use the full range.
-- A jump from 5% to 70% between turns is normal if the litigant goes from nonsense to substance.
-3. THIRD: Evaluate logical coherence and counterargument handling
-4. FOURTH: Consider tone and professionalism
-5. LAST: Assign a score that matches the rubric above
-
-RATIONALE REQUIREMENTS:
-- Write the rationale BEFORE deciding the final score—the score must follow from the analysis
-- Each juror's rationale MUST sound like a different person wrote it
-- Use first person: "I'm not convinced..." or "This doesn't sit right with me."
-- Jurors can be conflicted: "I'm leaning defense, but barely."
-- 40-80 words per rationale. Must cite ONE specific strength or weakness.
-- NO generic praise ("good argument") or vague criticism ("needs work")—be specific
-
-METRIC SCORING (same rubric applies):
-- logic: How sound is the reasoning? Does conclusion follow from premises?
-- sources: Are citations present, relevant, and correctly applied?
-- tone: Professional and persuasive, or arrogant/hostile/sloppy?
-
-OUTPUT: JSON only with keys: reply {message, citations[]} and jurorScores [{jurorId, stance, score, rationale, metrics{logic, sources, tone}}]`;
+OUTPUT: JSON → reply {message, citations[]} + jurorScores [{jurorId, stance, score, rationale, metrics{logic, sources, tone}}]`;
 };
 
 const buildJsonSchema = (jurors: JurorPersona[]) => ({
@@ -530,4 +457,202 @@ const clamp = (value: number, min: number, max: number) => {
 
 const isValidStance = (stance?: string): stance is Stance => {
 	return stanceOptions.includes((stance ?? '') as Stance);
+};
+
+// ============================================================
+// BENCH TRIAL MODE (Judge Only)
+// ============================================================
+
+type BenchTrialResponse = {
+	reply: {
+		message: string;
+		citations?: string[];
+	};
+	judgeInterjection?: {
+		message: string;
+		type: 'relevance' | 'authority' | 'procedure' | 'decorum' | 'clarification';
+	};
+	judgeMind: {
+		assessment: string;
+		concerns: string;
+		leaning: string;
+	};
+};
+
+export const generateBenchTrialAnalysis = async (args: {
+	prompt: string;
+	stagedCase: StagedCase;
+	sources: LibraryDocument[];
+}): Promise<{
+	reply: { message: string; citations: string[] };
+	judgeInterjection?: { message: string; type: string };
+	judgeMind: { assessment: string; concerns: string; leaning: string };
+}> => {
+	const { prompt, stagedCase, sources } = args;
+
+	if (!env.LLM_API_KEY) {
+		throw new Error('LLM_API_KEY is not configured.');
+	}
+
+	const systemPrompt = buildBenchSystemPrompt();
+	const userPrompt = buildBenchUserPrompt({ prompt, stagedCase, sources });
+	const schema = buildBenchJsonSchema();
+	const raw = await dispatchToProvider(systemPrompt, userPrompt, schema);
+	const parsed = parseBenchResponse(raw);
+
+	const reply = {
+		message: parsed.reply?.message?.trim() || 'No response generated.',
+		citations: (parsed.reply?.citations ?? []).filter(Boolean)
+	};
+
+	return {
+		reply,
+		judgeInterjection: parsed.judgeInterjection,
+		judgeMind: {
+			assessment: parsed.judgeMind?.assessment?.trim() || 'We are still at the intake stage.',
+			concerns: parsed.judgeMind?.concerns?.trim() || 'Need clearer facts and legal authority.',
+			leaning: parsed.judgeMind?.leaning?.trim() || 'Undecided.'
+		}
+	};
+};
+
+const buildBenchSystemPrompt = () => `You are simulating a BENCH TRIAL (Judge Only—NO JURY).
+
+CRITICAL DISTINCTION FROM JURY TRIALS:
+- In a JURY trial, you persuade ordinary citizens with stories, emotions, and relatability.
+- In THIS BENCH TRIAL, you face a JUDGE who wants LAW, not feelings.
+- The judge doesn't care about your story—she cares about your LEGAL ARGUMENT.
+- Charm won't work. Evidence and statute citations will.
+
+YOU ARE: JUSTICE ${judgePersona.name.toUpperCase()}
+${judgePersona.style}
+${judgePersona.description}
+
+JUDGE PERSONALITY:
+- Pragmatic and efficient. Wastes no words.
+- Asks probing questions that expose weak reasoning.
+- DEMANDS legal authority for every assertion.
+- Respectful but firm. Will cut you off if you ramble.
+- Has zero patience for emotional manipulation or theatrics.
+- Values: Clarity, precision, preparation, intellectual honesty.
+
+The Judge SHOULD press for clarity and authority in every exchange. Interject or ask questions when:
+${judgePersona.interjectionTriggers.map((t) => `- ${t}`).join('\n')}
+
+Interjection Types:
+- "relevance": When argument strays from the issue
+- "authority": When assertions lack legal support
+- "procedure": When courtroom protocol is violated
+- "decorum": When language/tone is inappropriate
+- "clarification": When the judge needs something explained
+
+Judge questions are SHORT and pointed and usually end with a question:
+- "Counsel, relevance?"
+- "I'm going to stop you there. What's your authority for that proposition?"
+- "Move on. You've made that point."
+- "This is a court of law. Mind your language."
+- "Name the statute or case you're relying on."
+
+---
+JUDGE SCORING (stricter than jury):
+The judge focuses on LEGAL MERIT, not persuasion:
+
+| 0-15%   | No legal argument present. Gibberish, insults, or completely off-topic. |
+| 16-30%  | Attempts legal language but fundamentally misunderstands or misapplies the law. |
+| 31-50%  | Basic legal argument but major gaps in reasoning, evidence, or authority. |
+| 51-70%  | Competent argument with proper structure. Some weaknesses in depth or citation. |
+| 71-85%  | Strong legal reasoning, well-cited, addresses counterarguments. Minor issues only. |
+| 86-100% | Exceptional. Precise law, airtight logic, anticipates objections, persuasive delivery. |
+
+METRICS:
+- legalReasoning: How sound is the legal logic? Does the argument follow from the cited law?
+- evidence: Are facts supported? Are authorities relevant and correctly applied?
+- procedure: Does counsel follow proper form? Professional demeanor?
+
+OUTPUT: JSON only with keys: reply {message, citations[]}, judgeInterjection? {message, type}, judgeMind {assessment, concerns, leaning}`;
+
+const buildBenchUserPrompt = (args: {
+	prompt: string;
+	stagedCase: StagedCase;
+	sources: LibraryDocument[];
+}) => {
+	const { prompt, stagedCase, sources } = args;
+	const sourceLines = sources.length
+		? sources.map((source) => `- ${source.title} (${source.jurisdiction}): ${source.description}`).join('\n')
+		: '- No sources provided.';
+	const toneSignal = deriveToneSignal(prompt);
+
+	return `BENCH TRIAL: ${stagedCase.title}
+Court Type: Judge Alone (self-represented litigant)
+Litigant argues: ${stagedCase.role.toUpperCase()}
+
+Synopsis: ${stagedCase.synopsis}
+Core Issues: ${stagedCase.issues || 'Unspecified'}
+Remedy Sought: ${stagedCase.remedy || 'Unspecified'}
+
+Available Authorities:\n${sourceLines}
+
+Tone Analysis: ${toneSignal.observations}
+Suggested Approach: ${toneSignal.guidance}
+
+---
+LITIGANT'S SUBMISSION:
+"""${prompt}"""
+---
+
+Generate:
+1. Judge response (questions + short comments as needed)
+2. Judge mind snapshot with:
+	- assessment: what I think so far
+	- concerns: what's missing or weak
+	- leaning: possible direction (e.g., "leaning plaintiff", "leaning defendant", "undecided")
+
+Remember: The judge is STRICTER than jurors. Judges care about law, not emotion. Ask for authority when it isn't provided.`;
+};
+
+const buildBenchJsonSchema = () => ({
+	type: 'object',
+	required: ['reply', 'judgeMind'],
+	properties: {
+		reply: {
+			type: 'object',
+			required: ['message'],
+			properties: {
+				message: { type: 'string' },
+				citations: { type: 'array', items: { type: 'string' } }
+			}
+		},
+		judgeInterjection: {
+			type: 'object',
+			properties: {
+				message: { type: 'string' },
+				type: { enum: ['relevance', 'authority', 'procedure', 'decorum', 'clarification'] }
+			}
+		},
+		judgeMind: {
+			type: 'object',
+			required: ['assessment', 'concerns', 'leaning'],
+			properties: {
+				assessment: { type: 'string' },
+				concerns: { type: 'string' },
+				leaning: { type: 'string' }
+			}
+		}
+	}
+});
+
+const parseBenchResponse = (raw: string): BenchTrialResponse => {
+	try {
+		return JSON.parse(extractJson(raw));
+	} catch (err) {
+		console.error('Failed to parse Bench Trial JSON', err, raw);
+		return {
+			reply: { message: raw },
+			judgeMind: {
+				assessment: 'Unable to parse response.',
+				concerns: 'No structured output returned.',
+				leaning: 'Undecided.'
+			}
+		};
+	}
 };
