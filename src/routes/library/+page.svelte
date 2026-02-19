@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { libraryDocuments, type LibraryDocument } from '$lib/data/library';
+	import { language } from '$lib/stores/language';
+	import { t } from '$lib/i18n';
 
 	let selectedDoc: LibraryDocument | null = null;
 	let content = '';
@@ -9,8 +11,8 @@
 
 	// Group documents by jurisdiction
 	const jurisdictions = [
-		{ key: 'Quebec', label: 'Quebec', description: 'Provincial statutes and codes' },
-		{ key: 'Canada', label: 'Canada', description: 'Federal legislation' }
+		{ key: 'Quebec', label: 'Quebec', labelFr: 'Québec', description: 'Provincial statutes and codes', descriptionFr: 'Lois et codes provinciaux' },
+		{ key: 'Canada', label: 'Canada', labelFr: 'Canada', description: 'Federal legislation', descriptionFr: 'Législation fédérale' }
 	];
 
 	const groupedDocs = jurisdictions.map((j) => ({
@@ -67,10 +69,10 @@
 
 <section class="space-y-6">
 	<div class="glass-panel rounded-3xl p-6 space-y-2">
-		<p class="text-xs uppercase tracking-[0.4em] text-white/80 font-bold">Library</p>
-		<h2 class="text-3xl font-display text-white">Authoritative Sources</h2>
+		<p class="text-xs uppercase tracking-[0.4em] text-white/80 font-bold">{t('library.title', $language)}</p>
+		<h2 class="text-3xl font-display text-white">{t('library.subtitle', $language)}</h2>
 		<p class="text-white/90 text-sm max-w-2xl leading-relaxed">
-			Browse foundational Canadian authorities organized by jurisdiction.
+			{t('library.description', $language)}
 		</p>
 	</div>
 
@@ -83,8 +85,8 @@
 				class="w-full px-6 py-6 flex items-center justify-between hover:bg-white/5 transition-colors group"
 			>
 				<div class="flex flex-col items-start gap-1">
-					<h3 class="text-xl font-display text-white group-hover:text-amber-400 transition-colors">{group.label}</h3>
-					<p class="text-sm text-white/80 font-medium">{group.description} <span class="text-white/40 mx-2">|</span> {group.docs.length} documents</p>
+					<h3 class="text-xl font-display text-white group-hover:text-amber-400 transition-colors">{$language === 'fr' ? group.labelFr : group.label}</h3>
+					<p class="text-sm text-white/80 font-medium">{$language === 'fr' ? group.descriptionFr : group.description} <span class="text-white/40 mx-2">|</span> {group.docs.length} {t('library.documents', $language)}</p>
 				</div>
 				<div class="text-white/70 text-xl transition-transform duration-200" class:rotate-180={expandedSections[group.key]}>
 					▼
@@ -108,7 +110,7 @@
 								<p class="text-base font-bold text-white leading-snug">{doc.title}</p>
 								<p class="text-sm text-white/80 leading-relaxed line-clamp-2">{doc.description}</p>
 								{#if doc.note}
-									<span class="text-xs text-amber-400 font-mono font-medium mt-1">⚠ Placeholder content</span>
+									<span class="text-xs text-amber-400 font-mono font-medium mt-1">{t('library.placeholder', $language)}</span>
 								{/if}
 							</button>
 						{/each}
@@ -119,7 +121,7 @@
 	{/each}
 
 	{#if !readerOpen}
-		<p class="text-center text-white/60 text-sm font-mono py-4">Select a document to open the reader.</p>
+		<p class="text-center text-white/60 text-sm font-mono py-4">{t('library.selectDoc', $language)}</p>
 	{/if}
 </section>
 
@@ -153,7 +155,7 @@
 			</header>
 			<section class="flex-1 overflow-y-auto px-8 py-6">
 				{#if loading}
-					<p class="text-white/60 text-sm">Loading document…</p>
+					<p class="text-white/60 text-sm">{t('library.loading', $language)}</p>
 				{:else if error}
 					<p class="text-red-300 text-sm">{error}</p>
 				{:else}

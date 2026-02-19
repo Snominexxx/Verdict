@@ -5,14 +5,16 @@
 	import { stageCase } from '$lib/stores/stagedCase';
 	import { seedTranscript } from '$lib/stores/debate';
 	import type { StagedCase } from '$lib/types';
+	import { language } from '$lib/stores/language';
+	import { t } from '$lib/i18n';
 
 	onMount(() => {
 		caseHistoryStore.hydrateCaseHistory();
 	});
 
-	const roleCopy: Record<string, string> = {
-		plaintiff: 'Plaintiff / Appellant',
-		defendant: 'Defendant / Respondent'
+	const roleCopy: Record<string, Record<string, string>> = {
+		plaintiff: { en: 'Plaintiff / Appellant', fr: 'Demandeur / Appelant' },
+		defendant: { en: 'Defendant / Respondent', fr: 'Défendeur / Intimé' }
 	};
 
 	const toStagedCase = (entry: CaseHistoryEntry): StagedCase => {
@@ -37,10 +39,10 @@
 	};
 
 	const formatRelativeTime = (timestamp?: string) => {
-		if (!timestamp) return 'moments ago';
+		if (!timestamp) return t('court.momentsAgo', $language);
 		const diff = Date.now() - new Date(timestamp).getTime();
 		const minutes = Math.max(Math.round(diff / 60000), 0);
-		if (minutes < 1) return 'moments ago';
+		if (minutes < 1) return t('court.momentsAgo', $language);
 		if (minutes < 60) return `${minutes} min ago`;
 		const hours = Math.round(minutes / 60);
 		if (hours < 24) return `${hours} hr${hours === 1 ? '' : 's'} ago`;
@@ -73,29 +75,29 @@
 	<section class="px-6 sm:px-10 py-8 border-b border-white/10 bg-white/5">
 		<div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
 			<div class="space-y-3 max-w-3xl">
-				<p class="text-[10px] uppercase tracking-[0.3em] text-white/40">Chambers Overview</p>
-				<h1 class="text-3xl sm:text-4xl font-display leading-tight">Court Hub</h1>
+				<p class="text-[10px] uppercase tracking-[0.3em] text-white/40">{t('court.header', $language)}</p>
+				<h1 class="text-3xl sm:text-4xl font-display leading-tight">{t('court.hub', $language)}</h1>
 				<p class="text-sm text-white/60 max-w-2xl">
-					Review every dispute staged inside Verdict. Ongoing matters live on the left; finished rulings are preserved for later study.
+					{t('court.description', $language)}
 				</p>
 			</div>
 			<div class="flex gap-4 text-xs font-mono uppercase">
 				<div class="px-4 py-3 border border-white/15 rounded-lg bg-white/5 shadow-md shadow-black/40">
-					<p class="text-white/40">Ongoing</p>
+					<p class="text-white/40">{t('court.ongoing', $language)}</p>
 					<p class="text-2xl font-bold text-white">{ongoingCases.length}</p>
 				</div>
 				<div class="px-4 py-3 border border-white/15 rounded-lg bg-white/5 shadow-md shadow-black/40">
-					<p class="text-white/40">Finished</p>
+					<p class="text-white/40">{t('court.finished', $language)}</p>
 					<p class="text-2xl font-bold text-white">{finishedCases.length}</p>
 				</div>
 			</div>
 		</div>
 		<div class="mt-6 flex flex-col sm:flex-row gap-3">
 			<a href="/cases" class="flex-1 text-center border border-white/20 bg-white text-black px-4 py-3 text-xs font-bold tracking-widest uppercase rounded-md hover:bg-white/90 transition">
-				Stage New Case
+				{t('court.stageNew', $language)}
 			</a>
 			<a href="/library" class="flex-1 text-center border border-white/20 bg-white/5 px-4 py-3 text-xs font-bold tracking-widest uppercase rounded-md hover:bg-white/10 transition text-white">
-				Refine Library Sources
+				{t('court.refineSources', $language)}
 			</a>
 		</div>
 	</section>
@@ -104,17 +106,17 @@
 		<div class="space-y-4">
 			<div class="flex items-center justify-between">
 				<div>
-					<p class="text-[10px] uppercase tracking-[0.3em] text-white/40">Active Dockets</p>
-					<h2 class="text-xl font-display">Ongoing Cases</h2>
+					<p class="text-[10px] uppercase tracking-[0.3em] text-white/40">{t('court.activeDockets', $language)}</p>
+					<h2 class="text-xl font-display">{t('court.ongoingCases', $language)}</h2>
 				</div>
 				{#if ongoingCases.length}
-					<p class="text-xs text-white/50">Last updated {formatRelativeTime(ongoingCases[0]?.updatedAt)}</p>
+					<p class="text-xs text-white/50">{t('court.lastUpdated', $language)} {formatRelativeTime(ongoingCases[0]?.updatedAt)}</p>
 				{/if}
 			</div>
 
 			{#if ongoingCases.length === 0}
 				<div class="border border-dashed border-white/20 rounded-xl p-8 text-center text-white/50">
-					<p class="text-sm">No active cases yet. Stage a dispute to enter oral argument.</p>
+					<p class="text-sm">{t('court.emptyOngoing', $language)}</p>
 				</div>
 			{:else}
 				<div class="grid gap-6 lg:grid-cols-2">
@@ -122,28 +124,28 @@
 						<article class="border border-white/10 bg-white/[0.04] rounded-2xl p-6 flex flex-col gap-4 shadow-xl shadow-black/30">
 							<div class="flex items-start justify-between gap-4">
 								<div>
-									<p class="text-[10px] uppercase tracking-[0.3em] text-white/40">{roleCopy[entry.role] ?? 'Litigant'}</p>
+									<p class="text-[10px] uppercase tracking-[0.3em] text-white/40">{roleCopy[entry.role]?.[$language] ?? t('court.litigant', $language)}</p>
 									<h3 class="text-lg font-semibold leading-tight mt-1">{entry.title}</h3>
 								</div>
-								<span class="text-[10px] uppercase tracking-[0.3em] text-amber-300 border border-amber-300/40 rounded-full px-3 py-1">Ongoing</span>
+								<span class="text-[10px] uppercase tracking-[0.3em] text-amber-300 border border-amber-300/40 rounded-full px-3 py-1">{t('court.ongoingBadge', $language)}</span>
 							</div>
 							<p class="text-sm text-white/70 leading-relaxed">{summarize(entry.synopsis)}</p>
 							<div class="grid grid-cols-2 gap-3 text-[11px] text-white/60 font-mono">
 								<div class="p-3 border border-white/10 rounded-lg bg-black/30">
-									<p class="text-white/40 uppercase tracking-[0.3em] mb-1">Issues</p>
+									<p class="text-white/40 uppercase tracking-[0.3em] mb-1">{t('court.issuesLabel', $language)}</p>
 									<p class="text-white/70 leading-snug">{entry.issues || '—'}</p>
 								</div>
 								<div class="p-3 border border-white/10 rounded-lg bg-black/30">
-									<p class="text-white/40 uppercase tracking-[0.3em] mb-1">Last Activity</p>
+									<p class="text-white/40 uppercase tracking-[0.3em] mb-1">{t('court.lastActivity', $language)}</p>
 									<p>{formatRelativeTime(entry.updatedAt)}</p>
 								</div>
 							</div>
 							<div class="flex flex-col sm:flex-row gap-3">
 								<button type="button" on:click={() => resumeCase(entry)} class="flex-1 text-center bg-white text-black py-2.5 rounded-md text-xs font-bold uppercase tracking-widest hover:bg-white/90 transition">
-									Re-enter Court
-								</button>
-								<button type="button" on:click={() => finalizeCase(entry.id)} class="flex-1 text-center border border-white/20 py-2.5 rounded-md text-xs font-bold uppercase tracking-widest text-white/70 hover:text-white hover:border-flare/50 transition">
-									Mark Finished
+								{t('court.reenter', $language)}
+							</button>
+							<button type="button" on:click={() => finalizeCase(entry.id)} class="flex-1 text-center border border-white/20 py-2.5 rounded-md text-xs font-bold uppercase tracking-widest text-white/70 hover:text-white hover:border-flare/50 transition">
+								{t('court.markFinished', $language)}
 								</button>
 							</div>
 						</article>
@@ -155,17 +157,17 @@
 		<div class="space-y-4">
 			<div class="flex items-center justify-between">
 				<div>
-					<p class="text-[10px] uppercase tracking-[0.3em] text-white/40">Closed Matters</p>
-					<h2 class="text-xl font-display">Finished Cases</h2>
+					<p class="text-[10px] uppercase tracking-[0.3em] text-white/40">{t('court.closedMatters', $language)}</p>
+					<h2 class="text-xl font-display">{t('court.finishedCases', $language)}</h2>
 				</div>
 				{#if finishedCases.length}
-					<p class="text-xs text-white/50">Last closure {formatRelativeTime(finishedCases[0]?.updatedAt)}</p>
+					<p class="text-xs text-white/50">{t('court.lastClosure', $language)} {formatRelativeTime(finishedCases[0]?.updatedAt)}</p>
 				{/if}
 			</div>
 
 			{#if finishedCases.length === 0}
 				<div class="border border-dashed border-white/20 rounded-xl p-8 text-center text-white/50">
-					<p class="text-sm">Once you end a case, the dossier will be archived here.</p>
+					<p class="text-sm">{t('court.emptyFinished', $language)}</p>
 				</div>
 			{:else}
 				<div class="grid gap-6 lg:grid-cols-2">
@@ -173,28 +175,28 @@
 						<article class="border border-white/5 bg-black/30 rounded-2xl p-6 flex flex-col gap-4">
 							<div class="flex items-start justify-between gap-4">
 								<div>
-									<p class="text-[10px] uppercase tracking-[0.3em] text-white/40">{roleCopy[entry.role] ?? 'Litigant'}</p>
+									<p class="text-[10px] uppercase tracking-[0.3em] text-white/40">{roleCopy[entry.role]?.[$language] ?? t('court.litigant', $language)}</p>
 									<h3 class="text-lg font-semibold leading-tight mt-1">{entry.title}</h3>
 								</div>
-								<span class="text-[10px] uppercase tracking-[0.3em] text-white/60 border border-white/20 rounded-full px-3 py-1">Finished</span>
+								<span class="text-[10px] uppercase tracking-[0.3em] text-white/60 border border-white/20 rounded-full px-3 py-1">{t('court.finishedBadge', $language)}</span>
 							</div>
 							<p class="text-sm text-white/70 leading-relaxed">{summarize(entry.synopsis)}</p>
 							<div class="grid grid-cols-2 gap-3 text-[11px] text-white/60 font-mono">
 								<div class="p-3 border border-white/10 rounded-lg">
-									<p class="text-white/40 uppercase tracking-[0.3em] mb-1">Opened</p>
+									<p class="text-white/40 uppercase tracking-[0.3em] mb-1">{t('court.opened', $language)}</p>
 									<p>{formatDate(entry.startedAt)}</p>
 								</div>
 								<div class="p-3 border border-white/10 rounded-lg">
-									<p class="text-white/40 uppercase tracking-[0.3em] mb-1">Closed</p>
+									<p class="text-white/40 uppercase tracking-[0.3em] mb-1">{t('court.closed', $language)}</p>
 									<p>{formatDate(entry.updatedAt)}</p>
 								</div>
 							</div>
 							<div class="flex flex-col sm:flex-row gap-3">
 								<button type="button" on:click={() => resumeCase(entry)} class="flex-1 text-center border border-white/20 py-2.5 rounded-md text-xs font-bold uppercase tracking-widest text-white/80 hover:text-black hover:bg-white transition">
-									Reopen Case
+								{t('court.reopen', $language)}
 								</button>
 								<button type="button" on:click={() => deleteCase(entry.id)} class="flex-1 text-center border border-white/10 py-2.5 rounded-md text-xs font-bold uppercase tracking-widest text-white/50 hover:text-white hover:border-pulse/60 transition">
-									Remove Dossier
+									{t('court.removeDossier', $language)}
 								</button>
 							</div>
 						</article>
@@ -206,7 +208,7 @@
 
 	{#if !hasHistory}
 		<div class="px-6 sm:px-10 pb-12 text-white/40 text-xs font-mono">
-			SYSTEM // Ready for first filing
+			{t('court.footer', $language)}
 		</div>
 	{/if}
 </div>

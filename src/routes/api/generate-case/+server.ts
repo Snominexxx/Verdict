@@ -13,17 +13,27 @@ const caseTypes = [
 	'failed home renovation contract'
 ];
 
-export const POST: RequestHandler = async () => {
+export const POST: RequestHandler = async ({ request }) => {
 	if (!env.LLM_API_KEY) {
 		throw error(500, 'LLM_API_KEY is not configured.');
+	}
+
+	let language = 'en';
+	try {
+		const body = await request.json();
+		language = body?.language ?? 'en';
+	} catch {
+		// No body or invalid JSON — default to English
 	}
 
 	const caseType = caseTypes[Math.floor(Math.random() * caseTypes.length)];
 	const model = env.OPENAI_MODEL ?? 'gpt-4o-mini';
 
-	const systemPrompt = `Generate a realistic case scenario for a Canadian/Quebec civil court simulation. Output JSON only.`;
+	const langInstruction = language === 'fr'
+		? 'Generate a realistic case scenario for a Canadian/Quebec civil court simulation. Output JSON only. ALL text values MUST be in French (Canadian French).'
+		: 'Generate a realistic case scenario for a Canadian/Quebec civil court simulation. Output JSON only.';
 
-	const userPrompt = `Create a ${caseType} case. The user is the plaintiff.
+	const userPrompt = `Create a ${caseType} case. The user is the plaintiff.${language === 'fr' ? ' Respond entirely in French (Canadian French).' : ''}
 
 Return JSON with these exact keys:
 {
@@ -46,7 +56,7 @@ Make it realistic, specific with names/dates/amounts, and based in Quebec or Can
 				model,
 				temperature: 0.9,
 				messages: [
-					{ role: 'system', content: systemPrompt },
+					{ role: 'system', content: langInstruction },
 					{ role: 'user', content: userPrompt }
 				],
 				max_tokens: 300

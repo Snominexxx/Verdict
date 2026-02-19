@@ -8,6 +8,7 @@ Verdict is an MVP training cockpit where lawyers and law students can debate a c
 - **Tailwind CSS** with a bespoke cockpit theme
 - **Supabase** (auth, Postgres, storage) for persisting cases, uploads, and transcripts
 - **Netlify adapter** to deploy the whole app (UI + server endpoints) as Edge/Functions
+- **FR/EN i18n** — full bilingual UI with language toggle (persisted to localStorage); AI responses adapt to selected language
 
 ## Getting Started
 
@@ -39,10 +40,21 @@ LLM_TEMPERATURE=0.2
 ## Available Pages
 
 - **/** — overview with primary call-to-action buttons
-- **/cases** — staging area for official sample cases or custom uploads
-- **/debate** — chat-style arena plus juror console and scorecards (wired to a stub API)
+- **/cases** — staging area for official sample cases or custom uploads (with AI auto-fill)
+- **/court** — case management hub showing ongoing and finished cases
+- **/debate** — chat-style arena plus juror/judge panel and scorecards
 - **/jury** — deeper view of juror psychology and scoring rubric
-- **/library** — minimal reader for foundational sources (drop Markdown files into `static/library`)
+- **/library** — reader for foundational Canadian legal sources
+- **/about** — project mission statement
+- **/how-it-works** — step-by-step guide to the Verdict engine
+
+## i18n Architecture
+
+- `src/lib/stores/language.ts` — writable store (`'en' | 'fr'`) with localStorage persistence
+- `src/lib/i18n.ts` — all ~120+ translation keys with `t(key, lang)` helper
+- Language toggle in sidebar; all pages use `t()` calls for every user-visible string
+- AI prompts include a `LANGUAGE INSTRUCTION` block so LLM responses match the selected language
+- Auto-fill endpoint accepts `{ language }` in the POST body
 
 ## Development Workflow
 

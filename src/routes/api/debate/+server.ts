@@ -30,6 +30,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	const payload = await request.json();
 	const prompt = String(payload.prompt ?? '').trim();
 	const stagedCase = payload.case as StagedCase | undefined;
+	const language = String(payload.language ?? 'en');
 
 	if (!prompt) {
 		throw error(400, 'A prompt is required.');
@@ -48,7 +49,8 @@ export const POST: RequestHandler = async ({ request }) => {
 			const { reply, judgeInterjection, judgeMind } = await generateBenchTrialAnalysis({
 				prompt,
 				stagedCase,
-				sources
+				sources,
+				language
 			});
 
 			return json({
@@ -84,7 +86,8 @@ export const POST: RequestHandler = async ({ request }) => {
 			prompt,
 			stagedCase,
 			sources,
-			jurors: jurors.length ? jurors : jurorPersonas
+			jurors: jurors.length ? jurors : jurorPersonas,
+			language
 		});
 
 		return json({
