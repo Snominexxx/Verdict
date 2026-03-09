@@ -10,8 +10,5 @@ external_node_modules = ["@supabase/supabase-js"]
 [dev]
 command = "npm run dev"
 
-[context.production.environment]
-VITE_SUPABASE_URL = "https://your-project.supabase.co"
-VITE_SUPABASE_ANON_KEY = "replace-with-anon-key"
-LLM_API_KEY = "replace-with-provider-key"
-LLM_PROVIDER = "openai"
+# Environment variables are set in Netlify Dashboard (Site settings → Environment variables)
+# Do NOT hardcode secrets or project-specific values here.
