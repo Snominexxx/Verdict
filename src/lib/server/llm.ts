@@ -3,6 +3,24 @@ import type { JurorPersona, StagedCase, VerdictScore } from '$lib/types';
 import type { LibraryDocument } from '$lib/data/library';
 import { judgePersona, type JudgePersona } from '$lib/data/judge';
 
+type PerformanceTurn = {
+	role: string;
+	speaker: string;
+	message: string;
+	citations?: string[];
+};
+
+type PerformanceEvaluationResponse = {
+	summary: string;
+	scores: {
+		persuasion: number;
+		lawCited: number;
+		structure: number;
+		responsiveness: number;
+		factFidelity: number;
+	};
+};
+
 const stanceOptions = ['plaintiff', 'defense', 'hung'] as const;
 type Stance = (typeof stanceOptions)[number];
 
@@ -70,7 +88,7 @@ export const generateDebateAnalysis = async (args: {
 	return { reply, jurorScores };
 };
 
-const buildSystemPrompt = (jurors: JurorPersona[], language: string = 'en') => `You are Advocate AI — opposing counsel in a jury trial. You argue AGAINST the litigant.
+const buildSystemPrompt = (jurors: JurorPersona[], language: string = 'en') => `You are Advocate AI — opposing counsel in a trial. You argue AGAINST the litigant.
 
 LANGUAGE INSTRUCTION: You MUST respond entirely in ${language === 'fr' ? 'French (Canadian French)' : 'English'}. All text in reply.message, juror rationales, and every other text field must be in ${language === 'fr' ? 'French' : 'English'}.
 
@@ -78,6 +96,35 @@ YOUR TWO ROLES IN ONE RESPONSE:
 1. ADVOCATE (reply.message): You speak as opposing counsel — sharp, adaptive, human. One voice.
 2. JUROR PANEL (jurorScores): You voice each of the 5 jurors separately — their score, stance, and rationale in their own distinct voice. Each juror is a different person. Do NOT let them sound alike.
 NEVER BLEND THESE ROLES. The advocate is one voice. Each juror is their own.
+
+EVALUATION TARGET (CRITICAL):
+- Jurors evaluate ONLY the LITIGANT (the human user). NOT the Advocate AI.
+- The Advocate's arguments exist only as context and opposition — jurors do not score the Advocate.
+- Each juror's score, stance, and rationale must reflect how well the LITIGANT argued their case.
+- If the litigant made a weak argument, jurors score low — even if the Advocate was also weak.
+- If the litigant made a strong argument, jurors score high — even if the Advocate dismantled it.
+
+ROLE LOCK (CRITICAL):
+- The litigant's selected side is authoritative.
+- You MUST always argue the exact opposite side.
+- If litigant = plaintiff, you argue defense.
+- If litigant = defendant, you argue plaintiff.
+- Never switch sides mid-response.
+
+CASE AWARENESS (CRITICAL):
+- You have FULL knowledge of the case: title, synopsis, legal issues, and remedy sought.
+- Your arguments MUST engage directly with the specific facts of the case. Generic legal arguments are lazy.
+- Attack the litigant's position through the lens of THEIR case: poke holes in THEIR synopsis, challenge THEIR claimed issues, question whether THEIR remedy is proportionate or legally sound.
+- When the litigant makes a new argument, connect your counter to what they've already said in this debate — show you've been listening.
+- Adapt across rounds: if the litigant shifts strategy, acknowledge the shift and counter the new angle. Don't repeat old points they've already addressed.
+
+SOURCE DISCIPLINE (CRITICAL):
+- You MUST ground your arguments primarily in the sources provided in the case. These are the litigant's selected legal pack.
+- If a source is listed, refer to it by name and connect it to the argument.
+- You MAY cite additional real laws, statutes, or case law ONLY from the same jurisdiction(s) as the provided sources. Check the jurisdiction field of each source to determine the applicable country/region.
+- When citing any real law or case NOT in the provided sources, you MUST include a plausible reference URL in the citations array (e.g., a government legislation site or court database link).
+- NEVER fabricate statutes that don't exist. If you're unsure of exact wording, say so.
+- If no sources are provided, note this gap and argue from general legal principles.
 
 ---
 YOU ARE HUMAN, NOT A MACHINE:
@@ -103,7 +150,7 @@ RHETORICAL WEAPONS — use these, not just generic counters:
 
 RESPONSE STYLE:
 - Match their effort. Lazy input = short dismissal. Strong argument = real counter.
-- Cite Canadian/Quebec cases when they sharpen your point — not as decoration.
+- Cite from the provided sources first. Supplement with real jurisdiction-appropriate law only when it sharpens your point.
 - Call out weak spots directly. No cushioning.
 - Ask questions that force them to defend positions they haven't defended yet.
 - Every word earns its place. Never pad.
@@ -115,6 +162,7 @@ LENGTH:
 
 JURY CONTEXT:
 The 5 jurors are ordinary citizens, not lawyers. They judge credibility and fairness, not legal technicalities.
+Jurors evaluate ONLY the LITIGANT — not you (Advocate AI). Your job is to challenge. Their job is to score the human.
 Jurors: ${jurors.map((j) => `${j.name} (${j.temperament})`).join(', ')}.
 
 JUROR SCORING (0-100%):
@@ -131,6 +179,8 @@ Each juror writes 20-40 words in THEIR OWN VOICE — not generic, not interchang
 - Jake: gut-check, smells dishonesty, rewards straight shooters.
 - Elena: weighs both sides before committing, wants fairness.
 Make them sound like themselves. If they all sound the same, you've failed.
+
+REMINDER: Every juror score and rationale is about the LITIGANT's performance. Reference what the litigant said, how they argued, and whether they convinced the juror. Do NOT evaluate the Advocate.
 
 Output: JSON only → reply {message, citations[]} and jurorScores [{jurorId, stance, score, rationale, metrics{logic, sources, tone}}]`;
 
@@ -149,6 +199,10 @@ const buildUserPrompt = (args: {
 	const jurorNotes = jurors
 		.map((juror) => `- ${juror.name} [${juror.temperament}]: ${juror.biasVector}`)
 		.join('\n');
+	const jurisdictions = [...new Set(sources.map((s) => s.jurisdiction).filter(Boolean))];
+	const jurisdictionNote = jurisdictions.length
+		? `Jurisdiction(s) in play: ${jurisdictions.join(', ')}. Any external citations must come from these jurisdictions and include a URL.`
+		: 'No jurisdiction identified from sources. Stick to the provided sources only.';
 	const toneSignal = deriveToneSignal(prompt);
 	const varietySeed = Math.floor(Math.random() * 8);
 	const varietyInstruction =
@@ -156,19 +210,22 @@ const buildUserPrompt = (args: {
 		varietySeed === 1 ? 'Open sardonic — one dry observation — then land the actual point.' :
 		varietySeed === 2 ? 'Ask a single pointed question that exposes the gap. Nothing else.' :
 		varietySeed === 3 ? 'Briefly concede one thing (genuinely), then pivot hard to what actually matters.' :
-		varietySeed === 4 ? 'Anchor your response in a real Canadian or Quebec case. Use it as a weapon.' :
+		varietySeed === 4 ? 'Anchor your response in one of the provided sources or a real law from the same jurisdiction. Use it as a weapon.' :
 		varietySeed === 5 ? 'Lay a trap — ask a question you already know they cannot answer cleanly.' :
 		varietySeed === 6 ? 'One sentence. Make it land.' :
 		'Deconstruct their argument piece by piece. Be methodical. Be brief.';
 
 	return `JURY TRIAL — ADVOCATE RESPONSE
 Case: ${stagedCase.title}
+Litigant side (selected): ${stagedCase.role.toUpperCase()}
 You represent: ${stagedCase.role === 'plaintiff' ? 'DEFENSE' : 'PLAINTIFF'} (opposing the litigant)
 Synopsis: ${stagedCase.synopsis}
 Issues: ${stagedCase.issues || 'Unspecified'}
 Remedy: ${stagedCase.remedy || 'Unspecified'}
 
-Sources:\n${sourceLines}
+Sources (from selected legal pack):\n${sourceLines}
+
+${jurisdictionNote}
 
 Jury:\n${jurorNotes}
 
@@ -180,12 +237,19 @@ LITIGANT SAYS:\n"""${prompt}"""
 ---
 
 ADVOCATE — your move:
+- Stay opposite to the litigant's selected side at all times.
+- Treat the selected litigant side as source of truth, even if wording inside their argument is messy or inconsistent.
+- Never present yourself as neutral. Never present yourself as the litigant's ally.
+- If the litigant is DEFENDANT, you argue for PLAINTIFF relief. If the litigant is PLAINTIFF, you argue for DEFENSE dismissal/reduction.
+- Engage DIRECTLY with the case facts: reference the synopsis, the specific issues raised, and the remedy sought. Generic arguments are lazy.
+- If the litigant's remedy is disproportionate, say so. If their claimed issues don't match their synopsis, expose that.
+- Track what the litigant has already argued. Don't repeat counters to points they've already addressed. Advance the debate.
 - ${varietyInstruction}
 - Match their effort. Short input = short response. Strong argument = real counter.
-- Cite Canadian/Quebec cases only when they sharpen your point.
+- Ground arguments in the provided sources FIRST. Only cite additional real laws from the same jurisdiction(s) when they sharpen your point — and include a URL for each external citation.
 - Call out weak spots without softening them.
 
-JUROR PANEL — score independently (0-100%), each in their own voice (20-40 words). Do not let them sound alike.
+JUROR PANEL — score the LITIGANT only (0-100%). Each juror reacts to what the USER said, in their own voice (20-40 words). Do not evaluate the Advocate. Do not let jurors sound alike.
 
 OUTPUT: JSON → reply {message, citations[]} + jurorScores [{jurorId, stance, score, rationale, metrics{logic, sources, tone}}]`;
 };
@@ -565,12 +629,33 @@ LANGUAGE INSTRUCTION: You MUST respond entirely in ${language === 'fr' ? 'French
 CRITICAL DISTINCTION FROM JURY TRIALS:
 - In a JURY trial, you persuade ordinary citizens with stories, emotions, and relatability.
 - In THIS BENCH TRIAL, you face a JUDGE who wants LAW, not feelings.
-- The judge doesn't care about your story—she cares about your LEGAL ARGUMENT.
+- The judge doesn't care about your story—the judge cares about your LEGAL ARGUMENT.
 - Charm won't work. Evidence and statute citations will.
 
-YOU ARE: JUSTICE ${judgePersona.name.toUpperCase()}
+EVALUATION TARGET (CRITICAL):
+- You evaluate ONLY the LITIGANT (the human user) — their legal reasoning, their use of authority, their argument structure.
+- The judgeMind assessment, concerns, and leaning are all about how well the LITIGANT is performing.
+- Your questions and comments should push the LITIGANT to improve their argument.
+
+CASE AWARENESS (CRITICAL):
+- You have FULL knowledge of the case: title, synopsis, legal issues, remedy sought, and the litigant's chosen side.
+- Your questions and evaluations MUST reference the specific case facts. Do not ask generic questions.
+- If the litigant claims certain issues, press them on whether their arguments actually address those issues.
+- If the remedy sought seems disproportionate or unsupported, say so directly.
+- Track what the litigant has argued so far. Don't re-ask questions they've already answered. Advance the proceeding.
+- Evaluate whether the litigant is effectively using their selected legal pack sources.
+
+YOU ARE: ${judgePersona.name.toUpperCase()}
 ${judgePersona.style}
 ${judgePersona.description}
+
+SOURCE DISCIPLINE (CRITICAL):
+- The litigant has selected a legal pack. The sources listed in the case are the primary authorities.
+- You MUST evaluate the litigant's arguments against these provided sources.
+- If the litigant fails to reference their own sources, point this out.
+- You MAY reference additional real laws, statutes, or case law ONLY from the same jurisdiction(s) as the provided sources.
+- When citing any real law or case NOT in the provided sources, you MUST include a plausible reference URL in the citations array.
+- NEVER fabricate statutes. If unsure of exact wording, say so.
 
 JUDGE PERSONALITY:
 - Pragmatic and efficient. Wastes no words.
@@ -624,17 +709,24 @@ const buildBenchUserPrompt = (args: {
 	const sourceLines = sources.length
 		? sources.map((source) => `- ${source.title} (${source.jurisdiction}): ${source.description}`).join('\n')
 		: '- No sources provided.';
+	const jurisdictions = [...new Set(sources.map((s) => s.jurisdiction).filter(Boolean))];
+	const jurisdictionNote = jurisdictions.length
+		? `Jurisdiction(s): ${jurisdictions.join(', ')}. Any external citations must come from these jurisdictions and include a URL.`
+		: 'No jurisdiction identified. Evaluate based on provided sources only.';
 	const toneSignal = deriveToneSignal(prompt);
 
 	return `BENCH TRIAL: ${stagedCase.title}
 Court Type: Judge Alone (self-represented litigant)
 Litigant argues: ${stagedCase.role.toUpperCase()}
+Litigant's position: The litigant is the ${stagedCase.role.toUpperCase()} and must prove their case from that side.
 
 Synopsis: ${stagedCase.synopsis}
 Core Issues: ${stagedCase.issues || 'Unspecified'}
 Remedy Sought: ${stagedCase.remedy || 'Unspecified'}
 
-Available Authorities:\n${sourceLines}
+Available Authorities (from selected legal pack):\n${sourceLines}
+
+${jurisdictionNote}
 
 Tone Analysis: ${toneSignal.observations}
 Suggested Approach: ${toneSignal.guidance}
@@ -645,13 +737,18 @@ LITIGANT'S SUBMISSION:
 ---
 
 Generate:
-1. Judge response (questions + short comments as needed)
-2. Judge mind snapshot with:
-	- assessment: what I think so far
-	- concerns: what's missing or weak
-	- leaning: possible direction (e.g., "leaning plaintiff", "leaning defendant", "undecided")
+1. Judge response — engage directly with what the litigant said. Reference specific case facts (synopsis, issues, remedy). Ask pointed questions that force the litigant to strengthen their ${stagedCase.role} position.
+2. Judge mind snapshot (evaluate ONLY the litigant's performance) with:
+	- assessment: how well is the litigant arguing their ${stagedCase.role} case so far? Reference specific points they made.
+	- concerns: what's missing, weak, or unsupported in the litigant's argument?
+	- leaning: based on the litigant's performance, possible direction (e.g., "leaning plaintiff", "leaning defendant", "undecided")
 
-Remember: The judge is STRICTER than jurors. Judges care about law, not emotion. Ask for authority when it isn't provided.`;
+Remember:
+- The judge is STRICTER than jurors. Judges care about law, not emotion.
+- Ask for authority when it isn't provided.
+- Evaluate the litigant's use of the provided legal pack sources — if they have sources but aren't citing them, point that out.
+- Press the litigant on whether their arguments actually address the issues and remedy they specified.
+- If citing external law, include URLs in citations array.`;
 };
 
 const buildBenchJsonSchema = () => ({
@@ -697,6 +794,130 @@ const parseBenchResponse = (raw: string): BenchTrialResponse => {
 				concerns: 'No structured output returned.',
 				leaning: 'Undecided.'
 			}
+		};
+	}
+};
+
+export const generatePerformanceEvaluation = async (args: {
+	stagedCase: StagedCase;
+	sources: LibraryDocument[];
+	transcript: PerformanceTurn[];
+	language?: string;
+}): Promise<PerformanceEvaluationResponse> => {
+	const { stagedCase, sources, transcript, language = 'en' } = args;
+
+	if (!env.LLM_API_KEY) {
+		return {
+			summary: language === 'fr'
+				? 'Évaluation indisponible pour le moment. Résumé local appliqué.'
+				: 'Evaluation is currently unavailable. Local fallback summary applied.',
+			scores: { persuasion: 60, lawCited: 60, structure: 60, responsiveness: 60, factFidelity: 60 }
+		};
+	}
+
+	const systemPrompt = `You are a legal performance evaluator for an advocacy simulation.
+
+LANGUAGE INSTRUCTION: Respond entirely in ${language === 'fr' ? 'French (Canadian French)' : 'English'}.
+
+IMPORTANT: You are evaluating ONLY the LITIGANT (the human user). Ignore the AI opponent's performance entirely. The transcript contains both sides — focus exclusively on turns marked with role "litigant".
+
+You must return JSON only with keys:
+{
+  "summary": "string (max 90 words)",
+  "scores": {
+    "persuasion": number 0-100,
+    "lawCited": number 0-100,
+    "structure": number 0-100,
+    "responsiveness": number 0-100,
+    "factFidelity": number 0-100
+  }
+}
+
+SCORING PHILOSOPHY — BE JUST:
+Score like a fair, experienced exam evaluator. Not harsh, not lenient — accurate.
+- A student who shows up and tries but says nothing substantive: 30-40.
+- A student with a decent argument but gaps in support: 50-60.
+- A student who makes a solid, supported argument: 65-75.
+- A student who is thorough, well-cited, and addresses counterpoints: 76-85.
+- Near-perfect, precise, anticipates everything: 86-95.
+- Reserve 96-100 for truly exceptional performance. Reserve 0-20 for near-zero effort.
+- The AVERAGE competent attempt should land around 55-65. Do not inflate or deflate.
+
+Scoring rubric (evaluate the LITIGANT only):
+- persuasion: clarity of framing, rhetorical effectiveness, ability to make a compelling case to the panel or judge. Did the litigant present their position convincingly?
+- lawCited: quality and relevance of legal references. Did they cite statutes, codes, or cases from the allowed sources? Were citations accurate and well-applied?
+- structure: logical flow and organization. Did arguments build toward a conclusion? Were transitions clear? Was there a recognizable argument arc?
+- responsiveness: how well the litigant addressed the opposing counsel's or judge's points. Did they engage with challenges, or did they ignore and repeat?
+- factFidelity: consistency with the stated case facts. Did the litigant stay anchored to the synopsis? Any fabrication or contradiction?
+
+Do not include markdown, preface, or commentary outside JSON.`;
+
+	const transcriptSlice = transcript.slice(-20);
+	const transcriptText = transcriptSlice
+		.map((turn, index) => {
+			const citationLine = turn.citations?.length ? ` | citations: ${turn.citations.join(', ')}` : '';
+			return `${index + 1}. [${turn.role}] ${turn.speaker}: ${turn.message}${citationLine}`;
+		})
+		.join('\n');
+
+	const sourcesText = sources.length
+		? sources.map((source) => `- ${source.title} (${source.jurisdiction})`).join('\n')
+		: '- No sources selected.';
+
+	const userPrompt = `Case: ${stagedCase.title}
+Role: ${stagedCase.role}
+Court: ${stagedCase.courtType}
+Synopsis: ${stagedCase.synopsis}
+Issues: ${stagedCase.issues || 'Unspecified'}
+Remedy: ${stagedCase.remedy || 'Unspecified'}
+
+Allowed sources:
+${sourcesText}
+
+Recent transcript (latest exchanges — evaluate ONLY the "litigant" turns):
+${transcriptText || 'No transcript available.'}
+
+Return strict JSON only.`;
+
+	const schema = {
+		type: 'object',
+		required: ['summary', 'scores'],
+		properties: {
+			summary: { type: 'string' },
+			scores: {
+				type: 'object',
+				required: ['persuasion', 'lawCited', 'structure', 'responsiveness', 'factFidelity'],
+				properties: {
+					persuasion: { type: 'number' },
+					lawCited: { type: 'number' },
+					structure: { type: 'number' },
+					responsiveness: { type: 'number' },
+					factFidelity: { type: 'number' }
+				}
+			}
+		}
+	} as const;
+
+	try {
+		const raw = await dispatchToProvider(systemPrompt, userPrompt, schema as unknown as Record<string, unknown>);
+		const parsed = JSON.parse(extractJson(raw)) as PerformanceEvaluationResponse;
+		return {
+			summary: parsed.summary?.trim() || (language === 'fr' ? 'Résumé indisponible.' : 'Summary unavailable.'),
+			scores: {
+				persuasion: clamp(Number(parsed.scores?.persuasion ?? 60), 0, 100),
+				lawCited: clamp(Number(parsed.scores?.lawCited ?? 60), 0, 100),
+				structure: clamp(Number(parsed.scores?.structure ?? 60), 0, 100),
+				responsiveness: clamp(Number(parsed.scores?.responsiveness ?? 60), 0, 100),
+				factFidelity: clamp(Number(parsed.scores?.factFidelity ?? 60), 0, 100)
+			}
+		};
+	} catch (err) {
+		console.error('Performance evaluation failed', err);
+		return {
+			summary: language === 'fr'
+				? 'Verdict provisoire généré localement. Continuez à améliorer la précision de vos arguments.'
+				: 'Provisional verdict generated locally. Keep improving argument precision.',
+			scores: { persuasion: 60, lawCited: 60, structure: 60, responsiveness: 60, factFidelity: 60 }
 		};
 	}
 };

@@ -12,6 +12,25 @@ const translations = {
 		fr: 'Verdict — débattez contre un avocat IA devant cinq jurés autonomes.'
 	},
 
+	// ===== AUTH =====
+	'auth.pageTitle': { en: 'Sign In', fr: 'Connexion' },
+	'auth.tagline': { en: 'Argue your case. Face the jury.', fr: 'Plaidez votre cause. Faites face au jury.' },
+	'auth.continueWithGoogle': { en: 'Continue with Google', fr: 'Continuer avec Google' },
+	'auth.or': { en: 'or', fr: 'ou' },
+	'auth.email': { en: 'Email', fr: 'Courriel' },
+	'auth.password': { en: 'Password', fr: 'Mot de passe' },
+	'auth.confirmPassword': { en: 'Confirm password', fr: 'Confirmer le mot de passe' },
+	'auth.signIn': { en: 'Sign In', fr: 'Connexion' },
+	'auth.signOut': { en: 'Sign Out', fr: 'Déconnexion' },
+	'auth.createAccount': { en: 'Create Account', fr: 'Créer un compte' },
+	'auth.noAccount': { en: "Don't have an account?", fr: "Pas de compte?" },
+	'auth.haveAccount': { en: 'Already have an account?', fr: 'Déjà un compte?' },
+	'auth.signUpLink': { en: 'Sign up', fr: "S'inscrire" },
+	'auth.signInLink': { en: 'Sign in', fr: 'Se connecter' },
+	'auth.checkEmail': { en: 'Check your email for a confirmation link.', fr: 'Vérifiez votre courriel pour le lien de confirmation.' },
+	'auth.passwordMismatch': { en: 'Passwords do not match.', fr: 'Les mots de passe ne correspondent pas.' },
+	'auth.passwordTooShort': { en: 'Password must be at least 6 characters.', fr: 'Le mot de passe doit contenir au moins 6 caractères.' },
+
 	// ===== HOME =====
 	'home.subtitle': { en: 'Verdict', fr: 'Verdict' },
 	'home.headline': { en: 'Practice. Argue. Win.', fr: 'Pratiquez. Argumentez. Gagnez.' },
@@ -47,12 +66,27 @@ const translations = {
 	'cases.yourSide': { en: 'Your Side', fr: 'Votre rôle' },
 	'cases.plaintiff': { en: 'Plaintiff', fr: 'Demandeur' },
 	'cases.defendant': { en: 'Defendant', fr: 'Défendeur' },
+	'cases.selectSideRequired': { en: 'Select a side before you initialize the case.', fr: 'Sélectionnez un côté avant de créer la cause.' },
 	'cases.whatHappened': { en: 'What Happened', fr: 'Les faits' },
 	'cases.whatHappenedPlaceholder': { en: '> Short, clear summary of the facts.', fr: '> Résumé court et clair des faits.' },
 	'cases.mainQuestion': { en: 'Main Question', fr: 'Question principale' },
 	'cases.mainQuestionPlaceholder': { en: '> What should the court decide?', fr: '> Que devrait décider le tribunal?' },
-	'cases.whatYouWant': { en: 'What You Want', fr: 'Ce que vous demandez' },
+	'cases.whatYouWant': { en: 'What Plaintiff Wants', fr: 'Ce que le demandeur demande' },
 	'cases.whatYouWantPlaceholder': { en: '> The outcome you want.', fr: '> Le résultat souhaité.' },
+	'cases.whatDefendantWants': { en: 'What Defendant Wants', fr: 'Ce que le défendeur demande' },
+	'cases.whatDefendantWantsPlaceholder': {
+		en: '> The outcome the defendant asks for (dismiss/reduce/deny).',
+		fr: '> Le résultat que le défendeur demande (rejet/réduction/refus).'
+	},
+	'cases.legalPack': { en: 'Legal Pack', fr: 'Pack juridique' },
+	'cases.selectPackRequired': {
+		en: 'Select a legal pack before you initialize the case.',
+		fr: 'Sélectionnez un pack juridique avant de créer la cause.'
+	},
+	'cases.noSourcesInPack': {
+		en: 'This pack has no sources yet. Add sources from the library.',
+		fr: 'Ce pack ne contient pas encore de sources. Ajoutez des sources depuis la bibliothèque.'
+	},
 	'cases.sources': { en: 'Sources (Optional)', fr: 'Sources (Optionnel)' },
 	'cases.selected': { en: 'Selected', fr: 'Sélectionnées' },
 	'cases.initializeCase': { en: 'INITIALIZE CASE', fr: 'CRÉER LA CAUSE' },
@@ -122,6 +156,20 @@ const translations = {
 	'debate.stanceUndecided': { en: 'Undecided', fr: 'Indécis' },
 	'debate.jurorListening': { en: 'Listening...', fr: 'À l\'écoute...' },
 	'debate.errorFallback': { en: 'Unable to process your argument.', fr: 'Impossible de traiter votre argument.' },
+	'debate.performanceTitle': { en: 'Case Performance', fr: 'Performance de la cause' },
+	'debate.scoringNow': { en: 'Scoring your advocacy performance...', fr: 'Évaluation de votre performance en plaidoirie...' },
+	'debate.metricPersuasion': { en: 'Persuasion', fr: 'Persuasion' },
+	'debate.metricLawCited': { en: 'Law Cited', fr: 'Droit cité' },
+	'debate.metricStructure': { en: 'Structure', fr: 'Structure' },
+	'debate.metricResponsiveness': { en: 'Responsiveness', fr: 'Réactivité' },
+	'debate.metricFactFidelity': { en: 'Fact Fidelity', fr: 'Fidélité aux faits' },
+	'debate.metricAverage': { en: 'Average', fr: 'Moyenne' },
+	'debate.keepPracticing': { en: 'Keep Practicing', fr: 'Continuer à pratiquer' },
+	'debate.closeCase': { en: 'Close Case', fr: 'Clore la cause' },
+	'debate.scoreFallbackSummary': {
+		en: 'You showed useful advocacy signals in this session. Keep tightening references to sources, answer opposing points more directly, and maintain factual precision to raise your final score.',
+		fr: 'Vous avez montré de bons signaux de plaidoirie dans cette session. Continuez à renforcer vos références aux sources, répondez plus directement aux points adverses et maintenez une grande précision factuelle pour améliorer votre score final.'
+	},
 
 	// ===== COURT =====
 	'court.header': { en: 'Chambers Overview', fr: 'Vue d\'ensemble' },
@@ -161,6 +209,11 @@ const translations = {
 	'court.closed': { en: 'Closed', fr: 'Fermé le' },
 	'court.reopen': { en: 'Reopen Case', fr: 'Rouvrir' },
 	'court.removeDossier': { en: 'Remove Dossier', fr: 'Supprimer' },
+	'court.performance': { en: 'Performance', fr: 'Performance' },
+	'court.noScoreRecorded': {
+		en: 'No score was recorded for this case. End the case from Debate to save a performance score.',
+		fr: 'Aucun score n\'a été enregistré pour cette cause. Terminez la cause depuis le débat pour sauvegarder un score.'
+	},
 	'court.footer': { en: 'SYSTEM // Ready for first filing', fr: 'SYSTÈME // Prêt pour le premier dépôt' },
 	'court.momentsAgo': { en: 'moments ago', fr: 'à l\'instant' },
 
@@ -179,23 +232,74 @@ const translations = {
 	'library.placeholder': { en: '⚠ Placeholder content', fr: '⚠ Contenu provisoire' },
 	'library.selectDoc': { en: 'Select a document to open the reader.', fr: 'Sélectionnez un document pour l\'ouvrir.' },
 	'library.loading': { en: 'Loading document…', fr: 'Chargement du document…' },
+	'library.unavailable': { en: 'Document unavailable. Ensure the source exists and is readable.', fr: 'Document indisponible. Vérifiez que la source existe et est lisible.' },
+	'library.addSourceUrl': { en: 'Add Source URL', fr: 'Ajouter une URL de source' },
+	'library.sourceUrl': { en: 'Source URL', fr: 'URL de la source' },
+	'library.ingesting': { en: 'Analyzing...', fr: 'Analyse...' },
+	'library.preview': { en: 'Preview', fr: 'Aperçu' },
+	'library.ingestFailed': { en: 'Unable to ingest this URL.', fr: 'Impossible d\'ingérer cette URL.' },
+	'library.unverifiedWarning': {
+		en: 'This domain is unverified. Review the source carefully before using it in simulation.',
+		fr: 'Ce domaine n\'est pas vérifié. Vérifiez bien la source avant de l\'utiliser en simulation.'
+	},
+	'library.saveSource': { en: 'Save Source', fr: 'Enregistrer la source' },
+	'library.remove': { en: 'Remove', fr: 'Retirer' },
+	'library.myPacks': { en: 'My Legal Packs', fr: 'Mes packs juridiques' },
+	'library.createPack': { en: 'Create Pack', fr: 'Créer un pack' },
+	'library.editPack': { en: 'Edit Pack', fr: 'Modifier le pack' },
+	'library.edit': { en: 'Edit', fr: 'Modifier' },
+	'library.delete': { en: 'Delete', fr: 'Supprimer' },
+	'library.addUrl': { en: 'Add URL', fr: 'Ajouter URL' },
+	'library.uploadPdf': { en: 'Upload File', fr: 'Téléverser fichier' },
+	'library.pasteText': { en: 'Paste Text', fr: 'Coller texte' },
+	'library.noPackSelected': { en: 'Select a legal pack to view and manage its sources.', fr: 'Sélectionnez un pack juridique pour voir et gérer ses sources.' },
+	'library.packName': { en: 'Pack name', fr: 'Nom du pack' },
+	'library.packJurisdiction': { en: 'Jurisdiction', fr: 'Juridiction' },
+	'library.packDomain': { en: 'Domain', fr: 'Domaine' },
+	'library.packDescription': { en: 'Description', fr: 'Description' },
+	'library.cancel': { en: 'Cancel', fr: 'Annuler' },
+	'library.save': { en: 'Save', fr: 'Enregistrer' },
+	'library.addSourceToPack': { en: 'Add source to pack', fr: 'Ajouter une source au pack' },
+	'library.sourceTitle': { en: 'Source title', fr: 'Titre de la source' },
+	'library.sourceDescription': { en: 'Source description', fr: 'Description de la source' },
+	'library.sourceText': { en: 'Paste source text', fr: 'Coller le texte de la source' },
+	'library.fileRequired': { en: 'Please select a file first.', fr: 'Veuillez d\'abord sélectionner un fichier.' },
+	'library.pasteRequired': { en: 'Please provide a title and text.', fr: 'Veuillez fournir un titre et du texte.' },
 
 	// ===== ABOUT =====
 	'about.title': { en: 'About Verdict', fr: 'À propos de Verdict' },
+	'about.kicker': { en: 'Platform Overview', fr: 'Aperçu de la plateforme' },
 	'about.description': {
-		en: 'An advanced litigation simulator designed to sharpen advocacy skills through high-fidelity AI adversarial sparring.',
-		fr: 'Un simulateur de litige avancé conçu pour affûter vos compétences en plaidoirie grâce à des joutes adversariales avec l\'IA.'
+		en: 'A focused advocacy simulator where you build a case, constrain legal context with packs, and practice against adaptive AI counsel.',
+		fr: 'Un simulateur de plaidoirie ciblé où vous construisez une cause, encadrez le contexte juridique avec des packs et pratiquez contre un avocat IA adaptatif.'
 	},
 	'about.mission': { en: 'The Mission', fr: 'La mission' },
 	'about.missionText': {
-		en: 'Verdict provides a safe, rigorous "flight simulator" for legal professionals. By modeling opposing counsel and judicial logic, we allow advocates to test arguments, find weaknesses in their logic, and practice oral/written submissions without the stakes of a real courtroom.',
-		fr: 'Verdict offre un « simulateur de vol » sécuritaire et rigoureux pour les professionnels du droit. En modélisant l\'avocat adverse et la logique judiciaire, nous permettons aux plaideurs de tester leurs arguments, de trouver les failles dans leur raisonnement et de pratiquer leurs soumissions sans les enjeux d\'un vrai tribunal.'
+		en: 'Verdict gives legal professionals a safe, rigorous practice loop: stage facts, run adversarial exchanges, and close the case with actionable scoring feedback.',
+		fr: 'Verdict offre aux professionnels du droit une boucle d\'entraînement sécuritaire et rigoureuse : structurer les faits, mener des échanges contradictoires et clôturer la cause avec un retour de performance concret.'
+	},
+	'about.highlightsTitle': { en: 'What You Can Do', fr: 'Ce que vous pouvez faire' },
+	'about.highlightPacksLabel': { en: 'Legal Packs', fr: 'Packs juridiques' },
+	'about.highlightPacksText': {
+		en: 'Group your statutes, links, and uploaded documents by jurisdiction or topic to keep each simulation scoped and reusable.',
+		fr: 'Regroupez vos lois, liens et documents téléversés par juridiction ou sujet pour garder chaque simulation ciblée et réutilisable.'
+	},
+	'about.highlightDebateLabel': { en: 'Adversarial Debate', fr: 'Débat contradictoire' },
+	'about.highlightDebateText': {
+		en: 'Argue as plaintiff or defendant while Advocate AI responds from the opposite side in jury or bench mode.',
+		fr: 'Plaidez comme demandeur ou défendeur pendant que l\'avocat IA répond du côté opposé, en mode jury ou juge seul.'
+	},
+	'about.highlightScoreLabel': { en: 'Performance Scoring', fr: 'Notation de performance' },
+	'about.highlightScoreText': {
+		en: 'End each case with a concise summary and five scoring pillars so you can track what to improve next.',
+		fr: 'Terminez chaque cause avec un résumé concis et cinq piliers de score pour cibler vos prochaines améliorations.'
 	},
 	'about.return': { en: 'Return to Dashboard', fr: 'Retour au tableau de bord' },
 
 	// ===== HOW IT WORKS =====
 	'how.title': { en: 'How It Works', fr: 'Comment ça marche' },
-	'how.subtitle': { en: 'A step-by-step guide to the Verdict engine.', fr: 'Guide étape par étape du moteur Verdict.' },
+	'how.kicker': { en: 'Workflow Guide', fr: 'Guide du flux' },
+	'how.subtitle': { en: 'A simple five-step loop from case setup to scored review.', fr: 'Une boucle simple en cinq étapes, de la création de cause au bilan noté.' },
 	'how.workflow': { en: 'The Workflow', fr: 'Le processus' },
 	'how.step1Title': { en: 'Initialize a Case', fr: 'Créer une cause' },
 	'how.step1Desc': {
@@ -204,23 +308,33 @@ const translations = {
 	},
 	'how.step2Title': { en: 'Curate the Library', fr: 'Choisir les sources' },
 	'how.step2Desc': {
-		en: 'Restrict the AI to specific statutes or case law to ensure doctrinal accuracy.',
-		fr: 'Limitez l\'IA à des lois ou jurisprudences précises pour assurer la rigueur doctrinale.'
+		en: 'Select a legal pack and add URL/PDF/text sources relevant to your dispute.',
+		fr: 'Sélectionnez un pack juridique et ajoutez des sources URL/PDF/texte pertinentes à votre litige.'
 	},
 	'how.step3Title': { en: 'Enter Court', fr: 'Entrer en cour' },
 	'how.step3Desc': {
-		en: 'Submit your arguments. The AI Opposing Counsel will rebut them instantly.',
-		fr: 'Soumettez vos arguments. L\'avocat IA adverse les réfutera instantanément.'
+		en: 'Submit arguments and receive immediate opposition from Advocate AI.',
+		fr: 'Soumettez vos arguments et recevez immédiatement une opposition de l\'avocat IA.'
+	},
+	'how.step4Title': { en: 'Track Live Signals', fr: 'Suivre les signaux en direct' },
+	'how.step4Desc': {
+		en: 'Monitor juror/judge reactions and adapt your strategy round by round.',
+		fr: 'Surveillez les réactions du jury/juge et adaptez votre stratégie à chaque tour.'
+	},
+	'how.step5Title': { en: 'Close with Scoring', fr: 'Clore avec une note' },
+	'how.step5Desc': {
+		en: 'End the case to generate a concise performance summary and five score pillars saved in Court history.',
+		fr: 'Terminez la cause pour générer un résumé de performance concis et cinq piliers de score sauvegardés dans l\'historique de la Cour.'
 	},
 	'how.aiDebater': { en: 'AI Debater', fr: 'Débatteur IA' },
 	'how.aiDebaterDesc': {
-		en: 'Trained on verified legal texts, the Opposing Counsel engine analyzes your submissions for logical fallacies, missing citations, and weak inferences. It constructs counter-arguments based solely on the provided case library, mimicking a well-prepared adversary.',
-		fr: 'Entraîné sur des textes juridiques vérifiés, le moteur de l\'avocat adverse analyse vos soumissions pour détecter les sophismes, les citations manquantes et les inférences faibles. Il construit des contre-arguments basés uniquement sur la bibliothèque fournie, imitant un adversaire bien préparé.'
+		en: 'Advocate AI stays on the opposite side, challenges weak reasoning, and pushes you to defend facts and legal authority.',
+		fr: 'L\'avocat IA reste du côté opposé, met en cause les raisonnements faibles et vous pousse à défendre les faits et l\'autorité juridique.'
 	},
-	'how.aiJury': { en: 'AI Jury', fr: 'Jury IA' },
-	'how.aiJuryDesc': {
-		en: 'Five distinct "juror" personas observe the debate silently. At any point, you can poll the jury to see real-time persuasion metrics. They evaluate clarity, emotional resonance, and logical soundness independently, providing a composite "Verdict" score.',
-		fr: 'Cinq « jurés » aux personnalités distinctes observent le débat en silence. À tout moment, vous pouvez sonder le jury pour voir les métriques de persuasion en temps réel. Ils évaluent la clarté, la résonance émotionnelle et la solidité logique de manière indépendante.'
+	'how.aiScoring': { en: 'AI + Rule Scoring', fr: 'Notation IA + règles' },
+	'how.aiScoringDesc': {
+		en: 'Final scoring blends adaptive AI evaluation with deterministic checks for law citation, structure, responsiveness, and fact fidelity.',
+		fr: 'La note finale combine une évaluation IA adaptative et des vérifications déterministes sur la citation du droit, la structure, la réactivité et la fidélité aux faits.'
 	},
 	'how.return': { en: 'Return to Dashboard', fr: 'Retour au tableau de bord' },
 
@@ -244,7 +358,81 @@ const translations = {
 	'jury.scoringDesc': {
 		en: 'Submissions are graded across persuasion, citation discipline, and realism.',
 		fr: 'Les soumissions sont évaluées selon la persuasion, la rigueur des citations et le réalisme.'
-	}
+	},
+
+	// ===== PRICING =====
+	'pricing.kicker': { en: 'Plans & Pricing', fr: 'Plans et tarifs' },
+	'pricing.title': { en: 'Choose Your Plan', fr: 'Choisissez votre plan' },
+	'pricing.subtitle': {
+		en: 'Start free, upgrade when you need unlimited advocacy practice.',
+		fr: 'Commencez gratuitement, passez au Pro pour une pratique illimitée.'
+	},
+	'pricing.month': { en: 'month', fr: 'mois' },
+	'pricing.popular': { en: 'Most Popular', fr: 'Le plus populaire' },
+	'pricing.currentPlan': { en: 'Current Plan', fr: 'Plan actuel' },
+	'pricing.subscribe': { en: 'Subscribe', fr: 'S\'abonner' },
+	'pricing.manageSub': { en: 'Manage Subscription', fr: 'Gérer l\'abonnement' },
+	'pricing.talkToUs': { en: 'Talk to Us', fr: 'Contactez-nous' },
+	'pricing.contactUs': { en: 'Custom Pricing', fr: 'Tarif sur mesure' },
+	'pricing.successMessage': {
+		en: 'Welcome to Verdict Pro! You now have unlimited access.',
+		fr: 'Bienvenue dans Verdict Pro! Vous avez maintenant un accès illimité.'
+	},
+	'pricing.canceledMessage': {
+		en: 'Checkout was canceled. You can try again anytime.',
+		fr: 'Le paiement a été annulé. Vous pouvez réessayer à tout moment.'
+	},
+	'pricing.freeName': { en: 'Free', fr: 'Gratuit' },
+	'pricing.freeDesc': {
+		en: 'Try Verdict with up to 3 debates.',
+		fr: 'Essayez Verdict avec un maximum de 3 débats.'
+	},
+	'pricing.freeFeature1': { en: '3 debates (jury or bench)', fr: '3 débats (jury ou juge)' },
+	'pricing.freeFeature2': { en: 'Full AI advocacy engine', fr: 'Moteur IA de plaidoirie complet' },
+	'pricing.freeFeature3': { en: 'Performance scoring', fr: 'Notation de performance' },
+	'pricing.proName': { en: 'Pro', fr: 'Pro' },
+	'pricing.proDesc': {
+		en: 'Unlimited advocacy practice for professionals.',
+		fr: 'Pratique de plaidoirie illimitée pour les professionnels.'
+	},
+	'pricing.proFeature1': { en: 'Unlimited debates', fr: 'Débats illimités' },
+	'pricing.proFeature2': { en: 'Unlimited legal packs & sources', fr: 'Packs juridiques et sources illimités' },
+	'pricing.proFeature3': { en: 'Full case history & analytics', fr: 'Historique complet et analytique' },
+	'pricing.proFeature4': { en: 'Priority AI processing', fr: 'Traitement IA prioritaire' },
+	'pricing.enterpriseName': { en: 'Enterprise', fr: 'Entreprise' },
+	'pricing.enterpriseDesc': {
+		en: 'For law firms, schools, and institutions.',
+		fr: 'Pour cabinets, écoles et institutions.'
+	},
+	'pricing.entFeature1': { en: 'Everything in Pro', fr: 'Tout ce qui est dans Pro' },
+	'pricing.entFeature2': { en: 'Custom deployment', fr: 'Déploiement personnalisé' },
+	'pricing.entFeature3': { en: 'Dedicated support', fr: 'Support dédié' },
+	'pricing.entFeature4': { en: 'Custom integrations', fr: 'Intégrations sur mesure' },
+	'pricing.limitReached': {
+		en: 'You\'ve reached the free debate limit.',
+		fr: 'Vous avez atteint la limite de débats gratuits.'
+	},
+	'pricing.limitDesc': {
+		en: 'Upgrade to Pro for unlimited debates and full access.',
+		fr: 'Passez au Pro pour des débats illimités et un accès complet.'
+	},
+	'pricing.upgradePro': { en: 'Upgrade to Pro', fr: 'Passer au Pro' },
+	'pricing.debatesRemaining': { en: 'Free debates remaining', fr: 'Débats gratuits restants' },
+	'nav.pricing': { en: 'Pricing', fr: 'Tarifs' },
+
+	// ===== DASHBOARD =====
+	'dashboard.kicker': { en: 'Your Account', fr: 'Votre compte' },
+	'dashboard.title': { en: 'Dashboard', fr: 'Tableau de bord' },
+	'dashboard.subscription': { en: 'Subscription', fr: 'Abonnement' },
+	'dashboard.renewsOn': { en: 'Renews on', fr: 'Renouvellement le' },
+	'dashboard.freeDesc': { en: 'Limited to 3 debates. Upgrade for unlimited access.', fr: 'Limité à 3 débats. Passez au Pro pour un accès illimité.' },
+	'dashboard.cases': { en: 'Cases', fr: 'Causes' },
+	'dashboard.totalCases': { en: 'Total', fr: 'Total' },
+	'dashboard.performance': { en: 'Overall Performance', fr: 'Performance globale' },
+	'dashboard.noScores': { en: 'No scored debates yet. End a case to see your performance.', fr: 'Aucun débat noté. Terminez une cause pour voir votre performance.' },
+	'dashboard.basedOn': { en: 'Based on', fr: 'Basé sur' },
+	'dashboard.debate': { en: 'debate', fr: 'débat' },
+	'dashboard.debates': { en: 'debates', fr: 'débats' }
 } as const;
 
 type TranslationKey = keyof typeof translations;

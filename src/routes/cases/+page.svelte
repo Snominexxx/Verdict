@@ -1,37 +1,83 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { libraryDocuments } from '$lib/data/library';
 	import { stageCase } from '$lib/stores/stagedCase';
 	import { seedTranscript } from '$lib/stores/debate';
 	import { caseHistoryStore } from '$lib/stores/caseHistory';
+	import { legalPacksStore, selectedLegalPackId } from '$lib/stores/legalPacks';
 	import { language } from '$lib/stores/language';
 	import { t } from '$lib/i18n';
+	import { subscriptionStore, FREE_DEBATE_LIMIT } from '$lib/stores/subscription';
 	import type { StagedCase, CourtType } from '$lib/types';
 
-	type FormSubmission = Omit<StagedCase, 'id' | 'createdAt'>;
+	const totalCases = $derived($caseHistoryStore.length);
+	const isFreeTier = $derived($subscriptionStore.tier === 'free');
+	const debatesRemaining = $derived(Math.max(0, FREE_DEBATE_LIMIT - totalCases));
+	const limitReached = $derived(isFreeTier && totalCases >= FREE_DEBATE_LIMIT);
 
-	let formData: FormSubmission = {
+	type FormSubmission = {
+		title: string;
+		synopsis: string;
+		issues: string;
+		remedy: string;
+		defendantPosition: string;
+		role: '' | 'plaintiff' | 'defendant';
+		sources: string[];
+		courtType: CourtType;
+	};
+
+	let formData: FormSubmission = $state({
 		title: '',
 		synopsis: '',
 		issues: '',
 		remedy: '',
-		role: 'plaintiff',
-		sources: libraryDocuments.map((doc) => doc.id),
+		defendantPosition: '',
+		role: '',
+		sources: [],
 		courtType: 'jury' as CourtType
-	};
+	});
 
-	let submission: StagedCase | null = null;
-	let submitting = false;
-	let errorMessage = '';
-	let generating = false;
+	let submission: StagedCase | null = $state(null);
+	let submitting = $state(false);
+	let errorMessage = $state('');
+	let generating = $state(false);
+
+	onMount(() => {
+		legalPacksStore.hydrate();
+		selectedLegalPackId.hydrate();
+	});
+
+	const selectedPack = $derived($legalPacksStore.find((pack) => pack.id === $selectedLegalPackId) ?? null);
+
+	$effect(() => {
+		if (selectedPack && formData.sources.length === 0) {
+			formData = { ...formData, sources: selectedPack.sources.map((doc) => doc.id) };
+		}
+	});
+
+	const setPack = (packId: string) => {
+		selectedLegalPackId.select(packId);
+		const pack = $legalPacksStore.find((p) => p.id === packId);
+		formData = {
+			...formData,
+			sources: pack ? pack.sources.map((doc) => doc.id) : []
+		};
+	};
 
 	const autoFill = async () => {
 		generating = true;
 		try {
+			const packPayload = selectedPack
+				? {
+						packName: selectedPack.name,
+						jurisdictions: [...new Set(selectedPack.sources.map((s) => s.jurisdiction).filter(Boolean))],
+						sourceTitles: selectedPack.sources.map((s) => s.title).slice(0, 10)
+					}
+				: null;
 			const response = await fetch('/api/generate-case', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ language: $language })
+				body: JSON.stringify({ language: $language, pack: packPayload })
 			});
 			if (!response.ok) throw new Error('Failed to generate case');
 			const data = await response.json();
@@ -40,22 +86,30 @@
 				title: data.title,
 				synopsis: data.synopsis,
 				issues: data.issues,
-				remedy: data.remedy
+				remedy: data.remedy,
+				defendantPosition: data.defendantPosition
 			};
 		} catch (err) {
 			console.error('Auto-fill failed:', err);
+			const jurisdiction = selectedPack
+				? [...new Set(selectedPack.sources.map((s) => s.jurisdiction).filter(Boolean))].join(' / ') || ''
+				: '';
+			const locationLabel = jurisdiction || ($language === 'fr' ? 'le pays concerné' : 'the relevant jurisdiction');
 			formData = {
 				...formData,
-				title: $language === 'fr' ? 'Tremblay c. QuickServe Inc.' : 'Tremblay v. QuickServe Inc.',
+				title: $language === 'fr' ? `Exemple c. Partie adverse` : `Example v. Opposing Party`,
 				synopsis: $language === 'fr'
-					? 'J\'ai travaillé chez QuickServe pendant 3 ans comme gérant de quart. Le 15 janvier, on m\'a convoqué au bureau pour me dire que j\'étais congédié immédiatement. Ils ont dit que c\'était une « restructuration » mais ont embauché quelqu\'un d\'autre pour mon poste deux semaines plus tard.'
-					: 'I worked at QuickServe for 3 years as a shift manager. On January 15, I was called into the office and told I was being let go effective immediately. They said it was "restructuring" but hired someone new for my position two weeks later.',
+					? `Litige civil typique dans ${locationLabel}. Un employé a été congédié sans préavis après 3 ans de service. L'employeur invoque une restructuration mais a embauché un remplaçant peu après.`
+					: `Typical civil dispute in ${locationLabel}. An employee was dismissed without notice after 3 years of service. The employer cited restructuring but hired a replacement shortly after.`,
 				issues: $language === 'fr'
-					? 'Ai-je été congédié injustement? Ai-je droit à un préavis ou à une indemnité de départ?'
-					: 'Was I wrongfully dismissed? Am I entitled to notice or severance pay?',
+					? 'Le congédiement était-il justifié? Y a-t-il droit à une indemnité?'
+					: 'Was the dismissal justified? Is there entitlement to compensation?',
 				remedy: $language === 'fr'
-					? 'Compensation pour perte de salaire, indemnité de départ et lettre de référence.'
-					: 'Compensation for lost wages, severance pay, and a letter of reference.'
+					? 'Compensation pour perte de salaire et indemnité de départ.'
+					: 'Compensation for lost wages and severance pay.',
+				defendantPosition: $language === 'fr'
+					? 'Rejet de la réclamation ou réduction des montants demandés.'
+					: 'Dismissal of the claim or reduction of requested amounts.'
 			};
 		} finally {
 			generating = false;
@@ -71,14 +125,32 @@
 	};
 
 	const handleSubmit = async () => {
+		if (limitReached) return;
 		if (!formData.title.trim() || !formData.synopsis.trim()) return;
+		if (!$selectedLegalPackId) return;
+		if (!formData.role) return;
+		if (formData.role === 'plaintiff' && !formData.remedy.trim()) return;
+		if (formData.role === 'defendant' && !formData.defendantPosition.trim()) return;
 		submitting = true;
 		errorMessage = '';
 		try {
+			const roleAlignedRemedy = formData.role === 'plaintiff'
+				? formData.remedy
+				: formData.defendantPosition;
+
 			const response = await fetch('/api/cases', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(formData)
+				body: JSON.stringify({
+					title: formData.title,
+					synopsis: formData.synopsis,
+					issues: formData.issues,
+					remedy: roleAlignedRemedy,
+					role: formData.role,
+					sources: formData.sources,
+					packId: $selectedLegalPackId,
+					courtType: formData.courtType
+				})
 			});
 			const payload = await response.json().catch(() => null);
 			if (!response.ok || !payload) {
@@ -112,199 +184,200 @@
 		</div>
 	</header>
 
-	<div class="grid lg:grid-cols-[1.5fr_1fr] h-full overflow-hidden">
-		<!-- Left Panel: Input Configuration -->
-		<div class="p-6 overflow-y-auto border-r border-white/10 scrollbar-hide">
-			<form class="space-y-6 max-w-3xl" on:submit|preventDefault={handleSubmit}>
+	<div class="flex-1 overflow-y-auto">
+		<div class="max-w-5xl mx-auto px-6 py-6">
+			{#if limitReached}
+				<div class="mb-6 p-5 rounded-xl border border-white/15 bg-white/5 text-center">
+					<p class="text-sm font-semibold text-white mb-2">{t('pricing.limitReached', $language)}</p>
+					<p class="text-xs text-white/50 mb-4">{t('pricing.limitDesc', $language)}</p>
+					<a href="/pricing" class="inline-block px-5 py-2 rounded-lg bg-white text-black text-xs font-bold uppercase tracking-wider hover:bg-white/90 transition">
+						{t('pricing.upgradePro', $language)}
+					</a>
+				</div>
+			{:else if isFreeTier && debatesRemaining <= FREE_DEBATE_LIMIT}
+				<div class="mb-4 px-4 py-2 rounded-lg border border-white/10 bg-white/5 flex items-center justify-between">
+					<p class="text-xs text-white/50">{t('pricing.debatesRemaining', $language)}: <span class="text-white font-bold">{debatesRemaining}/{FREE_DEBATE_LIMIT}</span></p>
+					<a href="/pricing" class="text-[10px] font-bold uppercase tracking-wider text-white/60 hover:text-white transition">{t('pricing.upgradePro', $language)}</a>
+				</div>
+			{/if}
+			<form class="space-y-5" on:submit|preventDefault={handleSubmit}>
 				
-				<!-- Court Configuration -->
-				<div class="space-y-2">
-					<div class="flex items-center justify-between">
-						<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.mode', $language)}</p>
+				<!-- Top row: Mode + Side + Auto-fill -->
+				<div class="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
+					<div class="space-y-1.5">
+						<p class="text-[11px] font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.mode', $language)}</p>
+						<div class="flex gap-2">
+							<label class="flex-1 cursor-pointer">
+								<input type="radio" name="courtType" value="jury" bind:group={formData.courtType} class="sr-only peer" />
+								<div class="text-center py-2 border border-white/20 text-[11px] font-bold uppercase text-white/70 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
+									{t('cases.jury', $language)}
+								</div>
+							</label>
+							<label class="flex-1 cursor-pointer">
+								<input type="radio" name="courtType" value="bench" bind:group={formData.courtType} class="sr-only peer" />
+								<div class="text-center py-2 border border-white/20 text-[11px] font-bold uppercase text-white/70 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
+									{t('cases.judge', $language)}
+								</div>
+							</label>
+						</div>
+					</div>
+					<div class="space-y-1.5">
+						<p class="text-[11px] font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.yourSide', $language)}</p>
+						<div class="flex gap-2">
+							<label class="flex-1 cursor-pointer">
+								<input type="radio" name="role" value="plaintiff" bind:group={formData.role} class="sr-only peer" />
+								<div class="text-center py-2 border border-white/20 text-[11px] font-bold uppercase text-white/70 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
+									{t('cases.plaintiff', $language)}
+								</div>
+							</label>
+							<label class="flex-1 cursor-pointer">
+								<input type="radio" name="role" value="defendant" bind:group={formData.role} class="sr-only peer" />
+								<div class="text-center py-2 border border-white/20 text-[11px] font-bold uppercase text-white/70 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
+									{t('cases.defendant', $language)}
+								</div>
+							</label>
+						</div>
+						{#if !formData.role}
+							<p class="text-[10px] text-flare">{t('cases.selectSideRequired', $language)}</p>
+						{/if}
+					</div>
+					<div class="flex items-end">
 						<button
 							type="button"
 							on:click={autoFill}
 							disabled={generating}
-							class="px-4 py-1.5 border border-flare/50 text-flare text-xs font-bold uppercase rounded hover:bg-flare/10 transition-all disabled:opacity-50 disabled:cursor-wait"
+							class="px-4 py-2 border border-flare/50 text-flare text-[11px] font-bold uppercase rounded hover:bg-flare/10 transition-all disabled:opacity-50 disabled:cursor-wait whitespace-nowrap"
 						>
 							{generating ? t('cases.generating', $language) : t('cases.autoFill', $language)}
 						</button>
 					</div>
-					<div class="flex gap-2">
-						<label class="flex-1 cursor-pointer">
-							<input type="radio" name="courtType" value="jury" bind:group={formData.courtType} class="sr-only peer" />
-							<div class="text-center py-3 border border-white/20 text-xs font-bold uppercase text-white/70 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
-								{t('cases.jury', $language)}
-							</div>
-						</label>
-						<label class="flex-1 cursor-pointer">
-							<input type="radio" name="courtType" value="bench" bind:group={formData.courtType} class="sr-only peer" />
-							<div class="text-center py-3 border border-white/20 text-xs font-bold uppercase text-white/70 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
-								{t('cases.judge', $language)}
-							</div>
-						</label>
-					</div>
-					<p class="text-[11px] text-white/50 leading-relaxed mt-2">
-						{#if formData.courtType === 'jury'}
-							{t('cases.juryDesc', $language)}
-						{:else}
-							{t('cases.judgeDesc', $language)}
-						{/if}
-					</p>
 				</div>
 
-				<!-- Primary Identifiers -->
+				<!-- Case Title -->
+				<div class="space-y-1.5">
+					<p class="text-[11px] font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.caseTitle', $language)}</p>
+					<input
+						type="text"
+						class="w-full bg-white/10 rounded border border-white/20 px-4 py-3 text-base font-medium text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-colors placeholder-white/40 font-display"
+						bind:value={formData.title}
+						placeholder={t('cases.caseTitlePlaceholder', $language)}
+					/>
+				</div>
+
+				<!-- What Happened — full width -->
+				<div class="space-y-1.5">
+					<p class="text-[11px] font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.whatHappened', $language)}</p>
+					<textarea
+						class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white min-h-[160px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none leading-relaxed placeholder-white/40"
+						bind:value={formData.synopsis}
+						placeholder={t('cases.whatHappenedPlaceholder', $language)}
+					></textarea>
+				</div>
+
+				<!-- Issues + Positions — 3-column row -->
 				<div class="grid gap-4 md:grid-cols-3">
-					<div class="md:col-span-2 space-y-2">
-						<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.caseTitle', $language)}</p>
-						<input
-							type="text"
-							class="w-full bg-white/10 rounded border border-white/20 px-4 py-3 text-base font-medium text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-colors placeholder-white/50 font-display"
-							bind:value={formData.title}
-							placeholder={t('cases.caseTitlePlaceholder', $language)}
-						/>
-					</div>
-					<div class="space-y-2">
-						<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.yourSide', $language)}</p>
-						<div class="flex gap-2 pt-0">
-							<label class="flex-1 cursor-pointer">
-								<input type="radio" name="role" value="plaintiff" bind:group={formData.role} class="sr-only peer" />
-								<div class="text-center py-3 border border-white/20 text-xs font-bold uppercase text-white/70 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
-								{t('cases.plaintiff', $language)}
-							</div>
-						</label>
-						<label class="flex-1 cursor-pointer">
-							<input type="radio" name="role" value="defendant" bind:group={formData.role} class="sr-only peer" />
-							<div class="text-center py-3 border border-white/20 text-xs font-bold uppercase text-white/70 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
-								{t('cases.defendant', $language)}
-								</div>
-							</label>
-						</div>
-					</div>
-				</div>
-
-				<!-- Text Areas (Side by Side) -->
-				<div class="grid gap-6 md:grid-cols-2">
-					<div class="space-y-2">
-						<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.whatHappened', $language)}</p>
+					<div class="space-y-1.5">
+						<p class="text-[11px] font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.mainQuestion', $language)}</p>
 						<textarea
-							class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white min-h-[160px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none font-mono leading-relaxed placeholder-white/50"
-							bind:value={formData.synopsis}
-							placeholder={t('cases.whatHappenedPlaceholder', $language)}
+							class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white min-h-[100px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none placeholder-white/40"
+							bind:value={formData.issues}
+							placeholder={t('cases.mainQuestionPlaceholder', $language)}
 						></textarea>
 					</div>
-
-					<div class="space-y-4">
-						<div class="space-y-2">
-							<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.mainQuestion', $language)}</p>
-							<textarea
-								class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white min-h-[70px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none font-mono placeholder-white/50"
-								bind:value={formData.issues}
-								placeholder={t('cases.mainQuestionPlaceholder', $language)}
-							></textarea>
-						</div>
-						<div class="space-y-2">
-							<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.whatYouWant', $language)}</p>
-							<textarea
-								class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white min-h-[50px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none font-mono placeholder-white/50"
-								bind:value={formData.remedy}
-								placeholder={t('cases.whatYouWantPlaceholder', $language)}
-							></textarea>
-						</div>
-					</div>
+					<button
+						type="button"
+						on:click={() => (formData = { ...formData, role: 'plaintiff' })}
+						class={`text-left space-y-1.5 border rounded p-3 transition ${formData.role === 'plaintiff' ? 'border-white/40 bg-white/10' : 'border-white/15 bg-white/5 hover:bg-white/10'}`}
+					>
+						<p class="text-[11px] font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.whatYouWant', $language)}</p>
+						<textarea
+							class="w-full bg-white/10 border border-white/20 rounded px-3 py-2 text-sm text-white min-h-[80px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none placeholder-white/40"
+							bind:value={formData.remedy}
+							on:focus={() => (formData = { ...formData, role: 'plaintiff' })}
+							placeholder={t('cases.whatYouWantPlaceholder', $language)}
+						></textarea>
+					</button>
+					<button
+						type="button"
+						on:click={() => (formData = { ...formData, role: 'defendant' })}
+						class={`text-left space-y-1.5 border rounded p-3 transition ${formData.role === 'defendant' ? 'border-white/40 bg-white/10' : 'border-white/15 bg-white/5 hover:bg-white/10'}`}
+					>
+						<p class="text-[11px] font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.whatDefendantWants', $language)}</p>
+						<textarea
+							class="w-full bg-white/10 border border-white/20 rounded px-3 py-2 text-sm text-white min-h-[80px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none placeholder-white/40"
+							bind:value={formData.defendantPosition}
+							on:focus={() => (formData = { ...formData, role: 'defendant' })}
+							placeholder={t('cases.whatDefendantWantsPlaceholder', $language)}
+						></textarea>
+					</button>
 				</div>
 
-				<!-- Sources Grid -->
-				<div class="space-y-4 pt-4 border-t border-white/20">
-					<div class="flex justify-between items-baseline mb-2">
-						<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.sources', $language)}</p>
-						<span class="text-xs font-bold text-white/50">{formData.sources.length} {t('cases.selected', $language)}</span>
+				<!-- Legal Pack + Sources — compact row -->
+				<div class="border-t border-white/10 pt-4 space-y-3">
+					<div class="flex justify-between items-center">
+						<p class="text-[11px] font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.legalPack', $language)}</p>
+						<span class="text-[11px] text-white/40 font-mono">{formData.sources.length} {t('cases.selected', $language)}</span>
 					</div>
-					
-					<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-						{#each libraryDocuments as doc}
-							<label class={`
-								group relative flex items-start gap-2 p-2 border transition-all cursor-pointer rounded-sm hover:bg-white/5
-								${formData.sources.includes(doc.id) ? 'border-white/40 bg-white/5' : 'border-white/5 text-white/40'}
-							`}>
-								<input
-									type="checkbox"
-									checked={formData.sources.includes(doc.id)}
-									on:change={() => toggleSource(doc.id)}
-									class="mt-0.5"
-								/>
-								<div class="min-w-0">
-									<div class={`text-xs font-medium truncate ${formData.sources.includes(doc.id) ? 'text-white' : 'text-white/50'}`}>
-										{doc.title}
-									</div>
-								</div>
-							</label>
+
+					<div class="flex flex-wrap gap-2">
+						{#each $legalPacksStore as pack}
+							<button
+								type="button"
+								on:click={() => setPack(pack.id)}
+								class={`text-left px-3 py-2 border rounded transition text-[11px] ${$selectedLegalPackId === pack.id ? 'border-white/40 bg-white/10 text-white' : 'border-white/10 bg-white/5 text-white/60 hover:bg-white/10'}`}
+							>
+								<span class="font-bold">{pack.name}</span>
+								<span class="text-white/40 ml-1">• {pack.sources.length}</span>
+							</button>
 						{/each}
 					</div>
+
+					{#if !$selectedLegalPackId}
+						<p class="text-[10px] text-flare">{t('cases.selectPackRequired', $language)}</p>
+					{:else if selectedPack && selectedPack.sources.length === 0}
+						<p class="text-[10px] text-white/50">{t('cases.noSourcesInPack', $language)}</p>
+					{/if}
+
+					{#if selectedPack && selectedPack.sources.length > 0}
+						<div class="flex flex-wrap gap-1.5">
+							{#each selectedPack.sources as doc}
+								<label class={`
+									inline-flex items-center gap-1.5 px-2.5 py-1 border rounded-full transition-all cursor-pointer text-[11px]
+									${formData.sources.includes(doc.id) ? 'border-white/40 bg-white/10 text-white' : 'border-white/10 text-white/40 hover:bg-white/5'}
+								`}>
+									<input
+										type="checkbox"
+										checked={formData.sources.includes(doc.id)}
+										on:change={() => toggleSource(doc.id)}
+										class="w-3 h-3"
+									/>
+									<span class="truncate max-w-[180px]">{doc.title}</span>
+								</label>
+							{/each}
+						</div>
+					{/if}
 				</div>
 
 				<!-- Actions -->
-				<div class="pt-6 flex items-center justify-end gap-4 border-t border-white/10">
-					<div class="text-[10px] text-white/30 font-mono text-right hidden sm:block">
-						{t('cases.systemReady', $language)}
-					</div>
+				<div class="flex items-center justify-between gap-4 pt-4 border-t border-white/10">
+					<p class="text-[10px] text-white/30 font-mono hidden sm:block">{t('cases.systemReady', $language)}</p>
 					<button
 						type="submit"
-						class="px-8 py-2 bg-white hover:bg-white/90 text-black text-xs font-bold uppercase tracking-widest transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-						disabled={!formData.title.trim() || !formData.synopsis.trim() || submitting}
+						class="px-8 py-2.5 bg-white hover:bg-white/90 text-black text-[11px] font-bold uppercase tracking-widest rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+						disabled={
+							!formData.title.trim() ||
+							!formData.synopsis.trim() ||
+							!$selectedLegalPackId ||
+							!formData.role ||
+							(formData.role === 'plaintiff' && !formData.remedy.trim()) ||
+							(formData.role === 'defendant' && !formData.defendantPosition.trim()) ||
+							submitting
+						}
 					>
 						{submitting ? t('cases.processing', $language) : t('cases.initializeCase', $language)}
 					</button>
 				</div>
 			</form>
-		</div>
-
-		<!-- Right Panel: Context & History -->
-		<div class="hidden lg:flex flex-col bg-black/20 overflow-hidden">
-			<!-- Upload Zone -->
-			<div class="p-6 border-b border-white/10">
-				<div class="border border-dashed border-white/20 bg-white/5 rounded-sm p-6 text-center transition-colors hover:border-white/40 hover:bg-white/10 cursor-pointer">
-					<div class="text-white/40 mb-2">
-						<svg class="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="square" stroke-linejoin="miter" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-					</div>
-					<p class="text-xs text-white/60 font-medium">{t('cases.uploadEvidence', $language)}</p>
-					<p class="text-[10px] text-white/30 mt-1 font-mono">{t('cases.uploadFormats', $language)}</p>
-				</div>
-			</div>
-
-			<!-- Sample Cases List -->
-			<div class="flex-1 overflow-y-auto p-0">
-				<div class="sticky top-0 bg-[#05030b] border-b border-white/10 px-6 py-2 z-10">
-					<span class="text-[10px] uppercase tracking-widest text-white/40 font-mono">{t('cases.example', $language)}</span>
-				</div>
-				<div class="p-6 space-y-6">
-					<div>
-						<p class="text-[10px] uppercase tracking-widest text-white/30 font-mono mb-1.5">{t('cases.exTitle', $language)}</p>
-						<p class="text-sm font-bold text-white">{t('cases.exampleTitle', $language)}</p>
-					</div>
-
-					<div>
-						<p class="text-[10px] uppercase tracking-widest text-white/30 font-mono mb-1.5">{t('cases.exWhatHappened', $language)}</p>
-						<p class="text-xs text-white/60 leading-relaxed">
-							{t('cases.exampleSynopsis', $language)}
-						</p>
-					</div>
-
-					<div>
-						<p class="text-[10px] uppercase tracking-widest text-white/30 font-mono mb-1.5">{t('cases.exMainQuestion', $language)}</p>
-						<div class="text-xs text-white/60 leading-relaxed font-mono bg-white/5 p-2 rounded border border-white/5">
-							{t('cases.exampleIssues', $language)}
-						</div>
-					</div>
-
-					<div>
-						<p class="text-[10px] uppercase tracking-widest text-white/30 font-mono mb-1.5">{t('cases.exWhatTheyWant', $language)}</p>
-						<p class="text-xs text-white/60 leading-relaxed">
-							{t('cases.exampleRemedy', $language)}
-						</p>
-					</div>
-				</div>
-			</div>
 		</div>
 	</div>
 </div>

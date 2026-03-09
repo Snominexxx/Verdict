@@ -3,8 +3,13 @@ export type LibraryDocument = {
 	title: string;
 	jurisdiction: string;
 	description: string;
-	filePath: string;
+	filePath?: string;
 	lastUpdated: string;
+	sourceUrl?: string;
+	content?: string;
+	docType?: 'statute' | 'regulation' | 'case-law' | 'secondary';
+	trustLevel?: 'official' | 'recognized' | 'unverified';
+	isCustom?: boolean;
 	note?: string;
 };
 

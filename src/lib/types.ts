@@ -32,6 +32,7 @@ export type StagedCase = {
 	remedy: string;
 	role: 'plaintiff' | 'defendant';
 	sources: string[];
+	packId?: string;
 	courtType: CourtType;
 	createdAt: string;
 };

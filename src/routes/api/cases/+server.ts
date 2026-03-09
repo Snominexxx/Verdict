@@ -11,7 +11,7 @@ const normalizePayload = (payload: Record<string, unknown>) => {
 	const synopsis = String(payload.synopsis ?? '').trim();
 	const issues = String(payload.issues ?? '').trim();
 	const remedy = String(payload.remedy ?? '').trim();
-	const role = payload.role === 'defendant' ? 'defendant' : 'plaintiff';
+	const role = payload.role === 'plaintiff' || payload.role === 'defendant' ? payload.role : null;
 	const sources = Array.isArray(payload.sources) ? payload.sources.map(String) : [];
 	const courtType = payload.courtType === 'bench' ? 'bench' : 'jury';
 
@@ -23,10 +23,17 @@ const normalizePayload = (payload: Record<string, unknown>) => {
 		throw error(400, 'Synopsis is required.');
 	}
 
+	if (!role) {
+		throw error(400, 'A valid side (plaintiff or defendant) is required.');
+	}
+
 	return { title, synopsis, issues, remedy, role, sources, courtType };
 };
 
-export const POST: RequestHandler = async ({ request, cookies }) => {
+export const POST: RequestHandler = async ({ request, cookies, locals }) => {
+	const { session } = await locals.safeGetSession();
+	if (!session) throw error(401, 'Authentication required.');
+
 	const body = await request.json();
 	const payload = normalizePayload(body);
 
@@ -35,6 +42,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	const { data, error: dbError } = await admin
 		.from('staged_cases')
 		.insert({
+			user_id: session.user.id,
 			title: payload.title,
 			synopsis: payload.synopsis,
 			issues: payload.issues,

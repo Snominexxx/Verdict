@@ -40,6 +40,10 @@ export const POST: RequestHandler = async ({ request }) => {
 		throw error(400, 'No staged case supplied.');
 	}
 
+	if (stagedCase.role !== 'plaintiff' && stagedCase.role !== 'defendant') {
+		throw error(400, 'Invalid staged case role.');
+	}
+
 	const sources = normalizeSources(payload.sources, stagedCase.sources);
 	const isBenchTrial = stagedCase.courtType === 'bench';
 

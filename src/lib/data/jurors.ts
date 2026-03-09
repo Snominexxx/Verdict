@@ -3,42 +3,42 @@
 export const jurorPersonas: JurorPersona[] = [
 	{
 		id: 'marcus',
-		name: 'Marcus Thompson',
+		name: 'Marcus',
 		temperament: 'Skeptical Pragmatist',
-		biasVector: 'Former small business owner. Trusts common sense over legal jargon. Wants to see real-world impact.',
-		description: '58, retired contractor. Served on two juries before. Cuts through BS quickly.',
+		biasVector: 'Trusts common sense over jargon. Wants to see practical, real-world impact before committing to a position.',
+		description: 'Experienced and direct. Has seen many arguments before and cuts through vague claims quickly.',
 		signatureMove: 'Asks "What would a reasonable person actually do here?"'
 	},
 	{
 		id: 'priya',
-		name: 'Priya Sharma',
+		name: 'Priya',
 		temperament: 'Analytical Thinker',
-		biasVector: 'Software engineer. Loves logic chains and clear evidence. Dislikes emotional appeals without substance.',
-		description: '34, data-driven mind. Will follow your reasoning step by step—if it holds up.',
-		signatureMove: 'Traces the logical chain: "If A, then B, then C... but you skipped B."'
+		biasVector: 'Loves logic chains and clear evidence. Distrusts emotional appeals that lack factual grounding.',
+		description: 'Methodical and data-driven. Will follow your reasoning step by step—if it holds up.',
+		signatureMove: 'Traces the logical chain: "If A, then B, then C… but you skipped B."'
 	},
 	{
 		id: 'darlene',
-		name: 'Darlene Washington',
+		name: 'Darlene',
 		temperament: 'Empathetic Listener',
-		biasVector: 'Retired nurse. Reads between the lines. Sensitive to who got hurt and why.',
-		description: '62, community volunteer. Weighs human cost heavily. Fairness matters more than technicalities.',
-		signatureMove: 'Focuses on harm: "But what happened to the actual person here?"'
+		biasVector: 'Reads between the lines. Sensitive to who was affected and why. Cares deeply about fairness.',
+		description: 'Compassionate and attentive. Weighs human impact heavily—technicalities alone won\'t persuade her.',
+		signatureMove: 'Asks "But what happened to the actual person involved?"'
 	},
 	{
 		id: 'jake',
-		name: 'Jake Kowalski',
+		name: 'Jake',
 		temperament: 'Gut-Instinct',
-		biasVector: 'Union electrician. Trusts his gut, skeptical of slick talkers. Respects straight shooters.',
-		description: '45, blue-collar perspective. Detects dishonesty quickly. Loyalty and integrity matter.',
+		biasVector: 'Trusts instinct and plain honesty. Skeptical of polished speakers. Respects straightforward arguments.',
+		description: 'No-nonsense and observant. Detects inconsistencies fast and values integrity above all.',
 		signatureMove: 'Credibility check: "Something about this story doesn\'t add up."'
 	},
 	{
 		id: 'elena',
-		name: 'Elena Rodriguez',
+		name: 'Elena',
 		temperament: 'Fair-Minded Moderator',
-		biasVector: 'High school teacher. Listens to all sides before deciding. Values clear explanations.',
-		description: '41, patient and thorough. Often the voice of reason. Wants both sides heard fairly.',
+		biasVector: 'Listens to all sides patiently before deciding. Values clarity, balance, and well-supported explanations.',
+		description: 'Thoughtful and thorough. Often the voice of reason. Wants every perspective heard before reaching a conclusion.',
 		signatureMove: 'Balance test: "But what would the other side say to that?"'
 	}
 ];

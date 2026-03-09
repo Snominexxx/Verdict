@@ -1,0 +1,161 @@
+-- ============================================================
+-- Verdict: Per-user data tables + RLS
+-- Run this in your Supabase SQL Editor (Dashboard → SQL Editor)
+-- ============================================================
+
+-- 1. Legal Packs
+create table if not exists legal_packs (
+  id         text primary key,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  name       text not null,
+  jurisdiction text not null default 'Other',
+  domain     text not null default 'General',
+  description text not null default '',
+  is_default boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table legal_packs enable row level security;
+
+create policy "Users can read own packs"
+  on legal_packs for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own packs"
+  on legal_packs for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own packs"
+  on legal_packs for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete own packs"
+  on legal_packs for delete
+  using (auth.uid() = user_id);
+
+-- 2. Pack Sources (documents inside a pack)
+create table if not exists pack_sources (
+  id          text not null,
+  pack_id     text not null references legal_packs(id) on delete cascade,
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  title       text not null,
+  jurisdiction text not null default '',
+  description text not null default '',
+  source_url  text,
+  file_path   text,
+  content     text,
+  doc_type    text,
+  trust_level text,
+  is_custom   boolean not null default true,
+  last_updated text,
+  note        text,
+  created_at  timestamptz not null default now(),
+  primary key (id, pack_id)
+);
+
+alter table pack_sources enable row level security;
+
+create policy "Users can read own sources"
+  on pack_sources for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own sources"
+  on pack_sources for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own sources"
+  on pack_sources for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete own sources"
+  on pack_sources for delete
+  using (auth.uid() = user_id);
+
+-- 3. Case History
+create table if not exists cases (
+  id          text primary key,
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  title       text not null,
+  synopsis    text not null default '',
+  issues      text not null default '',
+  remedy      text not null default '',
+  role        text not null default 'plaintiff',
+  sources     jsonb not null default '[]',
+  pack_id     text,
+  court_type  text not null default 'jury',
+  status      text not null default 'ongoing',
+  started_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  performance jsonb,
+  created_at  timestamptz not null default now()
+);
+
+alter table cases enable row level security;
+
+create policy "Users can read own cases"
+  on cases for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own cases"
+  on cases for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own cases"
+  on cases for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete own cases"
+  on cases for delete
+  using (auth.uid() = user_id);
+
+-- 4. Subscriptions (Stripe)
+create table if not exists subscriptions (
+  user_id             uuid primary key references auth.users(id) on delete cascade,
+  stripe_customer_id  text,
+  stripe_subscription_id text,
+  tier                text not null default 'free',
+  status              text not null default 'active',
+  current_period_end  timestamptz,
+  created_at          timestamptz not null default now(),
+  updated_at          timestamptz not null default now()
+);
+
+alter table subscriptions enable row level security;
+
+create policy "Users can read own subscription"
+  on subscriptions for select
+  using (auth.uid() = user_id);
+
+create policy "Service role can manage subscriptions"
+  on subscriptions for all
+  using (true)
+  with check (true);
+
+-- 5. Staged Cases (temporary pre-debate cases)
+create table if not exists staged_cases (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  title       text not null,
+  synopsis    text not null,
+  issues      text,
+  remedy      text,
+  role        text not null check (role in ('plaintiff','defendant')),
+  sources     jsonb default '[]'::jsonb,
+  court_type  text not null default 'jury',
+  created_at  timestamptz default now()
+);
+
+alter table staged_cases enable row level security;
+
+create policy "Users can read own staged cases"
+  on staged_cases for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own staged cases"
+  on staged_cases for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete own staged cases"
+  on staged_cases for delete
+  using (auth.uid() = user_id);

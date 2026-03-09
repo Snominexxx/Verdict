@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { libraryDocuments, type LibraryDocument } from '$lib/data/library';
+	import { onMount } from 'svelte';
+	import type { LibraryDocument } from '$lib/data/library';
+	import { legalPacksStore, selectedLegalPackId, type LegalPack } from '$lib/stores/legalPacks';
 	import { language } from '$lib/stores/language';
 	import { t } from '$lib/i18n';
 
@@ -9,42 +11,232 @@
 	let error: string | null = null;
 	let readerOpen = false;
 
-	// Group documents by jurisdiction
-	const jurisdictions = [
-		{ key: 'Quebec', label: 'Quebec', labelFr: 'Québec', description: 'Provincial statutes and codes', descriptionFr: 'Lois et codes provinciaux' },
-		{ key: 'Canada', label: 'Canada', labelFr: 'Canada', description: 'Federal legislation', descriptionFr: 'Législation fédérale' }
-	];
+	let packModalOpen = false;
+	let editingPackId = '';
+	let packName = '';
+	let packJurisdiction = '';
+	let packDomain = '';
+	let packDescription = '';
 
-	const groupedDocs = jurisdictions.map((j) => ({
-		...j,
-		docs: libraryDocuments.filter((doc) => doc.jurisdiction === j.key)
-	}));
+	let sourceModalOpen = false;
+	let sourceMode: 'url' | 'upload' | 'paste' = 'url';
+	let ingesting = false;
+	let sourceUrl = '';
+	let sourceTitle = '';
+	let sourceDescription = '';
+	let sourceText = '';
+	let sourceFile: File | null = null;
+	let sourceError: string | null = null;
+	let previewDoc: LibraryDocument | null = null;
 
-	let expandedSections: Record<string, boolean> = {
-		Quebec: true,
-		Canada: true
+	onMount(() => {
+		legalPacksStore.hydrate();
+		selectedLegalPackId.hydrate();
+	});
+
+	$: packs = $legalPacksStore;
+	$: selectedPack = packs.find((p) => p.id === $selectedLegalPackId) ?? packs[0] ?? null;
+	$: if (selectedPack && !$selectedLegalPackId) {
+		selectedLegalPackId.select(selectedPack.id);
+	}
+
+	const selectPack = (packId: string) => {
+		selectedLegalPackId.select(packId);
+		selectedDoc = null;
+		readerOpen = false;
 	};
 
-	const toggleSection = (key: string) => {
-		expandedSections[key] = !expandedSections[key];
+	const openCreatePack = () => {
+		editingPackId = '';
+		packName = '';
+		packJurisdiction = '';
+		packDomain = '';
+		packDescription = '';
+		packModalOpen = true;
+	};
+
+	const openEditPack = (pack: LegalPack) => {
+		editingPackId = pack.id;
+		packName = pack.name;
+		packJurisdiction = pack.jurisdiction;
+		packDomain = pack.domain;
+		packDescription = pack.description;
+		packModalOpen = true;
+	};
+
+	const closePackModal = () => {
+		packModalOpen = false;
+	};
+
+	const savePack = () => {
+		if (!packName.trim()) return;
+
+		if (editingPackId) {
+			legalPacksStore.updatePack(editingPackId, {
+				name: packName.trim(),
+				jurisdiction: packJurisdiction.trim() || 'Other',
+				domain: packDomain.trim() || 'General',
+				description: packDescription.trim()
+			});
+		} else {
+			legalPacksStore.createPack({
+				name: packName.trim(),
+				jurisdiction: packJurisdiction.trim() || 'Other',
+				domain: packDomain.trim() || 'General',
+				description: packDescription.trim(),
+				sources: []
+			});
+		}
+
+		closePackModal();
+	};
+
+	const removePack = (pack: LegalPack) => {
+		legalPacksStore.deletePack(pack.id);
+	};
+
+	const openSourceModal = (mode: 'url' | 'upload' | 'paste') => {
+		sourceMode = mode;
+		ingesting = false;
+		sourceUrl = '';
+		sourceTitle = '';
+		sourceDescription = '';
+		sourceText = '';
+		sourceFile = null;
+		sourceError = null;
+		previewDoc = null;
+		sourceModalOpen = true;
+	};
+
+	const closeSourceModal = () => {
+		sourceModalOpen = false;
+	};
+
+	const ingestUrl = async () => {
+		ingesting = true;
+		sourceError = null;
+		previewDoc = null;
+		try {
+			const response = await fetch('/api/library/ingest', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ url: sourceUrl })
+			});
+			const payload = await response.json().catch(() => null);
+			if (!response.ok || !payload?.document) {
+				throw new Error(payload?.message ?? t('library.ingestFailed', $language));
+			}
+			const ingested = payload.document as LibraryDocument;
+			sourceTitle = sourceTitle.trim() || ingested.title;
+			sourceDescription = sourceDescription.trim() || ingested.description;
+			previewDoc = {
+				...ingested,
+				title: sourceTitle.trim() || ingested.title,
+				description: sourceDescription.trim() || ingested.description
+			};
+		} catch (err) {
+			sourceError = err instanceof Error ? err.message : t('library.ingestFailed', $language);
+		} finally {
+			ingesting = false;
+		}
+	};
+
+	const prepareUploadSource = async () => {
+		sourceError = null;
+		previewDoc = null;
+		if (!sourceFile) {
+			sourceError = t('library.fileRequired', $language);
+			return;
+		}
+
+		let extracted = '';
+		if (!sourceFile.name.toLowerCase().endsWith('.pdf')) {
+			try {
+				extracted = await sourceFile.text();
+			} catch {
+				extracted = '';
+			}
+		}
+
+		previewDoc = {
+			id: `source-upload-${Date.now()}`,
+			title: sourceTitle.trim() || sourceFile.name,
+			jurisdiction: selectedPack?.jurisdiction ?? 'Other',
+			description: sourceDescription.trim() || (sourceFile.name.toLowerCase().endsWith('.pdf') ? 'Uploaded PDF source.' : 'Uploaded source file.'),
+			lastUpdated: new Date().toISOString().slice(0, 10),
+			sourceUrl: `uploaded://${sourceFile.name}`,
+			content: extracted,
+			docType: 'secondary',
+			trustLevel: 'unverified',
+			isCustom: true,
+			note: sourceFile.name.toLowerCase().endsWith('.pdf') ? 'PDF uploaded. Text extraction is limited in MVP mode.' : undefined
+		};
+	};
+
+	const preparePastedSource = () => {
+		sourceError = null;
+		previewDoc = null;
+		if (!sourceTitle.trim() || !sourceText.trim()) {
+			sourceError = t('library.pasteRequired', $language);
+			return;
+		}
+
+		previewDoc = {
+			id: `source-paste-${Date.now()}`,
+			title: sourceTitle.trim(),
+			jurisdiction: selectedPack?.jurisdiction ?? 'Other',
+			description: sourceDescription.trim() || sourceText.trim().slice(0, 200),
+			lastUpdated: new Date().toISOString().slice(0, 10),
+			sourceUrl: 'pasted://manual-entry',
+			content: sourceText.trim(),
+			docType: 'secondary',
+			trustLevel: 'unverified',
+			isCustom: true
+		};
+	};
+
+	const saveSourceToPack = () => {
+		if (!selectedPack || !previewDoc) return;
+		legalPacksStore.addSourceToPack(selectedPack.id, {
+			...previewDoc,
+			title: sourceTitle.trim() || previewDoc.title,
+			description: sourceDescription.trim() || previewDoc.description
+		});
+		closeSourceModal();
+	};
+
+	const removeSourceFromPack = (sourceId: string) => {
+		if (!selectedPack) return;
+		legalPacksStore.removeSourceFromPack(selectedPack.id, sourceId);
 	};
 
 	const loadDocument = async (doc: LibraryDocument) => {
 		loading = true;
 		error = null;
 		try {
-			const response = await fetch(doc.filePath);
-			if (!response.ok) throw new Error(`Unable to load ${doc.title}`);
-			content = await response.text();
-		} catch (err) {
-			console.error(err);
-			error = 'Document unavailable. Ensure the source file exists in static/library.';
+			if (doc.content?.trim()) {
+				content = doc.content;
+				return;
+			}
+			if (doc.filePath) {
+				const response = await fetch(doc.filePath);
+				if (!response.ok) throw new Error();
+				content = await response.text();
+				return;
+			}
+			if (doc.sourceUrl) {
+				content = `${t('library.sourceUrl', $language)}: ${doc.sourceUrl}`;
+				return;
+			}
+			throw new Error();
+		} catch {
+			error = t('library.unavailable', $language);
 		} finally {
 			loading = false;
 		}
 	};
 
-	const handleSelect = async (doc: LibraryDocument) => {
+	const openReader = async (doc: LibraryDocument) => {
 		selectedDoc = doc;
 		readerOpen = true;
 		await loadDocument(doc);
@@ -54,76 +246,194 @@
 		readerOpen = false;
 	};
 
-	const handleOverlayClick = (event: MouseEvent) => {
-		if (event.target === event.currentTarget) {
-			closeReader();
-		}
-	};
-
-	const handleOverlayKeyDown = (event: KeyboardEvent) => {
-		if (event.key === 'Escape') {
-			closeReader();
-		}
+	const onOverlayClick = (event: MouseEvent) => {
+		if (event.target === event.currentTarget) closeReader();
 	};
 </script>
 
-<section class="space-y-6">
-	<div class="glass-panel rounded-3xl p-6 space-y-2">
-		<p class="text-xs uppercase tracking-[0.4em] text-white/80 font-bold">{t('library.title', $language)}</p>
-		<h2 class="text-3xl font-display text-white">{t('library.subtitle', $language)}</h2>
-		<p class="text-white/90 text-sm max-w-2xl leading-relaxed">
-			{t('library.description', $language)}
-		</p>
-	</div>
+<section class="h-full grid grid-rows-[auto_1fr] gap-0">
+	<!-- Header -->
+	<header class="border-b border-white/10 bg-black/20 px-6 py-4 flex items-center justify-between">
+		<div>
+			<h2 class="text-sm font-bold uppercase tracking-wider text-white">{t('library.subtitle', $language)}</h2>
+			<p class="text-xs text-white/50 mt-0.5">{t('library.description', $language)}</p>
+		</div>
+	</header>
 
-	{#each groupedDocs as group}
-		<div class="glass-panel rounded-3xl overflow-hidden">
-			<!-- Section Header -->
-			<button
-				type="button"
-				on:click={() => toggleSection(group.key)}
-				class="w-full px-6 py-6 flex items-center justify-between hover:bg-white/5 transition-colors group"
-			>
-				<div class="flex flex-col items-start gap-1">
-					<h3 class="text-xl font-display text-white group-hover:text-amber-400 transition-colors">{$language === 'fr' ? group.labelFr : group.label}</h3>
-					<p class="text-sm text-white/80 font-medium">{$language === 'fr' ? group.descriptionFr : group.description} <span class="text-white/40 mx-2">|</span> {group.docs.length} {t('library.documents', $language)}</p>
+	<div class="flex-1 overflow-y-auto">
+		<div class="grid gap-4 lg:grid-cols-[260px_1fr] px-6 py-5">
+			<!-- Packs sidebar -->
+			<aside class="border border-white/10 rounded-xl p-3 space-y-3 self-start">
+				<div class="flex items-center justify-between">
+					<h3 class="text-[11px] font-bold uppercase tracking-widest text-white/60">{t('library.myPacks', $language)}</h3>
+					<button type="button" on:click={openCreatePack} class="px-2 py-1 border border-white/15 rounded text-[10px] font-bold uppercase tracking-widest text-white/70 hover:bg-white/10">
+						{t('library.createPack', $language)}
+					</button>
 				</div>
-				<div class="text-white/70 text-xl transition-transform duration-200" class:rotate-180={expandedSections[group.key]}>
-					▼
-				</div>
-			</button>
 
-			<!-- Documents Grid -->
-			{#if expandedSections[group.key]}
-				<div class="px-6 pb-6 pt-2 border-t border-white/10">
-					<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-						{#each group.docs as doc}
-							<button
-								type="button"
-								on:click={() => handleSelect(doc)}
-								class={`text-left px-5 py-4 rounded-xl border transition-all duration-150 flex flex-col gap-2 ${
-									doc.id === selectedDoc?.id
-										? 'border-white text-white bg-white/10 shadow-card'
-										: 'border-white/20 text-white/90 hover:border-white/50 hover:bg-white/5 hover:text-white'
-								}`}
-							>
-								<p class="text-base font-bold text-white leading-snug">{doc.title}</p>
-								<p class="text-sm text-white/80 leading-relaxed line-clamp-2">{doc.description}</p>
-								{#if doc.note}
-									<span class="text-xs text-amber-400 font-mono font-medium mt-1">{t('library.placeholder', $language)}</span>
+				<div class="space-y-1.5 max-h-[480px] overflow-y-auto pr-1">
+					{#each packs as pack}
+						<div
+							role="button"
+							tabindex="0"
+							on:click={() => selectPack(pack.id)}
+							on:keydown={(event) => {
+								if (event.key === 'Enter' || event.key === ' ') {
+									event.preventDefault();
+									selectPack(pack.id);
+								}
+							}}
+							class={`w-full text-left border rounded-lg p-2.5 transition cursor-pointer ${selectedPack?.id === pack.id ? 'border-white/40 bg-white/10' : 'border-white/10 hover:bg-white/5'}`}
+						>
+							<p class="text-xs font-semibold text-white">{pack.name}</p>
+							<p class="text-[10px] text-white/50 mt-0.5">{pack.jurisdiction} · {pack.domain}</p>
+							<div class="flex items-center justify-between mt-1.5">
+								<p class="text-[10px] text-white/40">{pack.sources.length} {t('library.documents', $language)}</p>
+								<div class="flex gap-1">
+									<button type="button" on:click|stopPropagation={() => openEditPack(pack)} class="text-[10px] px-1.5 py-0.5 border border-white/15 rounded text-white/60 hover:text-white">{t('library.edit', $language)}</button>
+									{#if !pack.isDefault}
+										<button type="button" on:click|stopPropagation={() => removePack(pack)} class="text-[10px] px-1.5 py-0.5 border border-white/15 rounded text-white/60 hover:text-white">{t('library.delete', $language)}</button>
+									{/if}
+								</div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			</aside>
+
+			<!-- Sources panel -->
+			<div class="border border-white/10 rounded-xl p-4 space-y-4">
+				{#if selectedPack}
+					<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+						<div>
+							<h3 class="text-sm font-bold text-white">{selectedPack.name}</h3>
+							<p class="text-[11px] text-white/50 mt-0.5">{selectedPack.jurisdiction} · {selectedPack.domain}</p>
+							{#if selectedPack.description}
+								<p class="text-xs text-white/60 mt-1">{selectedPack.description}</p>
+							{/if}
+						</div>
+						<div class="flex gap-1.5">
+							<button type="button" on:click={() => openSourceModal('url')} class="px-2.5 py-1.5 border border-white/15 rounded text-[10px] font-bold uppercase tracking-widest text-white/70 hover:bg-white/10">{t('library.addUrl', $language)}</button>
+							<button type="button" on:click={() => openSourceModal('upload')} class="px-2.5 py-1.5 border border-white/15 rounded text-[10px] font-bold uppercase tracking-widest text-white/70 hover:bg-white/10">{t('library.uploadPdf', $language)}</button>
+							<button type="button" on:click={() => openSourceModal('paste')} class="px-2.5 py-1.5 border border-white/15 rounded text-[10px] font-bold uppercase tracking-widest text-white/70 hover:bg-white/10">{t('library.pasteText', $language)}</button>
+						</div>
+					</div>
+
+					<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+						{#each selectedPack.sources as doc}
+							<div class="border border-white/10 rounded-lg p-3 bg-white/[0.02] space-y-1.5">
+								<div class="flex items-start justify-between gap-2">
+									<button type="button" class="text-left flex-1 min-w-0" on:click={() => openReader(doc)}>
+										<p class="text-xs font-semibold text-white leading-snug truncate">{doc.title}</p>
+									</button>
+									{#if doc.isCustom}
+										<button type="button" class="text-[10px] px-1.5 py-0.5 border border-white/15 rounded text-white/60 hover:text-white" on:click={() => removeSourceFromPack(doc.id)}>{t('library.remove', $language)}</button>
+									{/if}
+								</div>
+								<p class="text-[11px] text-white/60 leading-relaxed line-clamp-2">{doc.description}</p>
+								{#if doc.sourceUrl}
+									<a href={doc.sourceUrl.startsWith('http') ? doc.sourceUrl : undefined} target="_blank" rel="noreferrer" class="text-[10px] text-flare hover:underline break-all line-clamp-1">{doc.sourceUrl}</a>
 								{/if}
-							</button>
+								<div class="flex gap-1.5 flex-wrap">
+									{#if doc.docType}
+										<span class="text-[9px] px-1.5 py-0.5 border border-white/15 rounded-full text-white/60 uppercase">{doc.docType}</span>
+									{/if}
+									{#if doc.trustLevel}
+										<span class={`text-[9px] px-1.5 py-0.5 border rounded-full uppercase ${doc.trustLevel === 'official' ? 'border-emerald-400/40 text-emerald-300' : doc.trustLevel === 'recognized' ? 'border-amber-400/40 text-amber-300' : 'border-red-400/40 text-red-300'}`}>{doc.trustLevel}</span>
+									{/if}
+								</div>
+							</div>
 						{/each}
 					</div>
+				{:else}
+					<p class="text-white/50 text-xs">{t('library.noPackSelected', $language)}</p>
+				{/if}
+			</div>
+		</div>
+	</div>
+</section>
+
+{#if packModalOpen}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
+		role="dialog"
+		aria-modal="true"
+		tabindex="0"
+		on:click={(event) => {
+			if (event.target === event.currentTarget) closePackModal();
+		}}
+		on:keydown={(event) => {
+			if (event.key === 'Escape') closePackModal();
+		}}
+	>
+		<div class="w-full max-w-xl bg-ink border border-white/15 rounded-xl p-5 space-y-2.5">
+			<h3 class="text-sm font-bold uppercase tracking-widest text-white">{editingPackId ? t('library.editPack', $language) : t('library.createPack', $language)}</h3>
+			<input bind:value={packName} placeholder={t('library.packName', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white" />
+			<input bind:value={packJurisdiction} placeholder={t('library.packJurisdiction', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white" />
+			<input bind:value={packDomain} placeholder={t('library.packDomain', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white" />
+			<textarea bind:value={packDescription} placeholder={t('library.packDescription', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white min-h-[90px]"></textarea>
+			<div class="flex justify-end gap-2 pt-1">
+				<button type="button" on:click={closePackModal} class="px-4 py-2 border border-white/20 rounded text-xs font-bold uppercase tracking-widest text-white/70">{t('library.cancel', $language)}</button>
+				<button type="button" on:click={savePack} class="px-4 py-2 bg-white text-ink rounded text-xs font-bold uppercase tracking-widest">{t('library.save', $language)}</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if sourceModalOpen && selectedPack}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
+		role="dialog"
+		aria-modal="true"
+		tabindex="0"
+		on:click={(event) => {
+			if (event.target === event.currentTarget) closeSourceModal();
+		}}
+		on:keydown={(event) => {
+			if (event.key === 'Escape') closeSourceModal();
+		}}
+	>
+		<div class="w-full max-w-2xl bg-ink border border-white/15 rounded-xl p-5 space-y-3">
+			<div class="flex items-center justify-between">
+				<h3 class="text-sm font-bold uppercase tracking-widest text-white">{t('library.addSourceToPack', $language)} — {selectedPack.name}</h3>
+				<button type="button" class="text-white/60 hover:text-white" on:click={closeSourceModal}>×</button>
+			</div>
+
+			{#if sourceMode === 'url'}
+				<input type="url" bind:value={sourceUrl} placeholder="https://..." class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white" />
+				<input bind:value={sourceTitle} placeholder={t('library.sourceTitle', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white" />
+				<input bind:value={sourceDescription} placeholder={t('library.sourceDescription', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white" />
+				<button type="button" on:click={ingestUrl} disabled={!sourceUrl.trim() || ingesting} class="px-4 py-2 border border-white/20 rounded text-xs font-bold uppercase tracking-widest text-white hover:bg-white/10 disabled:opacity-50">{ingesting ? t('library.ingesting', $language) : t('library.preview', $language)}</button>
+			{:else if sourceMode === 'upload'}
+				<input bind:value={sourceTitle} placeholder={t('library.sourceTitle', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white" />
+				<input bind:value={sourceDescription} placeholder={t('library.sourceDescription', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white" />
+				<input type="file" accept=".pdf,.txt,.md,.doc,.docx" on:change={(e) => (sourceFile = (e.currentTarget as HTMLInputElement).files?.[0] ?? null)} class="w-full text-sm text-white/70" />
+				<button type="button" on:click={prepareUploadSource} class="px-4 py-2 border border-white/20 rounded text-xs font-bold uppercase tracking-widest text-white hover:bg-white/10">{t('library.preview', $language)}</button>
+			{:else}
+				<input bind:value={sourceTitle} placeholder={t('library.sourceTitle', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white" />
+				<input bind:value={sourceDescription} placeholder={t('library.sourceDescription', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white" />
+				<textarea bind:value={sourceText} placeholder={t('library.sourceText', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white min-h-[140px]"></textarea>
+				<button type="button" on:click={preparePastedSource} class="px-4 py-2 border border-white/20 rounded text-xs font-bold uppercase tracking-widest text-white hover:bg-white/10">{t('library.preview', $language)}</button>
+			{/if}
+
+			{#if sourceError}
+				<p class="text-sm text-red-300">{sourceError}</p>
+			{/if}
+
+			{#if previewDoc}
+				<div class="border border-white/15 rounded-xl p-4 space-y-2 bg-white/5">
+					<p class="text-sm font-semibold text-white">{previewDoc.title}</p>
+					{#if previewDoc.sourceUrl}<p class="text-xs text-white/70 break-all">{previewDoc.sourceUrl}</p>{/if}
+					<p class="text-sm text-white/80 line-clamp-3">{previewDoc.description}</p>
+				</div>
+				<div class="flex justify-end gap-2">
+					<button type="button" on:click={closeSourceModal} class="px-4 py-2 border border-white/20 rounded text-xs font-bold uppercase tracking-widest text-white/70">{t('library.cancel', $language)}</button>
+					<button type="button" on:click={saveSourceToPack} class="px-4 py-2 bg-white text-ink rounded text-xs font-bold uppercase tracking-widest">{t('library.saveSource', $language)}</button>
 				</div>
 			{/if}
 		</div>
-	{/each}
-
-	{#if !readerOpen}
-		<p class="text-center text-white/60 text-sm font-mono py-4">{t('library.selectDoc', $language)}</p>
-	{/if}
-</section>
+	</div>
+{/if}
 
 {#if readerOpen && selectedDoc}
 	<div
@@ -131,37 +441,28 @@
 		role="dialog"
 		aria-modal="true"
 		tabindex="0"
-		on:click={handleOverlayClick}
-		on:keydown={handleOverlayKeyDown}
+		on:click={onOverlayClick}
+		on:keydown={(event) => {
+			if (event.key === 'Escape') closeReader();
+		}}
 	>
-		<div
-			class="relative w-full max-w-5xl bg-ink border border-white/15 rounded-[32px] shadow-card flex flex-col max-h-[90vh]"
-		>
-			<button
-				type="button"
-				on:click={closeReader}
-				class="absolute top-4 right-4 text-white/60 hover:text-white rounded-full border border-white/20 w-9 h-9 flex items-center justify-center"
-				aria-label="Close reader"
-			>
-				×
-			</button>
-			<header class="p-8 pb-0">
-				<p class="text-xs uppercase tracking-[0.4em] text-white/40">{selectedDoc.jurisdiction}</p>
-				<h3 class="text-3xl font-display text-white mt-2">{selectedDoc.title}</h3>
-				<p class="text-white/60 text-sm mt-1">{selectedDoc.description}</p>
-				{#if selectedDoc.note}
-					<p class="text-xs text-amber/70 mt-2">{selectedDoc.note}</p>
+		<div class="relative w-full max-w-5xl bg-ink border border-white/15 rounded-2xl flex flex-col max-h-[90vh]">
+			<button type="button" on:click={closeReader} class="absolute top-3 right-3 text-white/60 hover:text-white rounded-full border border-white/20 w-8 h-8 flex items-center justify-center text-sm" aria-label="Close reader">×</button>
+			<header class="p-6 pb-0">
+				<p class="text-[10px] uppercase tracking-[0.3em] text-white/40">{selectedDoc.jurisdiction}</p>
+				<h3 class="text-lg font-bold text-white mt-1">{selectedDoc.title}</h3>
+				<p class="text-white/50 text-xs mt-1">{selectedDoc.description}</p>
+				{#if selectedDoc.sourceUrl}
+					<p class="text-xs text-flare mt-2 break-all">{selectedDoc.sourceUrl}</p>
 				{/if}
 			</header>
-			<section class="flex-1 overflow-y-auto px-8 py-6">
+			<section class="flex-1 overflow-y-auto px-6 py-4">
 				{#if loading}
 					<p class="text-white/60 text-sm">{t('library.loading', $language)}</p>
 				{:else if error}
 					<p class="text-red-300 text-sm">{error}</p>
 				{:else}
-					<pre class="whitespace-pre-wrap text-white/90 text-[15px] leading-8 font-sans">
-						{content}
-					</pre>
+					<pre class="whitespace-pre-wrap text-white/80 text-sm leading-7 font-sans">{content}</pre>
 				{/if}
 			</section>
 		</div>

@@ -2,17 +2,19 @@
 	import type { PageData } from './$types';
 	import { debateStore, appendTurn, seedTranscript } from '$lib/stores/debate';
 	import { stagedCaseStore, hydrateStagedCase, clearStagedCase } from '$lib/stores/stagedCase';
+	import { legalPacksStore } from '$lib/stores/legalPacks';
+	import type { LibraryDocument } from '$lib/data/library';
 	import { jurorPersonas } from '$lib/data/jurors';
 	import { judgePersona } from '$lib/data/judge';
-	import { libraryDocuments } from '$lib/data/library';
 	import type { DebateTurn, VerdictScore, StagedCase } from '$lib/types';
 	import { fly } from 'svelte/transition';
 	import { focusMode } from '$lib/stores/ui';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { caseHistoryStore } from '$lib/stores/caseHistory';
 	import { language } from '$lib/stores/language';
 	import { t } from '$lib/i18n';
+	import { get } from 'svelte/store';
 
 	export let data: PageData;
 
@@ -21,10 +23,33 @@
 	let jurorScores: VerdictScore[] = [];
 	let judgeMind: { assessment: string; concerns: string; leaning: string } | null = null;
 	let stagedCase: StagedCase | null = null;
-	let allowedSources = libraryDocuments;
+	let allowedSources: LibraryDocument[] = [];
 	let focusArmed = false;
+	let scoreModalOpen = false;
+	let scoring = false;
+	let scoreError = '';
+	let scoreSummary = '';
+	let endScores = {
+		persuasion: 50,
+		lawCited: 50,
+		structure: 50,
+		responsiveness: 50,
+		factFidelity: 50,
+		average: 50
+	};
 
 	const allJurorIds = jurorPersonas.map((juror) => juror.id);
+	const scoreLabels = [
+		{ key: 'persuasion', label: 'debate.metricPersuasion' },
+		{ key: 'lawCited', label: 'debate.metricLawCited' },
+		{ key: 'structure', label: 'debate.metricStructure' },
+		{ key: 'responsiveness', label: 'debate.metricResponsiveness' },
+		{ key: 'factFidelity', label: 'debate.metricFactFidelity' }
+	] as const;
+
+	onMount(() => {
+		legalPacksStore.hydrate();
+	});
 
 	$: stagedCase = $stagedCaseStore;
 	$: isBenchTrial = stagedCase?.courtType === 'bench';
@@ -32,9 +57,17 @@
 		hydrateStagedCase(data.stagedCase);
 		seedTranscript(data.stagedCase);
 	}
+	$: allPackSources = $legalPacksStore.flatMap((pack) => pack.sources);
+	$: activePack = stagedCase?.packId
+		? $legalPacksStore.find((pack) => pack.id === stagedCase.packId) ?? null
+		: null;
 	$: allowedSources = stagedCase
-		? libraryDocuments.filter((doc) => stagedCase.sources.includes(doc.id))
-		: libraryDocuments;
+		? activePack
+			? (stagedCase.sources.length
+				? activePack.sources.filter((doc) => stagedCase.sources.includes(doc.id))
+				: activePack.sources)
+			: allPackSources.filter((doc) => stagedCase.sources.includes(doc.id))
+		: allPackSources;
 	$: jurorScoreMap = Object.fromEntries(jurorScores.map((score) => [score.jurorId, score]));
 	
 	// Jury verdict summary
@@ -72,7 +105,12 @@
 					prompt,
 					selectedJurors: allJurorIds,
 					case: stagedCase,
-					sources: allowedSources,
+					sources: allowedSources.map((source) => ({
+						id: source.id,
+						title: source.title,
+						jurisdiction: source.jurisdiction,
+						description: source.description
+					})),
 					language: $language
 				})
 			});
@@ -139,7 +177,10 @@
 		}
 
 		if (finalize) {
-			caseHistoryStore.markCaseFinished(stagedCase.id);
+			caseHistoryStore.markCaseFinished(stagedCase.id, {
+				summary: scoreSummary || t('debate.scoreFallbackSummary', $language),
+				scores: { ...endScores }
+			});
 		} else {
 			caseHistoryStore.markCaseOngoing(stagedCase.id);
 		}
@@ -149,8 +190,169 @@
 		goto('/court');
 	};
 
+	const clampScore = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
+
+	const tokenize = (text: string) =>
+		text
+			.toLowerCase()
+			.replace(/[^a-z0-9\s]/g, ' ')
+			.split(/\s+/)
+			.filter((token) => token.length > 3);
+
+	const keywordSet = (text: string) => {
+		const stopWords = new Set(['with', 'that', 'this', 'from', 'have', 'will', 'your', 'about', 'their', 'there', 'would']);
+		return new Set(tokenize(text).filter((token) => !stopWords.has(token)));
+	};
+
+	const computeResponsiveness = (transcript: DebateTurn[]) => {
+		const ratios: number[] = [];
+		for (let index = 1; index < transcript.length; index += 1) {
+			const current = transcript[index];
+			const previous = transcript[index - 1];
+			if (current.role !== 'litigant' || previous.role === 'litigant') continue;
+
+			const previousKeywords = keywordSet(previous.message);
+			const currentKeywords = keywordSet(current.message);
+			if (!previousKeywords.size || !currentKeywords.size) continue;
+
+			let overlap = 0;
+			for (const token of previousKeywords) {
+				if (currentKeywords.has(token)) overlap += 1;
+			}
+			ratios.push(overlap / previousKeywords.size);
+		}
+
+		if (!ratios.length) return 40;
+		const avgRatio = ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length;
+		// Fair scale: 0% overlap → 25, 50% overlap → 55, full overlap → 85
+		return clampScore(25 + avgRatio * 60);
+	};
+
+	const computeDeterministicScores = (transcript: DebateTurn[]) => {
+		const litigantTurns = transcript.filter((turn) => turn.role === 'litigant');
+		const combinedLitigantText = litigantTurns.map((turn) => turn.message).join(' ');
+
+		const legalMentions = (combinedLitigantText.match(/\b(section|article|charter|act|code|statute|regulation|precedent|case|v\.)\b/gi) ?? []).length;
+		const sourceMentions = allowedSources.reduce((count, source) => {
+			const titleCore = source.title.toLowerCase().replace(/[^a-z0-9\s]/g, ' ');
+			const words = titleCore.split(/\s+/).filter((word) => word.length > 4);
+			if (!words.length) return count;
+			return words.some((word) => combinedLitigantText.toLowerCase().includes(word)) ? count + 1 : count;
+		}, 0);
+
+		const connectors = (combinedLitigantText.match(/\b(because|therefore|however|first|second|third|thus|since|consequently|moreover|furthermore|accordingly)\b/gi) ?? []).length;
+		const avgTurnLength = litigantTurns.length
+			? litigantTurns.reduce((sum, turn) => sum + tokenize(turn.message).length, 0) / litigantTurns.length
+			: 0;
+
+		const caseAnchor = keywordSet(`${stagedCase?.synopsis ?? ''} ${stagedCase?.issues ?? ''} ${stagedCase?.remedy ?? ''}`);
+		const litigantAnchor = keywordSet(combinedLitigantText);
+		let anchorOverlap = 0;
+		for (const token of caseAnchor) {
+			if (litigantAnchor.has(token)) anchorOverlap += 1;
+		}
+		const fidelityBase = caseAnchor.size ? anchorOverlap / caseAnchor.size : 0.5;
+
+		const jurySourcesMetric = jurorScores.length
+			? jurorScores.reduce((sum, score) => sum + (score.metrics?.sources ?? 50), 0) / jurorScores.length
+			: 0;
+		const juryLogicMetric = jurorScores.length
+			? jurorScores.reduce((sum, score) => sum + (score.metrics?.logic ?? 50), 0) / jurorScores.length
+			: 0;
+
+		// Bench mode: use judge signals instead of absent jury metrics
+		const judgeLeaning = judgeMind?.leaning?.toLowerCase() ?? '';
+		const judgeLeanScore = judgeLeaning.includes('undecided') ? 45
+			: judgeLeaning.includes('plaintiff') && stagedCase?.role === 'plaintiff' ? 72
+			: judgeLeaning.includes('defendant') && stagedCase?.role === 'defendant' ? 72
+			: judgeLeaning.includes('plaintiff') || judgeLeaning.includes('defendant') ? 35
+			: 45;
+		const judgeConcernsLength = (judgeMind?.concerns ?? '').length;
+		const judgeEngagement = Math.min(judgeConcernsLength / 4, 20);
+
+		const persuasionBase = isBenchTrial
+			? judgeLeanScore + judgeEngagement * 0.3
+			: avgScore || 45;
+
+		// Fair calibration: text signals start low, scale with real effort
+		const textLegalScore = 15 + Math.min(legalMentions * 4, 40) + Math.min(sourceMentions * 8, 40);
+		const lawCited = isBenchTrial
+			? clampScore(textLegalScore)
+			: clampScore(jurySourcesMetric * 0.5 + textLegalScore * 0.5);
+
+		const textStructureScore = 25 + Math.min(connectors * 5, 30) + Math.min(avgTurnLength, 30);
+		const structure = isBenchTrial
+			? clampScore(textStructureScore)
+			: clampScore(juryLogicMetric * 0.6 + textStructureScore * 0.4);
+
+		const responsiveness = computeResponsiveness(transcript);
+		// Fidelity: 0% overlap → 20, 50% → 50, 100% → 80
+		const factFidelity = clampScore(20 + fidelityBase * 60);
+		const persuasion = clampScore(persuasionBase);
+
+		return { persuasion, lawCited, structure, responsiveness, factFidelity };
+	};
+
+	const evaluatePerformance = async () => {
+		if (!stagedCase) return;
+		scoreModalOpen = true;
+		scoring = true;
+		scoreError = '';
+
+		const transcript = get(debateStore);
+		const deterministic = computeDeterministicScores(transcript);
+
+		try {
+			const response = await fetch('/api/debate/score', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					case: stagedCase,
+					transcript,
+					sources: allowedSources,
+					deterministic,
+					language: $language
+				})
+			});
+
+			if (!response.ok) {
+				throw new Error(await response.text());
+			}
+
+			const payload = await response.json();
+			scoreSummary = payload.summary || t('debate.scoreFallbackSummary', $language);
+			endScores = {
+				persuasion: clampScore(payload.scores?.persuasion ?? deterministic.persuasion),
+				lawCited: clampScore(payload.scores?.lawCited ?? deterministic.lawCited),
+				structure: clampScore(payload.scores?.structure ?? deterministic.structure),
+				responsiveness: clampScore(payload.scores?.responsiveness ?? deterministic.responsiveness),
+				factFidelity: clampScore(payload.scores?.factFidelity ?? deterministic.factFidelity),
+				average: clampScore(payload.scores?.average ?? ((deterministic.persuasion + deterministic.lawCited + deterministic.structure + deterministic.responsiveness + deterministic.factFidelity) / 5))
+			};
+		} catch (err) {
+			console.error('Performance scoring failed', err);
+			scoreError = err instanceof Error ? err.message : 'Scoring failed.';
+			scoreSummary = t('debate.scoreFallbackSummary', $language);
+			endScores = {
+				...deterministic,
+				average: clampScore((deterministic.persuasion + deterministic.lawCited + deterministic.structure + deterministic.responsiveness + deterministic.factFidelity) / 5)
+			};
+		} finally {
+			scoring = false;
+		}
+	};
+
 	const exitCourt = () => leaveCourt(false);
-	const endCase = () => leaveCourt(true);
+	const endCase = () => {
+		void evaluatePerformance();
+	};
+	const keepPracticing = () => {
+		scoreModalOpen = false;
+	};
+	const finalizeCaseFromModal = () => {
+		scoreModalOpen = false;
+		leaveCourt(true);
+	};
 
 	const formatMetric = (value?: number) => `${Math.round(value ?? 50)}%`;
 	
@@ -429,5 +631,67 @@
 				{/if}
 			</div>
 		</aside>
+	</div>
+{/if}
+
+{#if scoreModalOpen}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
+		role="dialog"
+		aria-modal="true"
+		tabindex="0"
+		on:click={(event) => {
+			if (event.target === event.currentTarget && !scoring) keepPracticing();
+		}}
+		on:keydown={(event) => {
+			if (event.key === 'Escape' && !scoring) keepPracticing();
+		}}
+	>
+		<div class="w-full max-w-3xl bg-ink border border-white/15 rounded-2xl p-6 space-y-5">
+			<div class="flex items-center justify-between">
+				<div>
+					<h3 class="text-xl font-display text-white">{t('debate.performanceTitle', $language)}</h3>
+					<p class="text-[10px] uppercase tracking-[0.2em] text-white/40 mt-1">{stagedCase?.title}</p>
+				</div>
+				{#if !scoring}
+					<button type="button" class="text-white/60 hover:text-white" on:click={keepPracticing}>×</button>
+				{/if}
+			</div>
+
+			{#if scoring}
+				<div class="border border-white/10 rounded-xl p-5 bg-white/[0.02]">
+					<p class="text-sm text-white/70">{t('debate.scoringNow', $language)}</p>
+				</div>
+			{:else}
+				<div class="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4">
+					<div class="border border-white/15 rounded-xl p-4 bg-white/[0.04] flex flex-col justify-between">
+						<p class="text-[10px] uppercase tracking-widest text-white/50">{t('debate.metricAverage', $language)}</p>
+						<p class={`text-4xl font-mono font-bold mt-3 ${getScoreColor(endScores.average)}`}>{endScores.average}%</p>
+					</div>
+
+					<div class="border border-white/10 rounded-xl p-4 bg-white/[0.02]">
+						<p class="text-sm text-white/80 leading-relaxed">{scoreSummary}</p>
+					</div>
+				</div>
+
+				<div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+					{#each scoreLabels as metric}
+						<div class="border border-white/15 rounded-xl p-4 bg-white/[0.03] min-h-[108px] flex flex-col justify-between">
+							<p class="text-[10px] uppercase tracking-widest text-white/50">{t(metric.label, $language)}</p>
+							<p class={`text-2xl font-mono font-bold mt-2 ${getScoreColor(endScores[metric.key])}`}>{endScores[metric.key]}%</p>
+						</div>
+					{/each}
+				</div>
+
+				{#if scoreError}
+					<p class="text-xs text-flare">{scoreError}</p>
+				{/if}
+
+				<div class="flex justify-end gap-2 pt-1">
+					<button type="button" on:click={keepPracticing} class="px-4 py-2 border border-white/20 rounded text-xs font-bold uppercase tracking-widest text-white/70">{t('debate.keepPracticing', $language)}</button>
+					<button type="button" on:click={finalizeCaseFromModal} class="px-4 py-2 bg-white text-ink rounded text-xs font-bold uppercase tracking-widest">{t('debate.closeCase', $language)}</button>
+				</div>
+			{/if}
+		</div>
 	</div>
 {/if}

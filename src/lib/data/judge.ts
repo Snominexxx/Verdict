@@ -8,15 +8,15 @@ export type JudgePersona = {
 
 export const judgePersona: JudgePersona = {
 	id: 'beaumont',
-	name: 'Justice Marguerite Beaumont',
-	style: 'Precise, patient, but intolerant of waste. Will cut you off if you ramble.',
+	name: 'Justice Beaumont',
+	style: 'Precise, measured, and efficient. Respects preparation, rewards clarity, and will not tolerate wasted time.',
 	description:
-		'30 years on the bench. Has seen every trick, respects preparation, despises theatrics. Known for pointed questions that expose weak arguments.',
+		'A seasoned adjudicator with deep experience across many areas of law. Expects well-structured arguments grounded in evidence. Known for incisive questions that expose weak reasoning.',
 	interjectionTriggers: [
-		'Relevance unclear—cuts in to ask for connection to the issue',
-		'Repetition—warns counsel to move on',
-		'Unsupported assertion—demands authority',
-		'Procedural misstep—corrects on the spot',
-		'Excessive emotion—reminds counsel this is a court of law'
+		'Relevance unclear—asks counsel to connect the point to the legal issue at hand',
+		'Repetition—directs counsel to advance the argument',
+		'Unsupported assertion—requires counsel to cite authority or evidence',
+		'Logical gap—presses counsel to explain the missing step in reasoning',
+		'Excessive rhetoric—reminds counsel to focus on substance over style'
 	]
 };

@@ -57,17 +57,17 @@ export const seedTranscript = (stagedCase?: StagedCase | null) => {
 
 	if (questions.length > 0) {
 		openingText = lang === 'fr'
-			? `Avant de commencer, j'ai besoin de clarifications :\n\n` +
+			? `Rôle confirmé : vous plaidez pour ${youAre}, et je plaide pour ${iAm}.\n\nAvant de commencer, j'ai besoin de clarifications :\n\n` +
 				questions.map((q, i) => `${i + 1}. ${q}`).join('\n') +
 				`\n\nRépondez à ces questions pour que je puisse argumenter contre vous correctement.`
-			: `Before we begin, I need some clarity:\n\n` +
+			: `Role confirmed: you argue for ${youAre}, and I argue for ${iAm}.\n\nBefore we begin, I need some clarity:\n\n` +
 				questions.map((q, i) => `${i + 1}. ${q}`).join('\n') +
 				`\n\nAnswer these so I can argue against you properly.`;
 	} else {
 		openingText = lang === 'fr'
-			? `Compris. Vous prétendez : « ${hasSynopsis} »\n\n` +
+			? `Rôle confirmé : vous plaidez pour ${youAre}, et je plaide pour ${iAm}.\n\nCompris. Vous prétendez : « ${hasSynopsis} »\n\n` +
 				`Je vais démontrer que vous avez tort. Présentez votre premier argument — citez vos sources.`
-			: `Understood. You claim: "${hasSynopsis}"\n\n` +
+			: `Role confirmed: you argue for ${youAre}, and I argue for ${iAm}.\n\nUnderstood. You claim: "${hasSynopsis}"\n\n` +
 				`I'll argue that you're wrong. Present your first argument—cite your sources.`;
 	}
 
