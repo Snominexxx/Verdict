@@ -87,12 +87,14 @@
 
 	const submitPrompt = async () => {
 		if (!prompt.trim() || !stagedCase) return;
+		const currentPrompt = prompt.trim();
+		prompt = '';
 		sending = true;
 		const now = new Date().toISOString();
 		const litigatorTurn: DebateTurn = {
 			role: 'litigant',
 			speaker: 'You',
-			message: prompt.trim(),
+			message: currentPrompt,
 			timestamp: now
 		};
 		appendTurn(litigatorTurn);
@@ -102,14 +104,15 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					prompt,
+					prompt: currentPrompt,
 					selectedJurors: allJurorIds,
 					case: stagedCase,
 					sources: allowedSources.map((source) => ({
 						id: source.id,
 						title: source.title,
 						jurisdiction: source.jurisdiction,
-						description: source.description
+					description: source.description,
+					content: source.content
 					})),
 					language: $language
 				})
@@ -118,32 +121,32 @@
 				const text = await response.text();
 				throw new Error(text || 'Debate request failed.');
 			}
-			const data = await response.json();
+			const result = await response.json();
 
 			// Handle judge interjection (bench trial only)
-			if (data.judgeInterjection) {
-				const prefix = data.judgeInterjection.type
-					? `[${data.judgeInterjection.type.toUpperCase()}] `
+			if (result.judgeInterjection) {
+				const prefix = result.judgeInterjection.type
+					? `[${result.judgeInterjection.type.toUpperCase()}] `
 					: '';
 				appendTurn({
 					role: 'judge',
-					speaker: data.judgeInterjection.speaker,
-					message: `${prefix}${data.judgeInterjection.message}`,
-					timestamp: data.judgeInterjection.timestamp
+					speaker: result.judgeInterjection.speaker,
+					message: `${prefix}${result.judgeInterjection.message}`,
+					timestamp: result.judgeInterjection.timestamp
 				});
 			}
 
 			appendTurn({
-				...data.reply,
+				...result.reply,
 				timestamp: new Date().toISOString()
 			});
 
 			// Handle scores based on court type
-			if (data.courtType === 'bench') {
-				judgeMind = data.judgeMind ?? null;
+			if (result.courtType === 'bench') {
+				judgeMind = result.judgeMind ?? null;
 				jurorScores = [];
 			} else {
-				jurorScores = data.jurorScores ?? [];
+				jurorScores = result.jurorScores ?? [];
 				judgeMind = null;
 			}
 		} catch (err) {
@@ -158,7 +161,6 @@
 			});
 		} finally {
 			sending = false;
-			prompt = '';
 		}
 	};
 
@@ -384,9 +386,9 @@
 		<!-- Left: Case Context -->
 		<aside class="hidden lg:flex flex-col border-r border-white/10 bg-black/20 overflow-hidden min-h-0">
 			<div class="p-5 border-b border-white/5">
-				<p class="text-[10px] uppercase tracking-[0.2em] text-white/30 mb-2">{t('debate.activeCase', $language)}</p>
+				<p class="text-xs uppercase tracking-[0.2em] text-white/30 mb-2">{t('debate.activeCase', $language)}</p>
 				<h2 class="text-lg font-display text-white leading-tight">{stagedCase.title}</h2>
-				<div class="flex items-center gap-2 mt-3 text-xs font-mono text-white/50">
+				<div class="flex items-center gap-2 mt-3 text-sm font-mono text-white/50">
 					<span class={stagedCase.role === 'plaintiff' ? 'text-flare' : 'text-white/50'}>{t('debate.pl', $language)}</span>
 					<span class="text-white/20">{t('debate.vs', $language)}</span>
 					<span class={stagedCase.role === 'defendant' ? 'text-flare' : 'text-white/50'}>{t('debate.df', $language)}</span>
@@ -395,18 +397,18 @@
 			
 			<div class="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-hide min-h-0">
 				<div>
-					<p class="text-[10px] uppercase tracking-[0.1em] text-white/30 mb-2 font-mono">{t('debate.synopsis', $language)}</p>
-					<p class="text-xs text-white/70 leading-relaxed font-light">{stagedCase.synopsis}</p>
+					<p class="text-xs uppercase tracking-[0.1em] text-white/30 mb-2 font-mono">{t('debate.synopsis', $language)}</p>
+					<p class="text-sm text-white/70 leading-relaxed font-light">{stagedCase.synopsis}</p>
 				</div>
 				<div>
-					<p class="text-[10px] uppercase tracking-[0.1em] text-white/30 mb-2 font-mono">{t('debate.issues', $language)}</p>
-					<p class="text-xs text-white/70 leading-relaxed font-light">{stagedCase.issues || t('debate.na', $language)}</p>
+					<p class="text-xs uppercase tracking-[0.1em] text-white/30 mb-2 font-mono">{t('debate.issues', $language)}</p>
+					<p class="text-sm text-white/70 leading-relaxed font-light">{stagedCase.issues || t('debate.na', $language)}</p>
 				</div>
 				<div>
-					<p class="text-[10px] uppercase tracking-[0.1em] text-white/30 mb-2 font-mono">{t('debate.sources', $language)}</p>
+					<p class="text-xs uppercase tracking-[0.1em] text-white/30 mb-2 font-mono">{t('debate.sources', $language)}</p>
 					<div class="flex flex-wrap gap-2">
 						{#each allowedSources as source}
-							<div class="px-2 py-1 border border-white/10 rounded-sm text-[10px] text-white/50 bg-white/5 truncate max-w-full">
+							<div class="px-2 py-1 border border-white/10 rounded-sm text-xs text-white/50 bg-white/5 truncate max-w-full">
 								{source.title}
 							</div>
 						{/each}
@@ -418,18 +420,18 @@
 				<button
 					type="button"
 					on:click={exitCourt}
-					class="w-full py-2 text-[10px] uppercase tracking-widest text-white/70 hover:text-white transition flex items-center justify-center gap-2 border border-white/15 hover:border-white/40 rounded-sm"
+					class="w-full py-2 text-xs uppercase tracking-widest text-white/70 hover:text-white transition flex items-center justify-center gap-2 border border-white/15 hover:border-white/40 rounded-sm"
 				>
 					{t('debate.exitCourt', $language)}
 				</button>
 				<button
 					type="button"
 					on:click={endCase}
-					class="w-full py-2 text-[10px] uppercase tracking-widest text-white/70 hover:text-flare transition flex items-center justify-center gap-2 border border-flare/40 hover:border-flare rounded-sm"
+					class="w-full py-2 text-xs uppercase tracking-widest text-white/70 hover:text-flare transition flex items-center justify-center gap-2 border border-flare/40 hover:border-flare rounded-sm"
 				>
 					{t('debate.endCase', $language)}
 				</button>
-				<button on:click={restartDebate} class="w-full py-2 text-[10px] uppercase tracking-widest text-white/40 hover:text-flare transition flex items-center justify-center gap-2 hover:bg-white/5 rounded-sm">
+				<button on:click={restartDebate} class="w-full py-2 text-xs uppercase tracking-widest text-white/40 hover:text-flare transition flex items-center justify-center gap-2 hover:bg-white/5 rounded-sm">
 					{t('debate.resetSim', $language)}
 				</button>
 			</div>
@@ -441,7 +443,7 @@
 				{#each $debateStore as turn}
 					<div class={`flex flex-col max-w-2xl ${turn.role === 'litigant' ? 'ml-auto items-end' : 'mr-auto items-start'}`}
 						in:fly={{ y: 10, duration: 300 }}>
-						<p class="text-xs uppercase tracking-widest text-white/50 mb-1 px-1">
+					<p class="text-sm uppercase tracking-widest text-white/50 mb-1 px-1">
 							{turn.speaker} <span class="opacity-50 mx-1">/</span> <span class="font-mono opacity-40">{new Date(turn.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
 						</p>
 						<div class={`p-5 text-base leading-relaxed border backdrop-blur-sm ${
@@ -454,7 +456,7 @@
 						{#if turn.citations?.length}
 							<div class="mt-2 flex gap-2 flex-wrap justify-end">
 								{#each turn.citations as cite}
-									<span class="text-[10px] px-2 py-0.5 border border-white/10 rounded-full text-white/40 bg-black/20 font-mono">{cite}</span>
+									<span class="text-xs px-2 py-0.5 border border-white/10 rounded-full text-white/40 bg-black/20 font-mono">{cite}</span>
 								{/each}
 							</div>
 						{/if}
@@ -463,7 +465,7 @@
 
 				{#if sending}
 					<div class="flex flex-col max-w-2xl mr-auto items-start" in:fly={{ y: 10, duration: 200 }}>
-						<p class="text-xs uppercase tracking-widest text-white/50 mb-1 px-1">
+					<p class="text-sm uppercase tracking-widest text-white/50 mb-1 px-1">
 							{isBenchTrial ? judgePersona.name : 'Advocate AI'}
 							<span class="opacity-50 mx-1">/</span>
 							<span class="font-mono opacity-40">{t('debate.thinking', $language)}</span>
@@ -536,13 +538,13 @@
 									plaintiffVotes >= 3 ? 'text-flare' : 
 									defenseVotes >= 3 ? 'text-pulse' : 'text-white/70'
 								}`}>{verdictStatus}</p>
-								<p class="text-[10px] text-white/40 mt-0.5">
-									{plaintiffVotes} {t('debate.plaintiffLabel', $language)} · {defenseVotes} {t('debate.defenseLabel', $language)} · {hungVotes} {t('debate.undecided', $language)}
+						<p class="text-xs text-white/40 mt-0.5">
+							{plaintiffVotes} {t('debate.plaintiffLabel', $language)} · {defenseVotes} {t('debate.defenseLabel', $language)} · {hungVotes} {t('debate.undecided', $language)}
 								</p>
 							</div>
 							<div class="text-right">
 								<p class={`text-xl font-mono font-bold ${getScoreColor(avgScore)}`}>{avgScore}%</p>
-								<p class="text-[9px] text-white/40 uppercase">{t('debate.avgScore', $language)}</p>
+								<p class="text-[11px] text-white/40 uppercase">{t('debate.avgScore', $language)}</p>
 							</div>
 						</div>
 					</div>
@@ -561,15 +563,15 @@
 						{#if judgeMind}
 							<div class="space-y-3 border-t border-white/10 pt-3">
 								<div>
-									<p class="text-[10px] uppercase tracking-wider text-white/40 mb-1">{t('debate.assessment', $language)}</p>
-									<p class="text-sm text-white/90 leading-relaxed">{judgeMind.assessment}</p>
-								</div>
-								<div>
-									<p class="text-[10px] uppercase tracking-wider text-white/40 mb-1">{t('debate.concerns', $language)}</p>
-									<p class="text-sm text-white/80 leading-relaxed">{judgeMind.concerns}</p>
-								</div>
-								<div>
-									<p class="text-[10px] uppercase tracking-wider text-white/40 mb-1">{t('debate.leaning', $language)}</p>
+								<p class="text-xs uppercase tracking-wider text-white/40 mb-1">{t('debate.assessment', $language)}</p>
+								<p class="text-sm text-white/90 leading-relaxed">{judgeMind.assessment}</p>
+							</div>
+							<div>
+								<p class="text-xs uppercase tracking-wider text-white/40 mb-1">{t('debate.concerns', $language)}</p>
+								<p class="text-sm text-white/80 leading-relaxed">{judgeMind.concerns}</p>
+							</div>
+							<div>
+								<p class="text-xs uppercase tracking-wider text-white/40 mb-1">{t('debate.leaning', $language)}</p>
 									<p class="text-sm text-white/80 leading-relaxed">{judgeMind.leaning}</p>
 								</div>
 							</div>
@@ -593,7 +595,7 @@
 										<span class={`text-lg font-mono font-bold ${getScoreColor(score.score)}`}>
 											{score.score}%
 										</span>
-										<p class={`text-[9px] uppercase tracking-wider mt-0.5 ${
+										<p class={`text-[11px] uppercase tracking-wider mt-0.5 ${
 											score.stance === 'plaintiff' ? 'text-flare' : 
 											score.stance === 'defense' ? 'text-pulse' : 'text-white/40'
 										}`}>
@@ -611,15 +613,15 @@
 								</p>
 								<div class="grid grid-cols-3 gap-2 mt-3">
 									<div class="text-center bg-black/30 py-2 rounded border border-white/5">
-										<p class="text-[9px] text-white/40 uppercase tracking-wide">{t('debate.logic', $language)}</p>
+								<p class="text-[11px] text-white/40 uppercase tracking-wide">{t('debate.logic', $language)}</p>
 										<p class={`text-sm font-mono font-semibold ${getScoreColor(score.metrics?.logic ?? 50)}`}>{Math.round(score.metrics?.logic ?? 0)}</p>
 									</div>
 									<div class="text-center bg-black/30 py-2 rounded border border-white/5">
-										<p class="text-[9px] text-white/40 uppercase tracking-wide">{t('debate.evidence', $language)}</p>
+								<p class="text-[11px] text-white/40 uppercase tracking-wide">{t('debate.evidence', $language)}</p>
 										<p class={`text-sm font-mono font-semibold ${getScoreColor(score.metrics?.sources ?? 50)}`}>{Math.round(score.metrics?.sources ?? 0)}</p>
 									</div>
 									<div class="text-center bg-black/30 py-2 rounded border border-white/5">
-										<p class="text-[9px] text-white/40 uppercase tracking-wide">{t('debate.tone', $language)}</p>
+								<p class="text-[11px] text-white/40 uppercase tracking-wide">{t('debate.tone', $language)}</p>
 										<p class={`text-sm font-mono font-semibold ${getScoreColor(score.metrics?.tone ?? 50)}`}>{Math.round(score.metrics?.tone ?? 0)}</p>
 									</div>
 								</div>
@@ -651,7 +653,7 @@
 			<div class="flex items-center justify-between">
 				<div>
 					<h3 class="text-xl font-display text-white">{t('debate.performanceTitle', $language)}</h3>
-					<p class="text-[10px] uppercase tracking-[0.2em] text-white/40 mt-1">{stagedCase?.title}</p>
+					<p class="text-xs uppercase tracking-[0.2em] text-white/40 mt-1">{stagedCase?.title}</p>
 				</div>
 				{#if !scoring}
 					<button type="button" class="text-white/60 hover:text-white" on:click={keepPracticing}>×</button>
@@ -665,7 +667,7 @@
 			{:else}
 				<div class="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4">
 					<div class="border border-white/15 rounded-xl p-4 bg-white/[0.04] flex flex-col justify-between">
-						<p class="text-[10px] uppercase tracking-widest text-white/50">{t('debate.metricAverage', $language)}</p>
+						<p class="text-xs uppercase tracking-widest text-white/50">{t('debate.metricAverage', $language)}</p>
 						<p class={`text-4xl font-mono font-bold mt-3 ${getScoreColor(endScores.average)}`}>{endScores.average}%</p>
 					</div>
 

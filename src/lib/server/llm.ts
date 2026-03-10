@@ -193,7 +193,12 @@ const buildUserPrompt = (args: {
 	const { prompt, stagedCase, sources, jurors } = args;
 	const sourceLines = sources.length
 		? sources
-				.map((source) => `- ${source.title} (${source.jurisdiction}): ${source.description}`)
+				.map((source) => {
+					const excerpt = source.content?.trim()
+						? source.content.slice(0, 4000)
+						: source.description;
+					return `- ${source.title} (${source.jurisdiction}):\n  ${excerpt}`;
+				})
 				.join('\n')
 		: '- No sources provided. Note this gap candidly—feel free to say "You have given me nothing to work with here."';
 	const jurorNotes = jurors

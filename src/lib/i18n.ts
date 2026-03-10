@@ -265,6 +265,9 @@ const translations = {
 	'library.sourceText': { en: 'Paste source text', fr: 'Coller le texte de la source' },
 	'library.fileRequired': { en: 'Please select a file first.', fr: 'Veuillez d\'abord sélectionner un fichier.' },
 	'library.pasteRequired': { en: 'Please provide a title and text.', fr: 'Veuillez fournir un titre et du texte.' },
+	'library.pdfParseFailed': { en: 'Failed to extract text from PDF.', fr: 'Impossible d\'extraire le texte du PDF.' },
+	'library.pdfSupported': { en: 'PDF files supported — text will be extracted automatically.', fr: 'Fichiers PDF supportés — le texte sera extrait automatiquement.' },
+	'library.parsingPdf': { en: 'Extracting text...', fr: 'Extraction du texte...' },
 
 	// ===== ABOUT =====
 	'about.title': { en: 'About Verdict', fr: 'À propos de Verdict' },

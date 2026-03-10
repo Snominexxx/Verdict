@@ -27,6 +27,7 @@
 	"dependencies": {
 		"@supabase/ssr": "^0.9.0",
 		"@supabase/supabase-js": "^2.91.0",
+		"pdf-parse": "^2.4.5",
 		"stripe": "^20.4.1"
 	}
 }

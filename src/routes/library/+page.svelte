@@ -149,27 +149,56 @@
 			return;
 		}
 
-		let extracted = '';
-		if (!sourceFile.name.toLowerCase().endsWith('.pdf')) {
+		const isPdf = sourceFile.name.toLowerCase().endsWith('.pdf');
+
+		if (isPdf) {
+			ingesting = true;
 			try {
-				extracted = await sourceFile.text();
-			} catch {
-				extracted = '';
+				const formData = new FormData();
+				formData.append('file', sourceFile);
+				const response = await fetch('/api/library/ingest-pdf', {
+					method: 'POST',
+					body: formData
+				});
+				const payload = await response.json().catch(() => null);
+				if (!response.ok || !payload?.document) {
+					throw new Error(payload?.message ?? t('library.pdfParseFailed', $language));
+				}
+				const ingested = payload.document as LibraryDocument;
+				sourceTitle = sourceTitle.trim() || ingested.title;
+				sourceDescription = sourceDescription.trim() || ingested.description;
+				previewDoc = {
+					...ingested,
+					title: sourceTitle.trim() || ingested.title,
+					description: sourceDescription.trim() || ingested.description
+				};
+			} catch (err) {
+				sourceError = err instanceof Error ? err.message : t('library.pdfParseFailed', $language);
+			} finally {
+				ingesting = false;
 			}
+			return;
+		}
+
+		// Non-PDF: read as text client-side
+		let extracted = '';
+		try {
+			extracted = await sourceFile.text();
+		} catch {
+			extracted = '';
 		}
 
 		previewDoc = {
 			id: `source-upload-${Date.now()}`,
 			title: sourceTitle.trim() || sourceFile.name,
 			jurisdiction: selectedPack?.jurisdiction ?? 'Other',
-			description: sourceDescription.trim() || (sourceFile.name.toLowerCase().endsWith('.pdf') ? 'Uploaded PDF source.' : 'Uploaded source file.'),
+			description: sourceDescription.trim() || extracted.slice(0, 200) || 'Uploaded source file.',
 			lastUpdated: new Date().toISOString().slice(0, 10),
 			sourceUrl: `uploaded://${sourceFile.name}`,
 			content: extracted,
 			docType: 'secondary',
 			trustLevel: 'unverified',
-			isCustom: true,
-			note: sourceFile.name.toLowerCase().endsWith('.pdf') ? 'PDF uploaded. Text extraction is limited in MVP mode.' : undefined
+			isCustom: true
 		};
 	};
 
@@ -331,6 +360,12 @@
 									{/if}
 								</div>
 								<p class="text-[11px] text-white/60 leading-relaxed line-clamp-2">{doc.description}</p>
+								{#if doc.content && doc.content.length > 0}
+									<details class="mt-1">
+										<summary class="text-[10px] text-flare/70 hover:text-flare cursor-pointer select-none">View extracted text</summary>
+										<pre class="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap text-[10px] text-white/50 leading-relaxed bg-black/30 rounded p-2">{doc.content.slice(0, 2000)}{doc.content.length > 2000 ? '\n\n… (click title to view full text)' : ''}</pre>
+									</details>
+								{/if}
 								{#if doc.sourceUrl}
 									<a href={doc.sourceUrl.startsWith('http') ? doc.sourceUrl : undefined} target="_blank" rel="noreferrer" class="text-[10px] text-flare hover:underline break-all line-clamp-1">{doc.sourceUrl}</a>
 								{/if}
@@ -407,8 +442,9 @@
 			{:else if sourceMode === 'upload'}
 				<input bind:value={sourceTitle} placeholder={t('library.sourceTitle', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white" />
 				<input bind:value={sourceDescription} placeholder={t('library.sourceDescription', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white" />
-				<input type="file" accept=".pdf,.txt,.md,.doc,.docx" on:change={(e) => (sourceFile = (e.currentTarget as HTMLInputElement).files?.[0] ?? null)} class="w-full text-sm text-white/70" />
-				<button type="button" on:click={prepareUploadSource} class="px-4 py-2 border border-white/20 rounded text-xs font-bold uppercase tracking-widest text-white hover:bg-white/10">{t('library.preview', $language)}</button>
+				<input type="file" accept=".pdf,.txt,.md" on:change={(e) => (sourceFile = (e.currentTarget as HTMLInputElement).files?.[0] ?? null)} class="w-full text-sm text-white/70" />
+				<p class="text-xs text-white/40">{t('library.pdfSupported', $language)}</p>
+				<button type="button" on:click={prepareUploadSource} disabled={ingesting} class="px-4 py-2 border border-white/20 rounded text-xs font-bold uppercase tracking-widest text-white hover:bg-white/10 disabled:opacity-50">{ingesting ? t('library.parsingPdf', $language) : t('library.preview', $language)}</button>
 			{:else}
 				<input bind:value={sourceTitle} placeholder={t('library.sourceTitle', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white" />
 				<input bind:value={sourceDescription} placeholder={t('library.sourceDescription', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white" />
