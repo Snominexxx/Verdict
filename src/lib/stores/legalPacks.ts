@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import { writable, get } from 'svelte/store';
 import type { LibraryDocument } from '$lib/data/library';
+import { userKey } from './userSession';
 
 export type LegalPack = {
 	id: string;
@@ -207,14 +208,16 @@ const createLegalPacksStore = () => {
 
 	const persist = (packs: LegalPack[]) => {
 		if (!browser) return;
-		localStorage.setItem(STORAGE_KEY, JSON.stringify(packs));
+		const key = userKey(STORAGE_KEY);
+		if (key) localStorage.setItem(key, JSON.stringify(packs));
 	};
 
 	const hydrate = () => {
 		if (!browser) return;
 		// Load localStorage immediately for fast display
 		try {
-			const raw = localStorage.getItem(STORAGE_KEY);
+			const key = userKey(STORAGE_KEY);
+			const raw = key ? localStorage.getItem(key) : null;
 			if (raw) {
 				const parsed = JSON.parse(raw) as LegalPack[];
 				const merged = [...defaultPacks];
@@ -289,8 +292,11 @@ const createLegalPacksStore = () => {
 			scheduleSync(next, [id]);
 			return next;
 		});
-		if (browser && localStorage.getItem(SELECTED_PACK_KEY) === id) {
-			localStorage.removeItem(SELECTED_PACK_KEY);
+		if (browser) {
+			const key = userKey(SELECTED_PACK_KEY);
+			if (key && localStorage.getItem(key) === id) {
+				localStorage.removeItem(key);
+			}
 		}
 	};
 
@@ -340,14 +346,18 @@ const createSelectedPackStore = () => {
 
 	const hydrate = () => {
 		if (!browser) return;
-		set(localStorage.getItem(SELECTED_PACK_KEY) ?? '');
+		const key = userKey(SELECTED_PACK_KEY);
+		set(key ? localStorage.getItem(key) ?? '' : '');
 	};
 
 	const select = (packId: string) => {
 		set(packId);
 		if (!browser) return;
-		if (packId) localStorage.setItem(SELECTED_PACK_KEY, packId);
-		else localStorage.removeItem(SELECTED_PACK_KEY);
+		const key = userKey(SELECTED_PACK_KEY);
+		if (key) {
+			if (packId) localStorage.setItem(key, packId);
+			else localStorage.removeItem(key);
+		}
 	};
 
 	return { subscribe, hydrate, select };

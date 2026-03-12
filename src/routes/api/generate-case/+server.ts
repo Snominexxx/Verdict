@@ -15,7 +15,10 @@ const universalCaseTypes = [
 	'professional negligence'
 ];
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
+	const { session } = await locals.safeGetSession();
+	if (!session) throw error(401, 'Authentication required.');
+
 	if (!env.LLM_API_KEY) {
 		throw error(500, 'LLM_API_KEY is not configured.');
 	}

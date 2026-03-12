@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { debateStore, appendTurn, seedTranscript } from '$lib/stores/debate';
+	import { debateStore, appendTurn, seedTranscript, saveTurns, loadTurns, clearSavedTurns } from '$lib/stores/debate';
 	import { stagedCaseStore, hydrateStagedCase, clearStagedCase } from '$lib/stores/stagedCase';
 	import { legalPacksStore } from '$lib/stores/legalPacks';
 	import type { LibraryDocument } from '$lib/data/library';
@@ -15,6 +15,7 @@
 	import { language } from '$lib/stores/language';
 	import { t } from '$lib/i18n';
 	import { get } from 'svelte/store';
+	import { subscriptionStore, TIER_CONFIG } from '$lib/stores/subscription';
 
 	export let data: PageData;
 
@@ -47,15 +48,30 @@
 		{ key: 'factFidelity', label: 'debate.metricFactFidelity' }
 	] as const;
 
+	let turnsLoaded = false;
+
 	onMount(() => {
 		legalPacksStore.hydrate();
+		// If a staged case already exists (e.g. navigated from court page), load its turns
+		const sc = get(stagedCaseStore);
+		if (sc && !turnsLoaded) {
+			turnsLoaded = true;
+			loadTurns(sc.id).then((found) => {
+				if (!found) seedTranscript(sc);
+			});
+		}
 	});
 
 	$: stagedCase = $stagedCaseStore;
 	$: isBenchTrial = stagedCase?.courtType === 'bench';
 	$: if (data?.stagedCase && !$stagedCaseStore) {
 		hydrateStagedCase(data.stagedCase);
-		seedTranscript(data.stagedCase);
+		if (!turnsLoaded) {
+			turnsLoaded = true;
+			loadTurns(data.stagedCase.id).then((found) => {
+				if (!found) seedTranscript(data.stagedCase);
+			});
+		}
 	}
 	$: allPackSources = $legalPacksStore.flatMap((pack) => pack.sources);
 	$: activePack = stagedCase?.packId
@@ -85,8 +101,14 @@
 		focusArmed = false;
 	}
 
+	// Round cap enforcement
+	$: litigantTurnCount = $debateStore.filter(t => t.role === 'litigant').length;
+	$: maxRounds = TIER_CONFIG[$subscriptionStore.tier].maxRounds;
+	$: roundCapReached = litigantTurnCount >= maxRounds;
+
 	const submitPrompt = async () => {
 		if (!prompt.trim() || !stagedCase) return;
+		if (roundCapReached) return;
 		const currentPrompt = prompt.trim();
 		prompt = '';
 		sending = true;
@@ -98,6 +120,9 @@
 			timestamp: now
 		};
 		appendTurn(litigatorTurn);
+
+		// Collect new turns to save
+		const newTurns: DebateTurn[] = [litigatorTurn];
 
 		try {
 			const response = await fetch('/api/debate', {
@@ -128,18 +153,27 @@
 				const prefix = result.judgeInterjection.type
 					? `[${result.judgeInterjection.type.toUpperCase()}] `
 					: '';
-				appendTurn({
+				const interjectionTurn: DebateTurn = {
 					role: 'judge',
 					speaker: result.judgeInterjection.speaker,
 					message: `${prefix}${result.judgeInterjection.message}`,
 					timestamp: result.judgeInterjection.timestamp
-				});
+				};
+				appendTurn(interjectionTurn);
+				newTurns.push(interjectionTurn);
 			}
 
-			appendTurn({
+			const replyTurn: DebateTurn = {
 				...result.reply,
 				timestamp: new Date().toISOString()
-			});
+			};
+			appendTurn(replyTurn);
+			newTurns.push(replyTurn);
+
+			// Save all new turns from this exchange
+			if (stagedCase?.id) {
+				saveTurns(stagedCase.id, newTurns);
+			}
 
 			// Handle scores based on court type
 			if (result.courtType === 'bench') {
@@ -165,6 +199,7 @@
 	};
 
 	const restartDebate = () => {
+		if (stagedCase?.id) clearSavedTurns(stagedCase.id);
 		seedTranscript(stagedCase ?? undefined);
 		jurorScores = [];
 		judgeMind = null;
@@ -484,11 +519,22 @@
 
 			<!-- Input Area -->
 			<div class="p-4 border-t border-white/10 bg-[#05030b]/80 backdrop-blur-md">
+				{#if roundCapReached}
+					<div class="text-center py-3">
+						<p class="text-sm font-semibold text-white/70 mb-1">{t('debate.roundLimitReached', $language)}</p>
+						<p class="text-xs text-white/40">{t('debate.roundLimitDesc', $language)}</p>
+					</div>
+				{:else}
+					<div class="flex items-center justify-between mb-2">
+						<span class="text-[10px] text-white/30 font-mono">{t('debate.roundCounter', $language)}: {litigantTurnCount}/{maxRounds}</span>
+					</div>
+				{/if}
 				<form class="relative" on:submit|preventDefault={submitPrompt}>
 					<textarea
 						bind:value={prompt}
 						class="w-full bg-[#0a0814] border border-white/10 rounded-lg p-4 text-base text-white focus:outline-none focus:border-flare/50 focus:ring-1 focus:ring-flare/50 transition-all min-h-[100px] pr-20 font-mono resize-none"
 						placeholder={t('debate.inputPlaceholder', $language)}
+						disabled={roundCapReached}
 						on:keydown={(e) => { if((e.ctrlKey || e.metaKey) && e.key === 'Enter') submitPrompt(); }}
 					></textarea>
 					<div class="absolute bottom-3 right-3 flex items-center gap-2">
@@ -497,7 +543,7 @@
 							type="submit"
 							aria-label="Send Message"
 							class="p-2 rounded-md bg-white text-ink hover:bg-white/90 hover:text-black transition disabled:opacity-50 disabled:cursor-not-allowed"
-							disabled={sending || !prompt.trim()}
+							disabled={sending || !prompt.trim() || roundCapReached}
 						>
 							<svg class="w-4 h-4 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="square" stroke-linejoin="miter" stroke-width="2" d="M12 19V5m-7 7l7-7 7 7"></path></svg>
 						</button>

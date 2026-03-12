@@ -3,7 +3,6 @@
 	import { goto } from '$app/navigation';
 	import { caseHistoryStore, type CaseHistoryEntry } from '$lib/stores/caseHistory';
 	import { stageCase } from '$lib/stores/stagedCase';
-	import { seedTranscript } from '$lib/stores/debate';
 	import type { StagedCase } from '$lib/types';
 	import { language } from '$lib/stores/language';
 	import { t } from '$lib/i18n';
@@ -25,7 +24,6 @@
 	const resumeCase = (entry: CaseHistoryEntry) => {
 		const record = toStagedCase(entry);
 		stageCase(record);
-		seedTranscript(record);
 		caseHistoryStore.markCaseOngoing(entry.id);
 		goto('/debate');
 	};

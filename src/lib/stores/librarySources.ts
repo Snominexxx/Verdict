@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import { writable } from 'svelte/store';
 import { libraryDocuments, type LibraryDocument } from '$lib/data/library';
+import { userKey } from './userSession';
 
 const STORAGE_KEY = 'verdict.librarySources.v1';
 
@@ -9,13 +10,15 @@ const createLibrarySourcesStore = () => {
 
 	const persist = (docs: LibraryDocument[]) => {
 		if (!browser) return;
-		localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
+		const key = userKey(STORAGE_KEY);
+		if (key) localStorage.setItem(key, JSON.stringify(docs));
 	};
 
 	const hydrate = () => {
 		if (!browser) return;
 		try {
-			const raw = localStorage.getItem(STORAGE_KEY);
+			const key = userKey(STORAGE_KEY);
+			const raw = key ? localStorage.getItem(key) : null;
 			if (!raw) {
 				set(libraryDocuments);
 				return;

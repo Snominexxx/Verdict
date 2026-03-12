@@ -127,10 +127,8 @@ create policy "Users can read own subscription"
   on subscriptions for select
   using (auth.uid() = user_id);
 
-create policy "Service role can manage subscriptions"
-  on subscriptions for all
-  using (true)
-  with check (true);
+-- Note: The service_role key bypasses RLS by default in Supabase.
+-- No additional permissive policy is needed for webhook writes.
 
 -- 5. Staged Cases (temporary pre-debate cases)
 create table if not exists staged_cases (
@@ -158,4 +156,32 @@ create policy "Users can insert own staged cases"
 
 create policy "Users can delete own staged cases"
   on staged_cases for delete
+  using (auth.uid() = user_id);
+
+-- 6. Debate Turns (conversation history per case)
+create table if not exists debate_turns (
+  id          uuid primary key default gen_random_uuid(),
+  case_id     text not null references cases(id) on delete cascade,
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  role        text not null,
+  speaker     text not null,
+  message     text not null,
+  citations   jsonb default '[]'::jsonb,
+  created_at  timestamptz default now()
+);
+
+create index if not exists idx_debate_turns_case on debate_turns(case_id, created_at);
+
+alter table debate_turns enable row level security;
+
+create policy "Users can read own debate turns"
+  on debate_turns for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own debate turns"
+  on debate_turns for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete own debate turns"
+  on debate_turns for delete
   using (auth.uid() = user_id);

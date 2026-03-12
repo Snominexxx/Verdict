@@ -6,7 +6,10 @@ import { generatePerformanceEvaluation } from '$lib/server/llm';
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
+	const { session } = await locals.safeGetSession();
+	if (!session) throw error(401, 'Authentication required.');
+
 	const payload = await request.json();
 	const stagedCase = payload.case as StagedCase | undefined;
 	const transcript = (payload.transcript as DebateTurn[] | undefined) ?? [];

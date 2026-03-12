@@ -9,17 +9,21 @@
 	import { subscriptionStore } from '$lib/stores/subscription';
 	import { language, toggleLanguage } from '$lib/stores/language';
 	import { t } from '$lib/i18n';
+	import { setActiveUser, clearAllUserData } from '$lib/stores/userSession';
 
 	let { data, children } = $props();
 
 	onMount(() => {
-		// Hydrate from localStorage first (fast)
-		caseHistoryStore.hydrateCaseHistory();
-		legalPacksStore.hydrate();
-		subscriptionStore.hydrate();
+		const userId = data.session?.user?.id ?? null;
+		setActiveUser(userId);
 
-		// Then load from Supabase if logged in
-		if (data.session) {
+		if (userId) {
+			// Hydrate from user-namespaced localStorage first (fast)
+			caseHistoryStore.hydrateCaseHistory();
+			legalPacksStore.hydrate();
+			subscriptionStore.hydrate();
+
+			// Then load from Supabase
 			legalPacksStore.loadFromRemote();
 			caseHistoryStore.loadFromRemote();
 			subscriptionStore.loadFromRemote();
@@ -33,6 +37,7 @@
 	});
 
 	const signOut = async () => {
+		clearAllUserData();
 		await data.supabase.auth.signOut();
 		window.location.href = '/login';
 	};
@@ -132,4 +137,11 @@
 			{@render children()}
 		</div>
 	</main>
+</div>
+
+<!-- Desktop-only gate -->
+<div class="fixed inset-0 z-[9999] bg-ink flex flex-col items-center justify-center px-8 text-center lg:hidden">
+	<svg class="w-12 h-12 text-white/30 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25A2.25 2.25 0 0 1 5.25 3h13.5A2.25 2.25 0 0 1 21 5.25Z" /></svg>
+	<h2 class="text-lg font-display font-bold text-white mb-2">{t('mobile.title', $language)}</h2>
+	<p class="text-sm text-white/60 max-w-xs leading-relaxed">{t('mobile.description', $language)}</p>
 </div>

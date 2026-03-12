@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { language } from '$lib/stores/language';
 	import { t } from '$lib/i18n';
-	import { subscriptionStore } from '$lib/stores/subscription';
+	import { subscriptionStore, TIER_CONFIG } from '$lib/stores/subscription';
 	import { caseHistoryStore } from '$lib/stores/caseHistory';
 	import type { CasePerformance } from '$lib/stores/caseHistory';
 
@@ -44,8 +44,12 @@
 	const scores = $derived(avgScores());
 
 	const tierLabel = $derived(
-		tier === 'pro' ? 'Pro' : tier === 'enterprise' ? t('pricing.enterpriseName', $language) : t('pricing.freeName', $language)
+		tier === 'pro_plus' ? 'Pro+' : tier === 'pro' ? 'Pro' : tier === 'enterprise' ? t('pricing.enterpriseName', $language) : t('pricing.freeName', $language)
 	);
+
+	const creditsUsed = $derived(totalCases);
+	const creditsTotal = $derived(TIER_CONFIG[tier].credits);
+	const maxRounds = $derived(TIER_CONFIG[tier].maxRounds);
 
 	const pillars = $derived([
 		{ key: 'persuasion', label: t('debate.metricPersuasion', $language) },
@@ -71,7 +75,7 @@
 				<div class="flex items-center justify-between">
 					<div>
 						<p class="text-lg font-display font-bold text-white">{tierLabel}</p>
-						{#if tier === 'pro' && renewalDate}
+						{#if (tier === 'pro' || tier === 'pro_plus') && renewalDate}
 							<p class="text-xs text-white/50 mt-1">{t('dashboard.renewsOn', $language)} {renewalDate}</p>
 						{:else if tier === 'free'}
 							<p class="text-xs text-white/50 mt-1">{t('dashboard.freeDesc', $language)}</p>
@@ -86,6 +90,17 @@
 							{t('pricing.manageSub', $language)}
 						</a>
 					{/if}
+				</div>
+				<!-- Credits & Limits -->
+				<div class="mt-4 pt-4 border-t border-white/10 grid grid-cols-2 gap-4">
+					<div>
+						<p class="text-[10px] uppercase tracking-wider text-white/40 mb-1">{t('dashboard.creditsUsed', $language)}</p>
+						<p class="text-lg font-bold text-white">{creditsUsed}<span class="text-sm text-white/40">/{creditsTotal}</span></p>
+					</div>
+					<div>
+						<p class="text-[10px] uppercase tracking-wider text-white/40 mb-1">{t('dashboard.maxRounds', $language)}</p>
+						<p class="text-lg font-bold text-white">{maxRounds}</p>
+					</div>
 				</div>
 			</div>
 

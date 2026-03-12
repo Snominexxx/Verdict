@@ -26,7 +26,10 @@ const normalizeSources = (payloadSources: unknown, fallbackIds: string[]): Libra
 	return libraryDocuments.filter((doc) => fallback.has(doc.id));
 };
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
+	const { session } = await locals.safeGetSession();
+	if (!session) throw error(401, 'Authentication required.');
+
 	const payload = await request.json();
 	const prompt = String(payload.prompt ?? '').trim();
 	const stagedCase = payload.case as StagedCase | undefined;

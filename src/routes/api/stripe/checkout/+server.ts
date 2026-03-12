@@ -3,11 +3,17 @@ import type { RequestHandler } from './$types';
 import { stripe } from '$lib/server/stripe';
 import { env } from '$env/dynamic/private';
 
-export const POST: RequestHandler = async ({ locals, url }) => {
+export const POST: RequestHandler = async ({ locals, url, request }) => {
 	const { session } = await locals.safeGetSession();
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
-	const priceId = env.STRIPE_PRICE_ID ?? '';
+	const body = await request.json().catch(() => ({}));
+	const requestedTier = (body as { tier?: string }).tier ?? 'pro';
+
+	const priceId = requestedTier === 'pro_plus'
+		? (env.STRIPE_PRICE_ID_PLUS ?? '')
+		: (env.STRIPE_PRICE_ID ?? '');
+
 	if (!priceId) return json({ error: 'Stripe not configured' }, { status: 500 });
 
 	// Look up or create Stripe customer
@@ -33,7 +39,7 @@ export const POST: RequestHandler = async ({ locals, url }) => {
 		mode: 'subscription',
 		success_url: `${url.origin}/pricing?success=true`,
 		cancel_url: `${url.origin}/pricing?canceled=true`,
-		metadata: { supabase_user_id: session.user.id }
+		metadata: { supabase_user_id: session.user.id, tier: requestedTier }
 	});
 
 	return json({ url: checkoutSession.url });

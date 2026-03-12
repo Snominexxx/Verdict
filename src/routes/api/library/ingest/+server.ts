@@ -13,6 +13,27 @@ const stripHtml = (html: string) =>
 		.replace(/\s+/g, ' ')
 		.trim();
 
+/**
+ * When the URL has a #fragment, find the element with that id in the raw HTML
+ * and extract text from that anchor point forward (up to ~50k chars of HTML).
+ * Falls back to null if the fragment isn't found.
+ */
+const extractAroundAnchor = (html: string, fragment: string): string | null => {
+	if (!fragment) return null;
+	// Escape regex special chars in the fragment (e.g. "se:1" has a colon)
+	const escaped = fragment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	// Match id="fragment" or id='fragment' (case-insensitive)
+	const pattern = new RegExp(`id=["']${escaped}["']`, 'i');
+	const match = pattern.exec(html);
+	if (!match) return null;
+
+	// Take a generous chunk from the anchor point forward
+	const chunk = html.slice(match.index, match.index + 50_000);
+	const text = stripHtml(chunk);
+	// Only use if we got meaningful content (at least 100 chars)
+	return text.length >= 100 ? text : null;
+};
+
 const detectJurisdiction = (host: string, text: string) => {
 	const haystack = `${host} ${text}`.toLowerCase();
 	if (haystack.includes('quebec') || haystack.includes('qc.ca') || haystack.includes('legisquebec')) return 'Quebec';
@@ -42,7 +63,32 @@ const toSourceId = (url: string) => {
 	return `url-${safe.slice(0, 48)}-${Date.now().toString().slice(-6)}`;
 };
 
-export const POST: RequestHandler = async ({ request }) => {
+const isPrivateIP = (hostname: string): boolean => {
+	// Block SSRF: disallow private/internal IP ranges and localhost
+	const blocked = [
+		/^localhost$/i,
+		/^127\./,
+		/^10\./,
+		/^172\.(1[6-9]|2\d|3[0-1])\./,
+		/^192\.168\./,
+		/^0\./,
+		/^169\.254\./,
+		/^\[::1\]$/,
+		/^\[fc/i,
+		/^\[fd/i,
+		/^\[fe80:/i,
+		/\.local$/i,
+		/\.internal$/i
+	];
+	return blocked.some((p) => p.test(hostname));
+};
+
+export const POST: RequestHandler = async ({ request, locals }) => {
+	const { session } = await locals.safeGetSession();
+	if (!session) {
+		throw error(401, 'Authentication required.');
+	}
+
 	const payload = await request.json().catch(() => null);
 	const rawUrl = String(payload?.url ?? '').trim();
 
@@ -59,14 +105,19 @@ export const POST: RequestHandler = async ({ request }) => {
 		throw error(400, 'Only http/https URLs are supported.');
 	}
 
+	if (isPrivateIP(parsedUrl.hostname)) {
+		throw error(400, 'URLs pointing to private or internal networks are not allowed.');
+	}
+
 	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), 12000);
+	const timeout = setTimeout(() => controller.abort(), 25000);
 
 	try {
 		const response = await fetch(parsedUrl.toString(), {
 			headers: {
-				'User-Agent': 'Verdict-Library-Ingest/1.0',
-				Accept: 'text/html,application/xhtml+xml,text/plain,application/pdf;q=0.8,*/*;q=0.5'
+				'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+				Accept: 'text/html,application/xhtml+xml,text/plain,*/*;q=0.8',
+				'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8'
 			},
 			signal: controller.signal,
 			redirect: 'follow'
@@ -78,17 +129,42 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
 		if (contentType.includes('pdf')) {
-			throw error(400, 'PDF URL detected. Please upload PDF directly or use a text-based law page URL.');
+			throw error(400, 'This is a PDF link. Use the PDF upload button instead.');
 		}
 
-		const html = await response.text();
+		// Read response in chunks to handle very large pages (cap at 2MB)
+		const maxBytes = 2 * 1024 * 1024;
+		const reader = response.body?.getReader();
+		if (!reader) throw error(500, 'Unable to read response body.');
+
+		const chunks: Uint8Array[] = [];
+		let totalBytes = 0;
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			chunks.push(value);
+			totalBytes += value.length;
+			if (totalBytes >= maxBytes) break;
+		}
+		reader.cancel().catch(() => {});
+
+		const decoder = new TextDecoder('utf-8', { fatal: false });
+		const html = decoder.decode(Buffer.concat(chunks).slice(0, maxBytes));
 		const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
 		const title = titleMatch?.[1]?.replace(/\s+/g, ' ').trim() || parsedUrl.hostname;
-		const text = stripHtml(html);
+		const fullText = stripHtml(html);
+
+		// If URL has a #fragment, try to extract content around that anchor
+		const fragment = parsedUrl.hash?.slice(1); // remove leading '#'
+		const anchorText = extractAroundAnchor(html, fragment);
+		const text = anchorText ?? fullText;
+
 		const excerpt = text.slice(0, 320);
 		const jurisdiction = detectJurisdiction(parsedUrl.hostname, `${title} ${excerpt}`);
 		const docType = detectDocType(`${title} ${excerpt}`);
 		const trustLevel = detectTrustLevel(parsedUrl.hostname);
+		// Cap stored content to avoid oversized DB rows (keep first 100k chars)
+		const content = text.slice(0, 100_000);
 
 		return json({
 			document: {
@@ -98,7 +174,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				description: excerpt || 'Imported from URL source.',
 				lastUpdated: new Date().toISOString().slice(0, 10),
 				sourceUrl: parsedUrl.toString(),
-				content: text,
+				content,
 				docType,
 				trustLevel,
 				isCustom: true,
@@ -108,7 +184,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	} catch (err) {
 		if (err instanceof Response) throw err;
 		if ((err as Error).name === 'AbortError') {
-			throw error(408, 'URL fetch timed out.');
+			throw error(408, 'The page took too long to load. Try a more specific URL (e.g. a single article instead of a full code).');
 		}
 		if ((err as Error).message?.startsWith('Unable to fetch URL')) {
 			throw err;

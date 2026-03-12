@@ -12,6 +12,13 @@ const translations = {
 		fr: 'Verdict — débattez contre un avocat IA devant cinq jurés autonomes.'
 	},
 
+	// ===== MOBILE GATE =====
+	'mobile.title': { en: 'Desktop Only', fr: 'Bureau uniquement' },
+	'mobile.description': {
+		en: 'Verdict is a professional tool optimized for desktop browsers. Please switch to a laptop or desktop to continue.',
+		fr: 'Verdict est un outil professionnel optimisé pour les navigateurs de bureau. Veuillez utiliser un ordinateur portable ou de bureau pour continuer.'
+	},
+
 	// ===== AUTH =====
 	'auth.pageTitle': { en: 'Sign In', fr: 'Connexion' },
 	'auth.tagline': { en: 'Argue your case. Face the jury.', fr: 'Plaidez votre cause. Faites face au jury.' },
@@ -67,17 +74,17 @@ const translations = {
 	'cases.plaintiff': { en: 'Plaintiff', fr: 'Demandeur' },
 	'cases.defendant': { en: 'Defendant', fr: 'Défendeur' },
 	'cases.selectSideRequired': { en: 'Select a side before you initialize the case.', fr: 'Sélectionnez un côté avant de créer la cause.' },
+	'cases.fieldRequired': { en: 'This field is required.', fr: 'Ce champ est requis.' },
 	'cases.whatHappened': { en: 'What Happened', fr: 'Les faits' },
 	'cases.whatHappenedPlaceholder': { en: '> Short, clear summary of the facts.', fr: '> Résumé court et clair des faits.' },
 	'cases.mainQuestion': { en: 'Main Question', fr: 'Question principale' },
 	'cases.mainQuestionPlaceholder': { en: '> What should the court decide?', fr: '> Que devrait décider le tribunal?' },
 	'cases.whatYouWant': { en: 'What Plaintiff Wants', fr: 'Ce que le demandeur demande' },
-	'cases.whatYouWantPlaceholder': { en: '> The outcome you want.', fr: '> Le résultat souhaité.' },
+	'cases.plaintiffPlaceholderYou': { en: '> The outcome you are seeking.', fr: '> Le résultat que vous recherchez.' },
+	'cases.plaintiffPlaceholderOther': { en: '> What the plaintiff is seeking (compensation, injunction, etc.).', fr: '> Ce que le demandeur recherche (compensation, injonction, etc.).' },
 	'cases.whatDefendantWants': { en: 'What Defendant Wants', fr: 'Ce que le défendeur demande' },
-	'cases.whatDefendantWantsPlaceholder': {
-		en: '> The outcome the defendant asks for (dismiss/reduce/deny).',
-		fr: '> Le résultat que le défendeur demande (rejet/réduction/refus).'
-	},
+	'cases.defendantPlaceholderYou': { en: '> Your defense position (dismiss, reduce, deny).', fr: '> Votre position de défense (rejet, réduction, refus).' },
+	'cases.defendantPlaceholderOther': { en: '> What the defendant asks for (dismiss, reduce, deny).', fr: '> Ce que le défendeur demande (rejet, réduction, refus).' },
 	'cases.legalPack': { en: 'Legal Pack', fr: 'Pack juridique' },
 	'cases.selectPackRequired': {
 		en: 'Select a legal pack before you initialize the case.',
@@ -156,6 +163,9 @@ const translations = {
 	'debate.stanceUndecided': { en: 'Undecided', fr: 'Indécis' },
 	'debate.jurorListening': { en: 'Listening...', fr: 'À l\'écoute...' },
 	'debate.errorFallback': { en: 'Unable to process your argument.', fr: 'Impossible de traiter votre argument.' },
+	'debate.roundCounter': { en: 'Rounds', fr: 'Tours' },
+	'debate.roundLimitReached': { en: 'Round limit reached', fr: 'Limite de tours atteinte' },
+	'debate.roundLimitDesc': { en: 'You\'ve used all rounds for this debate. End the case to receive your score.', fr: 'Vous avez utilisé tous vos tours pour ce débat. Terminez la cause pour obtenir votre note.' },
 	'debate.performanceTitle': { en: 'Case Performance', fr: 'Performance de la cause' },
 	'debate.scoringNow': { en: 'Scoring your advocacy performance...', fr: 'Évaluation de votre performance en plaidoirie...' },
 	'debate.metricPersuasion': { en: 'Persuasion', fr: 'Persuasion' },
@@ -367,8 +377,8 @@ const translations = {
 	'pricing.kicker': { en: 'Plans & Pricing', fr: 'Plans et tarifs' },
 	'pricing.title': { en: 'Choose Your Plan', fr: 'Choisissez votre plan' },
 	'pricing.subtitle': {
-		en: 'Start free, upgrade when you need unlimited advocacy practice.',
-		fr: 'Commencez gratuitement, passez au Pro pour une pratique illimitée.'
+		en: 'Start free, upgrade when you need more advocacy practice.',
+		fr: 'Commencez gratuitement, passez au Pro pour plus de pratique.'
 	},
 	'pricing.month': { en: 'month', fr: 'mois' },
 	'pricing.popular': { en: 'Most Popular', fr: 'Le plus populaire' },
@@ -378,8 +388,8 @@ const translations = {
 	'pricing.talkToUs': { en: 'Talk to Us', fr: 'Contactez-nous' },
 	'pricing.contactUs': { en: 'Custom Pricing', fr: 'Tarif sur mesure' },
 	'pricing.successMessage': {
-		en: 'Welcome to Verdict Pro! You now have unlimited access.',
-		fr: 'Bienvenue dans Verdict Pro! Vous avez maintenant un accès illimité.'
+		en: 'Welcome to Verdict Pro! You now have access to 30 debates per month.',
+		fr: 'Bienvenue dans Verdict Pro! Vous avez maintenant accès à 30 débats par mois.'
 	},
 	'pricing.canceledMessage': {
 		en: 'Checkout was canceled. You can try again anytime.',
@@ -387,40 +397,49 @@ const translations = {
 	},
 	'pricing.freeName': { en: 'Free', fr: 'Gratuit' },
 	'pricing.freeDesc': {
-		en: 'Try Verdict with up to 3 debates.',
-		fr: 'Essayez Verdict avec un maximum de 3 débats.'
+		en: 'Try Verdict with up to 3 credits.',
+		fr: 'Essayez Verdict avec jusqu\'à 3 crédits.'
 	},
-	'pricing.freeFeature1': { en: '3 debates (jury or bench)', fr: '3 débats (jury ou juge)' },
-	'pricing.freeFeature2': { en: 'Full AI advocacy engine', fr: 'Moteur IA de plaidoirie complet' },
+	'pricing.freeFeature1': { en: '3 credits per month', fr: '3 crédits par mois' },
+	'pricing.freeFeature2': { en: '10 rounds per debate', fr: '10 tours par débat' },
 	'pricing.freeFeature3': { en: 'Performance scoring', fr: 'Notation de performance' },
 	'pricing.proName': { en: 'Pro', fr: 'Pro' },
 	'pricing.proDesc': {
-		en: 'Unlimited advocacy practice for professionals.',
-		fr: 'Pratique de plaidoirie illimitée pour les professionnels.'
+		en: '20 credits per month for serious practitioners.',
+		fr: '20 crédits par mois pour les praticiens sérieux.'
 	},
-	'pricing.proFeature1': { en: 'Unlimited debates', fr: 'Débats illimités' },
-	'pricing.proFeature2': { en: 'Unlimited legal packs & sources', fr: 'Packs juridiques et sources illimités' },
+	'pricing.proFeature1': { en: '20 credits per month', fr: '20 crédits par mois' },
+	'pricing.proFeature2': { en: '15 rounds per debate', fr: '15 tours par débat' },
 	'pricing.proFeature3': { en: 'Full case history & analytics', fr: 'Historique complet et analytique' },
-	'pricing.proFeature4': { en: 'Priority AI processing', fr: 'Traitement IA prioritaire' },
+	'pricing.proFeature4': { en: 'Unlimited legal packs', fr: 'Packs juridiques illimités' },
+	'pricing.proPlusName': { en: 'Pro+', fr: 'Pro+' },
+	'pricing.proPlusDesc': {
+		en: '60 credits per month for power users.',
+		fr: '60 crédits par mois pour les utilisateurs avancés.'
+	},
+	'pricing.proPlusFeature1': { en: '60 credits per month', fr: '60 crédits par mois' },
+	'pricing.proPlusFeature2': { en: '20 rounds per debate', fr: '20 tours par débat' },
+	'pricing.proPlusFeature3': { en: 'Priority AI processing', fr: 'Traitement IA prioritaire' },
+	'pricing.proPlusFeature4': { en: 'Everything in Pro', fr: 'Tout le contenu Pro inclus' },
 	'pricing.enterpriseName': { en: 'Enterprise', fr: 'Entreprise' },
 	'pricing.enterpriseDesc': {
 		en: 'For law firms, schools, and institutions.',
 		fr: 'Pour cabinets, écoles et institutions.'
 	},
-	'pricing.entFeature1': { en: 'Everything in Pro', fr: 'Tout ce qui est dans Pro' },
+	'pricing.entFeature1': { en: 'Everything in Pro+', fr: 'Tout ce qui est dans Pro+' },
 	'pricing.entFeature2': { en: 'Custom deployment', fr: 'Déploiement personnalisé' },
 	'pricing.entFeature3': { en: 'Dedicated support', fr: 'Support dédié' },
 	'pricing.entFeature4': { en: 'Custom integrations', fr: 'Intégrations sur mesure' },
 	'pricing.limitReached': {
-		en: 'You\'ve reached the free debate limit.',
-		fr: 'Vous avez atteint la limite de débats gratuits.'
+		en: 'You\'ve reached your credit limit for this period.',
+		fr: 'Vous avez atteint votre limite de crédits pour cette période.'
 	},
 	'pricing.limitDesc': {
-		en: 'Upgrade to Pro for unlimited debates and full access.',
-		fr: 'Passez au Pro pour des débats illimités et un accès complet.'
+		en: 'Upgrade your plan for more credits and longer debates.',
+		fr: 'Passez à un plan supérieur pour plus de crédits et des débats plus longs.'
 	},
-	'pricing.upgradePro': { en: 'Upgrade to Pro', fr: 'Passer au Pro' },
-	'pricing.debatesRemaining': { en: 'Free debates remaining', fr: 'Débats gratuits restants' },
+	'pricing.upgradePro': { en: 'Upgrade', fr: 'Passer au supérieur' },
+	'pricing.debatesRemaining': { en: 'Credits remaining', fr: 'Crédits restants' },
 	'nav.pricing': { en: 'Pricing', fr: 'Tarifs' },
 
 	// ===== DASHBOARD =====
@@ -428,9 +447,11 @@ const translations = {
 	'dashboard.title': { en: 'Dashboard', fr: 'Tableau de bord' },
 	'dashboard.subscription': { en: 'Subscription', fr: 'Abonnement' },
 	'dashboard.renewsOn': { en: 'Renews on', fr: 'Renouvellement le' },
-	'dashboard.freeDesc': { en: 'Limited to 3 debates. Upgrade for unlimited access.', fr: 'Limité à 3 débats. Passez au Pro pour un accès illimité.' },
+	'dashboard.freeDesc': { en: 'Limited to 3 credits. Upgrade for more credits and longer debates.', fr: 'Limité à 3 crédits. Passez au supérieur pour plus de crédits.' },
 	'dashboard.cases': { en: 'Cases', fr: 'Causes' },
 	'dashboard.totalCases': { en: 'Total', fr: 'Total' },
+	'dashboard.creditsUsed': { en: 'Credits Used', fr: 'Crédits utilisés' },
+	'dashboard.maxRounds': { en: 'Max Rounds / Debate', fr: 'Tours max / débat' },
 	'dashboard.performance': { en: 'Overall Performance', fr: 'Performance globale' },
 	'dashboard.noScores': { en: 'No scored debates yet. End a case to see your performance.', fr: 'Aucun débat noté. Terminez une cause pour voir votre performance.' },
 	'dashboard.basedOn': { en: 'Based on', fr: 'Basé sur' },

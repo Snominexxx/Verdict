@@ -10,6 +10,12 @@ const supabaseAdmin = createClient(
 	env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 );
 
+const resolveTier = (subscription: Stripe.Subscription): 'pro' | 'pro_plus' => {
+	const priceId = subscription.items?.data?.[0]?.price?.id;
+	if (priceId && priceId === env.STRIPE_PRICE_ID_PLUS) return 'pro_plus';
+	return 'pro';
+};
+
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.text();
 	const signature = request.headers.get('stripe-signature');
@@ -35,6 +41,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			if (!userId) break;
 
 			const subscriptionResponse = await stripe.subscriptions.retrieve(subscriptionId);
+			const tier = resolveTier(subscriptionResponse);
 
 			const periodEnd = subscriptionResponse.items?.data?.[0]?.current_period_end;
 
@@ -42,7 +49,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				user_id: userId,
 				stripe_customer_id: customerId,
 				stripe_subscription_id: subscriptionId,
-				tier: 'pro',
+				tier,
 				status: subscriptionResponse.status,
 				current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
 				updated_at: new Date().toISOString()
@@ -63,12 +70,13 @@ export const POST: RequestHandler = async ({ request }) => {
 			if (!sub) break;
 
 			const isActive = ['active', 'trialing'].includes(subscription.status);
+			const tier = isActive ? resolveTier(subscription) : 'free';
 
 			const periodEndUpdated = subscription.items?.data?.[0]?.current_period_end;
 
 			await supabaseAdmin.from('subscriptions').update({
 				status: subscription.status,
-				tier: isActive ? 'pro' : 'free',
+				tier,
 				current_period_end: periodEndUpdated
 					? new Date(periodEndUpdated * 1000).toISOString()
 					: null,

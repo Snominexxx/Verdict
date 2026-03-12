@@ -4,21 +4,25 @@
 	import { subscriptionStore } from '$lib/stores/subscription';
 	import { page } from '$app/stores';
 
-	let loading = $state(false);
+	let loading = $state<'pro' | 'pro_plus' | null>(null);
 	let portalLoading = $state(false);
 
 	const success = $derived($page.url.searchParams.get('success') === 'true');
 	const canceled = $derived($page.url.searchParams.get('canceled') === 'true');
 	const currentTier = $derived($subscriptionStore.tier);
 
-	const handleCheckout = async () => {
-		loading = true;
+	const handleCheckout = async (tier: 'pro' | 'pro_plus') => {
+		loading = tier;
 		try {
-			const res = await fetch('/api/stripe/checkout', { method: 'POST' });
+			const res = await fetch('/api/stripe/checkout', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ tier })
+			});
 			const data = await res.json();
 			if (data.url) window.location.href = data.url;
 		} catch {
-			loading = false;
+			loading = null;
 		}
 	};
 
@@ -35,7 +39,7 @@
 </script>
 
 <div class="h-full overflow-auto">
-	<div class="max-w-5xl mx-auto px-6 py-12">
+	<div class="max-w-6xl mx-auto px-6 py-12">
 		<!-- Header -->
 		<div class="text-center mb-12">
 			<p class="text-[10px] uppercase tracking-[0.25em] text-white/40 font-mono mb-2">{t('pricing.kicker', $language)}</p>
@@ -56,7 +60,7 @@
 		{/if}
 
 		<!-- Tiers Grid -->
-		<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+		<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
 			<!-- FREE -->
 			<div class="rounded-xl border border-white/10 bg-white/5 p-6 flex flex-col">
 				<div class="mb-6">
@@ -96,7 +100,7 @@
 				<div class="mb-6">
 					<h2 class="text-lg font-display font-bold text-white">{t('pricing.proName', $language)}</h2>
 					<div class="mt-2">
-						<span class="text-3xl font-bold text-white">$24.99</span>
+						<span class="text-3xl font-bold text-white">$14.99</span>
 						<span class="text-sm text-white/40">/{t('pricing.month', $language)}</span>
 					</div>
 					<p class="text-xs text-white/50 mt-2">{t('pricing.proDesc', $language)}</p>
@@ -127,13 +131,60 @@
 					>
 						{portalLoading ? '...' : t('pricing.manageSub', $language)}
 					</button>
-				{:else}
+				{:else if currentTier === 'free'}
 					<button
-						onclick={handleCheckout}
-						disabled={loading}
+						onclick={() => handleCheckout('pro')}
+						disabled={loading === 'pro'}
 						class="w-full py-2.5 rounded-lg bg-white text-black text-xs font-bold uppercase tracking-wider hover:bg-white/90 transition disabled:opacity-50"
 					>
-						{loading ? '...' : t('pricing.subscribe', $language)}
+						{loading === 'pro' ? '...' : t('pricing.subscribe', $language)}
+					</button>
+				{/if}
+			</div>
+
+			<!-- PRO+ -->
+			<div class="rounded-xl border border-white/15 bg-white/[0.06] p-6 flex flex-col">
+				<div class="mb-6">
+					<h2 class="text-lg font-display font-bold text-white">{t('pricing.proPlusName', $language)}</h2>
+					<div class="mt-2">
+						<span class="text-3xl font-bold text-white">$29.99</span>
+						<span class="text-sm text-white/40">/{t('pricing.month', $language)}</span>
+					</div>
+					<p class="text-xs text-white/50 mt-2">{t('pricing.proPlusDesc', $language)}</p>
+				</div>
+				<ul class="space-y-2 mb-6 flex-1">
+					<li class="text-xs text-white/70 flex items-start gap-2">
+						<span class="text-white/40 mt-0.5">✓</span>
+						{t('pricing.proPlusFeature1', $language)}
+					</li>
+					<li class="text-xs text-white/70 flex items-start gap-2">
+						<span class="text-white/40 mt-0.5">✓</span>
+						{t('pricing.proPlusFeature2', $language)}
+					</li>
+					<li class="text-xs text-white/70 flex items-start gap-2">
+						<span class="text-white/40 mt-0.5">✓</span>
+						{t('pricing.proPlusFeature3', $language)}
+					</li>
+					<li class="text-xs text-white/70 flex items-start gap-2">
+						<span class="text-white/40 mt-0.5">✓</span>
+						{t('pricing.proPlusFeature4', $language)}
+					</li>
+				</ul>
+				{#if currentTier === 'pro_plus'}
+					<button
+						onclick={handlePortal}
+						disabled={portalLoading}
+						class="w-full py-2.5 rounded-lg border border-white/20 bg-white/10 text-xs font-bold uppercase tracking-wider text-white hover:bg-white/20 transition disabled:opacity-50"
+					>
+						{portalLoading ? '...' : t('pricing.manageSub', $language)}
+					</button>
+				{:else if currentTier === 'free' || currentTier === 'pro'}
+					<button
+						onclick={() => handleCheckout('pro_plus')}
+						disabled={loading === 'pro_plus'}
+						class="w-full py-2.5 rounded-lg bg-white/90 text-black text-xs font-bold uppercase tracking-wider hover:bg-white transition disabled:opacity-50"
+					>
+						{loading === 'pro_plus' ? '...' : t('pricing.subscribe', $language)}
 					</button>
 				{/if}
 			</div>

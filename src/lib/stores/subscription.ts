@@ -1,7 +1,8 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
+import { userKey } from './userSession';
 
-export type UserTier = 'free' | 'pro' | 'enterprise';
+export type UserTier = 'free' | 'pro' | 'pro_plus' | 'enterprise';
 
 export type SubscriptionState = {
 	tier: UserTier;
@@ -11,7 +12,13 @@ export type SubscriptionState = {
 };
 
 const STORAGE_KEY = 'verdict.subscription.v1';
-const FREE_DEBATE_LIMIT = 3;
+
+export const TIER_CONFIG = {
+	free:       { credits: 3,   maxRounds: 10 },
+	pro:        { credits: 20,  maxRounds: 15 },
+	pro_plus:   { credits: 60,  maxRounds: 20 },
+	enterprise: { credits: 999, maxRounds: 999 }
+} as const;
 
 const createSubscriptionStore = () => {
 	const { subscribe, set, update } = writable<SubscriptionState>({
@@ -24,7 +31,8 @@ const createSubscriptionStore = () => {
 	const hydrate = () => {
 		if (!browser) return;
 		try {
-			const raw = localStorage.getItem(STORAGE_KEY);
+			const key = userKey(STORAGE_KEY);
+			const raw = key ? localStorage.getItem(key) : null;
 			if (raw) {
 				const parsed = JSON.parse(raw) as SubscriptionState;
 				set({ ...parsed, loaded: true });
@@ -35,7 +43,9 @@ const createSubscriptionStore = () => {
 	};
 
 	const persist = (state: SubscriptionState) => {
-		if (browser) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+		if (!browser) return;
+		const key = userKey(STORAGE_KEY);
+		if (key) localStorage.setItem(key, JSON.stringify(state));
 	};
 
 	const loadFromRemote = async () => {
@@ -63,10 +73,8 @@ const createSubscriptionStore = () => {
 	return {
 		subscribe,
 		hydrate,
-		loadFromRemote,
-		FREE_DEBATE_LIMIT
+		loadFromRemote
 	};
 };
 
 export const subscriptionStore = createSubscriptionStore();
-export { FREE_DEBATE_LIMIT };

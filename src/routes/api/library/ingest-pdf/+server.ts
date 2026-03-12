@@ -22,7 +22,12 @@ const detectDocType = (text: string): 'statute' | 'regulation' | 'case-law' | 's
 	return 'secondary';
 };
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
+	const { session } = await locals.safeGetSession();
+	if (!session) {
+		throw error(401, 'Authentication required.');
+	}
+
 	const contentType = request.headers.get('content-type') ?? '';
 	if (!contentType.includes('multipart/form-data') && !contentType.includes('application/pdf')) {
 		throw error(400, 'Expected a PDF file upload.');

@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 import type { StagedCase } from '$lib/types';
+import { userKey } from './userSession';
 
 export type CasePerformance = {
 	summary: string;
@@ -43,15 +44,16 @@ const createHistoryStore = () => {
 const { subscribe, set, update } = writable<CaseHistoryEntry[]>([]);
 
 const persist = (value: CaseHistoryEntry[]) => {
-if (browser) {
-localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
-}
+if (!browser) return;
+const key = userKey(STORAGE_KEY);
+if (key) localStorage.setItem(key, JSON.stringify(value));
 };
 
 const hydrateCaseHistory = () => {
 if (!browser) return;
 try {
-const raw = localStorage.getItem(STORAGE_KEY);
+const key = userKey(STORAGE_KEY);
+const raw = key ? localStorage.getItem(key) : null;
 if (!raw) {
 set([]);
 return;
