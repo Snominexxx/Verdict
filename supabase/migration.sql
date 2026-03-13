@@ -185,3 +185,82 @@ create policy "Users can insert own debate turns"
 create policy "Users can delete own debate turns"
   on debate_turns for delete
   using (auth.uid() = user_id);
+
+-- 7. RAG: Document Chunks with pgvector embeddings
+create extension if not exists vector with schema extensions;
+
+create table if not exists document_chunks (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  source_id   text not null,
+  pack_id     text,
+  chunk_index int not null default 0,
+  heading     text not null default '',
+  content     text not null,
+  token_count int not null default 0,
+  embedding   vector(1536),
+  metadata    jsonb not null default '{}'::jsonb,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists idx_chunks_embedding
+  on document_chunks using hnsw (embedding vector_cosine_ops)
+  with (m = 16, ef_construction = 64);
+
+create index if not exists idx_chunks_user_source
+  on document_chunks(user_id, source_id);
+
+create index if not exists idx_chunks_user
+  on document_chunks(user_id);
+
+alter table document_chunks enable row level security;
+
+create policy "Users can read own chunks"
+  on document_chunks for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own chunks"
+  on document_chunks for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete own chunks"
+  on document_chunks for delete
+  using (auth.uid() = user_id);
+
+create or replace function match_chunks(
+  query_embedding vector(1536),
+  match_user_id uuid,
+  match_count int default 15,
+  match_pack_id text default null
+)
+returns table (
+  id uuid,
+  source_id text,
+  chunk_index int,
+  heading text,
+  content text,
+  token_count int,
+  metadata jsonb,
+  similarity float
+)
+language plpgsql
+as $$
+begin
+  return query
+  select
+    dc.id,
+    dc.source_id,
+    dc.chunk_index,
+    dc.heading,
+    dc.content,
+    dc.token_count,
+    dc.metadata,
+    1 - (dc.embedding <=> query_embedding) as similarity
+  from document_chunks dc
+  where dc.user_id = match_user_id
+    and (match_pack_id is null or dc.pack_id = match_pack_id)
+    and dc.embedding is not null
+  order by dc.embedding <=> query_embedding
+  limit match_count;
+end;
+$$;

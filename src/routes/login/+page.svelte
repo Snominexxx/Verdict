@@ -40,13 +40,14 @@
 				loading = false;
 				return;
 			}
-			const { error } = await data.supabase.auth.signUp({
+			const { data: signUpData, error } = await data.supabase.auth.signUp({
 				email: email.trim(),
-				password,
-				options: { emailRedirectTo: `${window.location.origin}/auth/callback` }
+				password
 			});
 			if (error) {
 				errorMsg = error.message;
+			} else if (signUpData.session) {
+				window.location.href = '/court';
 			} else {
 				successMsg = t('auth.checkEmail', $language);
 			}

@@ -5,6 +5,7 @@ import { judgePersona } from '$lib/data/judge';
 import type { LibraryDocument } from '$lib/data/library';
 import { libraryDocuments } from '$lib/data/library';
 import { generateDebateAnalysis, generateBenchTrialAnalysis } from '$lib/server/llm';
+import { searchChunks, formatChunksForPrompt } from '$lib/server/rag';
 import type { StagedCase } from '$lib/types';
 
 const normalizeSources = (payloadSources: unknown, fallbackIds: string[]): LibraryDocument[] => {
@@ -50,6 +51,26 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const sources = normalizeSources(payload.sources, stagedCase.sources);
 	const isBenchTrial = stagedCase.courtType === 'bench';
 
+	// RAG: try semantic search for relevant chunks from the user's indexed documents
+	let ragContext: string | undefined;
+	try {
+		const ragQuery = `${stagedCase.synopsis} ${stagedCase.issues || ''} ${prompt}`;
+		const chunks = await searchChunks({
+			supabase: locals.supabase,
+			userId: session.user.id,
+			query: ragQuery,
+			packId: stagedCase.packId,
+			maxChunks: 15,
+			maxTokens: 12000
+		});
+		if (chunks.length > 0) {
+			ragContext = formatChunksForPrompt(chunks);
+		}
+	} catch (ragErr) {
+		// RAG is optional — if it fails (e.g. no pgvector, no chunks), fall back to direct sources
+		console.warn('RAG search skipped:', ragErr instanceof Error ? ragErr.message : ragErr);
+	}
+
 	try {
 		if (isBenchTrial) {
 			// Bench Trial: 1 Judge who scores + may interject
@@ -57,7 +78,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				prompt,
 				stagedCase,
 				sources,
-				language
+				language,
+				ragContext
 			});
 
 			return json({
@@ -94,7 +116,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			stagedCase,
 			sources,
 			jurors: jurors.length ? jurors : jurorPersonas,
-			language
+			language,
+			ragContext
 		});
 
 		return json({

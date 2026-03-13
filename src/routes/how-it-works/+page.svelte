@@ -12,68 +12,84 @@
 		</p>
 	</header>
 
-	<section class="space-y-6">
-		<h2 class="text-xl font-bold text-white uppercase tracking-widest text-sm">{t('how.workflow', $language)}</h2>
-		<ul class="text-base text-white/80 space-y-4 leading-relaxed bg-white/5 p-8 rounded-xl border border-white/10">
-			<li class="flex gap-4">
-				<span class="text-white font-bold text-lg">01.</span>
+	<!-- Section 1: Library -->
+	<section class="space-y-4">
+		<h2 class="text-sm font-bold text-white uppercase tracking-widest">{t('how.sectionLibrary', $language)}</h2>
+		<div class="bg-white/5 p-8 rounded-xl border border-white/10 space-y-6">
+			<div class="flex gap-4">
+				<span class="text-white font-bold text-lg shrink-0">📁</span>
 				<div>
 					<strong class="text-white block mb-1">{t('how.step1Title', $language)}</strong>
-					<span>{t('how.step1Desc', $language)}</span>
+					<span class="text-base text-white/80 leading-relaxed">{t('how.step1Desc', $language)}</span>
 				</div>
-			</li>
-			<li class="flex gap-4">
-				<span class="text-white font-bold text-lg">02.</span>
+			</div>
+			<div class="flex gap-4">
+				<span class="text-white font-bold text-lg shrink-0">📄</span>
 				<div>
 					<strong class="text-white block mb-1">{t('how.step2Title', $language)}</strong>
-					<span>{t('how.step2Desc', $language)}</span>
+					<span class="text-base text-white/80 leading-relaxed">{t('how.step2Desc', $language)}</span>
 				</div>
-			</li>
-			<li class="flex gap-4">
-				<span class="text-white font-bold text-lg">03.</span>
-				<div>
-					<strong class="text-white block mb-1">{t('how.step3Title', $language)}</strong>
-					<span>{t('how.step3Desc', $language)}</span>
-				</div>
-			</li>
-			<li class="flex gap-4">
-				<span class="text-white font-bold text-lg">04.</span>
-				<div>
-					<strong class="text-white block mb-1">{t('how.step4Title', $language)}</strong>
-					<span>{t('how.step4Desc', $language)}</span>
-				</div>
-			</li>
-			<li class="flex gap-4">
-				<span class="text-white font-bold text-lg">05.</span>
-				<div>
-					<strong class="text-white block mb-1">{t('how.step5Title', $language)}</strong>
-					<span>{t('how.step5Desc', $language)}</span>
-				</div>
-			</li>
-		</ul>
+			</div>
+		</div>
 	</section>
 
-	<div class="grid md:grid-cols-2 gap-6">
-		<div class="bg-white/5 p-6 rounded-xl border border-white/10">
-			<div class="flex items-center gap-3 mb-4">
-				<div class="w-2 h-2 bg-white rounded-full"></div>
-				<h3 class="text-sm font-bold text-white uppercase tracking-widest text-base">{t('how.aiDebater', $language)}</h3>
+	<!-- Section 2: Case -->
+	<section class="space-y-4">
+		<h2 class="text-sm font-bold text-white uppercase tracking-widest">{t('how.sectionCase', $language)}</h2>
+		<div class="bg-white/5 p-8 rounded-xl border border-white/10 space-y-6">
+			<div class="flex gap-4">
+				<span class="text-white font-bold text-lg shrink-0">⚖️</span>
+				<div>
+					<strong class="text-white block mb-1">{t('how.step3Title', $language)}</strong>
+					<span class="text-base text-white/80 leading-relaxed">{t('how.step3Desc', $language)}</span>
+				</div>
 			</div>
-			<p class="text-sm text-white/70 leading-relaxed">
-				{t('how.aiDebaterDesc', $language)}
-			</p>
+			<div class="flex gap-4">
+				<span class="text-white font-bold text-lg shrink-0">✨</span>
+				<div>
+					<strong class="text-white block mb-1">{t('how.step4Title', $language)}</strong>
+					<span class="text-base text-white/80 leading-relaxed">{t('how.step4Desc', $language)}</span>
+				</div>
+			</div>
 		</div>
+	</section>
 
-		<div class="bg-white/5 p-6 rounded-xl border border-white/10">
-			<div class="flex items-center gap-3 mb-4">
-				<div class="w-2 h-2 bg-white rounded-full opacity-50"></div>
-				<h3 class="text-sm font-bold text-white uppercase tracking-widest text-base">{t('how.aiScoring', $language)}</h3>
+	<!-- Section 3: Debate -->
+	<section class="space-y-4">
+		<h2 class="text-sm font-bold text-white uppercase tracking-widest">{t('how.sectionDebate', $language)}</h2>
+		<div class="bg-white/5 p-8 rounded-xl border border-white/10 space-y-6">
+			<div class="flex gap-4">
+				<span class="text-white font-bold text-lg shrink-0">🗣️</span>
+				<div>
+					<strong class="text-white block mb-1">{t('how.step5Title', $language)}</strong>
+					<span class="text-base text-white/80 leading-relaxed">{t('how.step5Desc', $language)}</span>
+				</div>
 			</div>
-			<p class="text-sm text-white/70 leading-relaxed">
-				{t('how.aiScoringDesc', $language)}
-			</p>
+			<div class="flex gap-4">
+				<span class="text-white font-bold text-lg shrink-0">🏛️</span>
+				<div>
+					<strong class="text-white block mb-1">{t('how.step6Title', $language)}</strong>
+					<span class="text-base text-white/80 leading-relaxed">{t('how.step6Desc', $language)}</span>
+				</div>
+			</div>
 		</div>
-	</div>
+	</section>
+
+	<!-- Pro Tips -->
+	<section class="space-y-4">
+		<h2 class="text-sm font-bold text-white uppercase tracking-widest">{t('how.tipTitle', $language)}</h2>
+		<div class="grid md:grid-cols-3 gap-4">
+			<div class="border border-white/10 bg-white/[0.02] rounded-xl p-5">
+				<p class="text-sm text-white/80 leading-relaxed">💡 {t('how.tip1', $language)}</p>
+			</div>
+			<div class="border border-white/10 bg-white/[0.02] rounded-xl p-5">
+				<p class="text-sm text-white/80 leading-relaxed">⚡ {t('how.tip2', $language)}</p>
+			</div>
+			<div class="border border-white/10 bg-white/[0.02] rounded-xl p-5">
+				<p class="text-sm text-white/80 leading-relaxed">🔄 {t('how.tip3', $language)}</p>
+			</div>
+		</div>
+	</section>
 
 	<div class="pt-2 flex justify-center">
 		<a href="/" class="px-8 py-3 rounded bg-white text-black font-bold text-sm uppercase tracking-wider hover:bg-white/90 transition-colors">

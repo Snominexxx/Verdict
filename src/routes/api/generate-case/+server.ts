@@ -1,6 +1,7 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { json, error } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
+import { searchChunks, formatChunksForPrompt } from '$lib/server/rag';
 
 const universalCaseTypes = [
 	'wrongful dismissal from employment',
@@ -24,7 +25,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	let language = 'en';
-	let pack: { packName?: string; jurisdictions?: string[]; sourceTitles?: string[] } | null = null;
+	let pack: { packId?: string; packName?: string; jurisdictions?: string[]; sourceTitles?: string[] } | null = null;
 	try {
 		const body = await request.json();
 		language = body?.language ?? 'en';
@@ -43,12 +44,31 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		? `\nThe user has selected a legal pack called "${pack.packName ?? 'Custom Pack'}" with these sources:\n${pack.sourceTitles.map((t) => `- ${t}`).join('\n')}\nGenerate a case that would naturally involve these laws or legal instruments.`
 		: '';
 
+	// RAG: try to get relevant legal text from the user's indexed documents
+	let ragContext = '';
+	try {
+		const ragQuery = `${caseType} ${jurisdictionLabel} legal dispute civil court`;
+		const chunks = await searchChunks({
+			supabase: locals.supabase,
+			userId: session.user.id,
+			query: ragQuery,
+			packId: pack?.packId ? String(pack.packId) : undefined,
+			maxChunks: 8,
+			maxTokens: 4000
+		});
+		if (chunks.length > 0) {
+			ragContext = `\n\nThe user has indexed the following legal documents. Base the case scenario on these ACTUAL legal provisions:\n${formatChunksForPrompt(chunks)}\n\nThe generated case MUST reference real articles/sections from these documents. Make the scenario naturally arise from these specific legal provisions.`;
+		}
+	} catch {
+		// RAG is optional — skip silently if not available
+	}
+
 	const langInstruction = language === 'fr'
 		? `Generate a realistic case scenario for a civil court simulation set in ${jurisdictionLabel}. Output JSON only. ALL text values MUST be in French (Canadian French).`
 		: `Generate a realistic case scenario for a civil court simulation set in ${jurisdictionLabel}. Output JSON only.`;
 
 	const userPrompt = `Create a ${caseType} case. The user is the plaintiff.${language === 'fr' ? ' Respond entirely in French (Canadian French).' : ''}
-${sourcesContext}
+${sourcesContext}${ragContext}
 
 The case must be realistic and grounded in ${jurisdictionLabel} law. Use names, dates, and amounts appropriate for that jurisdiction.
 

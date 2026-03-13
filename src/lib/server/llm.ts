@@ -50,15 +50,16 @@ export const generateDebateAnalysis = async (args: {
 	sources: LibraryDocument[];
 	jurors: JurorPersona[];
 	language?: string;
+	ragContext?: string;
 }): Promise<{ reply: { message: string; citations: string[] }; jurorScores: VerdictScore[] }> => {
-	const { prompt, stagedCase, sources, jurors, language = 'en' } = args;
+	const { prompt, stagedCase, sources, jurors, language = 'en', ragContext } = args;
 
 	if (!env.LLM_API_KEY) {
 		throw new Error('LLM_API_KEY is not configured.');
 	}
 
 	const systemPrompt = buildSystemPrompt(jurors, language);
-	const userPrompt = buildUserPrompt({ prompt, stagedCase, sources, jurors });
+	const userPrompt = buildUserPrompt({ prompt, stagedCase, sources, jurors, ragContext });
 	const schema = buildJsonSchema(jurors);
 	const raw = await dispatchToProvider(systemPrompt, userPrompt, schema);
 	const parsed = parseModelResponse(raw);
@@ -200,18 +201,22 @@ const buildUserPrompt = (args: {
 	stagedCase: StagedCase;
 	sources: LibraryDocument[];
 	jurors: JurorPersona[];
+	ragContext?: string;
 }) => {
-	const { prompt, stagedCase, sources, jurors } = args;
-	const sourceLines = sources.length
-		? sources
-				.map((source) => {
-					const excerpt = source.content?.trim()
-						? source.content.slice(0, 16_000)
-						: source.description;
-					return `- ${source.title} (${source.jurisdiction}):\n  ${excerpt}`;
-				})
-				.join('\n')
-		: '- No sources provided. Note this gap candidly—feel free to say "You have given me nothing to work with here."';
+	const { prompt, stagedCase, sources, jurors, ragContext } = args;
+	// RAG context takes priority when available (semantically retrieved chunks)
+	const sourceLines = ragContext
+		? ragContext
+		: sources.length
+			? sources
+					.map((source) => {
+						const excerpt = source.content?.trim()
+							? source.content.slice(0, 16_000)
+							: source.description;
+						return `- ${source.title} (${source.jurisdiction}):\n  ${excerpt}`;
+					})
+					.join('\n')
+			: '- No sources provided. Note this gap candidly—feel free to say "You have given me nothing to work with here."';
 	const jurorNotes = jurors
 		.map((juror) => `- ${juror.name} [${juror.temperament}]: ${juror.biasVector}`)
 		.join('\n');
@@ -605,19 +610,20 @@ export const generateBenchTrialAnalysis = async (args: {
 	stagedCase: StagedCase;
 	sources: LibraryDocument[];
 	language?: string;
+	ragContext?: string;
 }): Promise<{
 	reply: { message: string; citations: string[] };
 	judgeInterjection?: { message: string; type: string };
 	judgeMind: { assessment: string; concerns: string; leaning: string };
 }> => {
-	const { prompt, stagedCase, sources, language = 'en' } = args;
+	const { prompt, stagedCase, sources, language = 'en', ragContext } = args;
 
 	if (!env.LLM_API_KEY) {
 		throw new Error('LLM_API_KEY is not configured.');
 	}
 
 	const systemPrompt = buildBenchSystemPrompt(language);
-	const userPrompt = buildBenchUserPrompt({ prompt, stagedCase, sources });
+	const userPrompt = buildBenchUserPrompt({ prompt, stagedCase, sources, ragContext });
 	const schema = buildBenchJsonSchema();
 	const raw = await dispatchToProvider(systemPrompt, userPrompt, schema);
 	const parsed = parseBenchResponse(raw);
@@ -731,18 +737,21 @@ const buildBenchUserPrompt = (args: {
 	prompt: string;
 	stagedCase: StagedCase;
 	sources: LibraryDocument[];
+	ragContext?: string;
 }) => {
-	const { prompt, stagedCase, sources } = args;
-	const sourceLines = sources.length
-		? sources
-				.map((source) => {
-					const excerpt = source.content?.trim()
-						? source.content.slice(0, 16_000)
-						: source.description;
-					return `- ${source.title} (${source.jurisdiction}):\n  ${excerpt}`;
-				})
-				.join('\n')
-		: '- No sources provided.';
+	const { prompt, stagedCase, sources, ragContext } = args;
+	const sourceLines = ragContext
+		? ragContext
+		: sources.length
+			? sources
+					.map((source) => {
+						const excerpt = source.content?.trim()
+							? source.content.slice(0, 16_000)
+							: source.description;
+						return `- ${source.title} (${source.jurisdiction}):\n  ${excerpt}`;
+					})
+					.join('\n')
+			: '- No sources provided.';
 	const jurisdictions = [...new Set(sources.map((s) => s.jurisdiction).filter(Boolean))];
 	const jurisdictionNote = jurisdictions.length
 		? `Jurisdiction(s): ${jurisdictions.join(', ')}. Any external citations must come from these jurisdictions and include a URL.`

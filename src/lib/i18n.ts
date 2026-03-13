@@ -7,6 +7,7 @@ const translations = {
 	'nav.library': { en: 'Library', fr: 'Sources' },
 	'nav.about': { en: 'About Verdict', fr: 'À propos' },
 	'nav.howItWorks': { en: 'How it Works', fr: 'Comment ça marche' },
+	'nav.contact': { en: 'Contact', fr: 'Contact' },
 	'meta.description': {
 		en: 'Verdict — debate against AI counsel and five autonomous jurors.',
 		fr: 'Verdict — débattez contre un avocat IA devant cinq jurés autonomes.'
@@ -42,8 +43,8 @@ const translations = {
 	'home.subtitle': { en: 'Verdict', fr: 'Verdict' },
 	'home.headline': { en: 'Practice. Argue. Win.', fr: 'Pratiquez. Argumentez. Gagnez.' },
 	'home.description': {
-		en: 'Choose a case, upload your sources, and step into a clean, focused advocacy cockpit.',
-		fr: 'Choisissez une cause, ajoutez vos sources, et entrez dans un simulateur de plaidoirie.'
+		en: 'Build your legal library, set up a case, and argue it before AI counsel and jurors.',
+		fr: 'Créez votre bibliothèque juridique, montez un dossier et plaidez devant un avocat et des jurés IA.'
 	},
 	'home.initCase': { en: 'Initialize Case', fr: 'Créer une cause' },
 	'home.browseLibrary': { en: 'Browse Library', fr: 'Parcourir les sources' },
@@ -89,6 +90,10 @@ const translations = {
 	'cases.selectPackRequired': {
 		en: 'Select a legal pack before you initialize the case.',
 		fr: 'Sélectionnez un pack juridique avant de créer la cause.'
+	},
+	'cases.selectPackFirst': {
+		en: 'Please select a Legal Pack first — the AI needs your uploaded laws to generate a case.',
+		fr: 'Veuillez d\'abord sélectionner un Pack juridique — l\'IA a besoin de vos lois téléversées pour générer une cause.'
 	},
 	'cases.noSourcesInPack': {
 		en: 'This pack has no sources yet. Add sources from the library.',
@@ -229,11 +234,7 @@ const translations = {
 
 	// ===== LIBRARY =====
 	'library.title': { en: 'Library', fr: 'Bibliothèque' },
-	'library.subtitle': { en: 'Authoritative Sources', fr: 'Sources officielles' },
-	'library.description': {
-		en: 'Browse foundational Canadian authorities organized by jurisdiction.',
-		fr: 'Parcourez les autorités canadiennes fondamentales organisées par juridiction.'
-	},
+	'library.helpBtn': { en: 'Help', fr: 'Aide' },
 	'library.quebec': { en: 'Quebec', fr: 'Québec' },
 	'library.quebecSub': { en: 'Provincial statutes and codes', fr: 'Lois et codes provinciaux' },
 	'library.canada': { en: 'Canada', fr: 'Canada' },
@@ -253,6 +254,12 @@ const translations = {
 		fr: 'Ce domaine n\'est pas vérifié. Vérifiez bien la source avant de l\'utiliser en simulation.'
 	},
 	'library.saveSource': { en: 'Save Source', fr: 'Enregistrer la source' },
+	'library.indexing': { en: 'Indexing document for AI search...', fr: 'Indexation du document pour la recherche IA...' },
+	'library.indexed': { en: 'Indexed — {count} sections ready for AI', fr: 'Indexé — {count} sections prêtes pour l\'IA' },
+	'library.indexError': { en: 'Indexing failed — the document was saved but won\'t be searchable by AI', fr: 'Échec de l\'indexation — le document est sauvegardé mais ne sera pas recherchable par l\'IA' },
+	'library.statsChars': { en: 'characters', fr: 'caractères' },
+	'library.statsPages': { en: 'pages (est.)', fr: 'pages (est.)' },
+	'library.statsChunks': { en: 'AI sections (est.)', fr: 'sections IA (est.)' },
 	'library.remove': { en: 'Remove', fr: 'Retirer' },
 	'library.myPacks': { en: 'My Legal Packs', fr: 'Mes packs juridiques' },
 	'library.createPack': { en: 'Create Pack', fr: 'Créer un pack' },
@@ -260,7 +267,7 @@ const translations = {
 	'library.edit': { en: 'Edit', fr: 'Modifier' },
 	'library.delete': { en: 'Delete', fr: 'Supprimer' },
 	'library.addUrl': { en: 'Add URL', fr: 'Ajouter URL' },
-	'library.uploadPdf': { en: 'Upload File', fr: 'Téléverser fichier' },
+	'library.uploadPdf': { en: 'Upload PDF', fr: 'Téléverser PDF' },
 	'library.pasteText': { en: 'Paste Text', fr: 'Coller texte' },
 	'library.noPackSelected': { en: 'Select a legal pack to view and manage its sources.', fr: 'Sélectionnez un pack juridique pour voir et gérer ses sources.' },
 	'library.packName': { en: 'Pack name', fr: 'Nom du pack' },
@@ -276,78 +283,135 @@ const translations = {
 	'library.fileRequired': { en: 'Please select a file first.', fr: 'Veuillez d\'abord sélectionner un fichier.' },
 	'library.pasteRequired': { en: 'Please provide a title and text.', fr: 'Veuillez fournir un titre et du texte.' },
 	'library.pdfParseFailed': { en: 'Failed to extract text from PDF.', fr: 'Impossible d\'extraire le texte du PDF.' },
-	'library.pdfSupported': { en: 'PDF files supported — text will be extracted automatically.', fr: 'Fichiers PDF supportés — le texte sera extrait automatiquement.' },
+	'library.pdfSupported': { en: 'Upload a PDF — text will be extracted and indexed automatically.', fr: 'Téléversez un PDF — le texte sera extrait et indexé automatiquement.' },
 	'library.parsingPdf': { en: 'Extracting text...', fr: 'Extraction du texte...' },
+	'library.emptyPack': {
+		en: 'No sources yet — click "Upload PDF" to add your first law.',
+		fr: 'Aucune source — cliquez sur « Téléverser PDF » pour ajouter votre première loi.'
+	},
+	'library.helpTitle': { en: 'How to Use the Library', fr: 'Comment utiliser la bibliothèque' },
+	'library.helpWhatPackTitle': { en: 'What is a Legal Pack?', fr: 'Qu\'est-ce qu\'un pack juridique ?' },
+	'library.helpWhatPackDesc': {
+		en: 'A Legal Pack is a folder that groups related laws together. For example, you might create one pack for "Canadian Criminal Law" and another for "Quebec Civil Law." When you start a debate, you pick a pack — and the AI will only cite the laws inside it.',
+		fr: 'Un pack juridique est un dossier qui regroupe des lois connexes. Par exemple, vous pourriez créer un pack « Droit criminel canadien » et un autre pour « Droit civil québécois. » Quand vous lancez un débat, vous choisissez un pack — et l\'IA ne citera que les lois qu\'il contient.'
+	},
+	'library.helpCreatePackTitle': { en: 'How to Create a Pack', fr: 'Comment créer un pack' },
+	'library.helpCreateStep1': {
+		en: '1. Click the "Create Pack" button in the sidebar on the left.',
+		fr: '1. Cliquez sur le bouton « Créer un pack » dans la barre latérale à gauche.'
+	},
+	'library.helpCreateStep2': {
+		en: '2. Give it a name, jurisdiction (e.g. Canada, France), and a domain (e.g. Criminal, Civil).',
+		fr: '2. Donnez-lui un nom, une juridiction (ex. Canada, France) et un domaine (ex. Criminel, Civil).'
+	},
+	'library.helpCreateStep3': {
+		en: '3. Done! Your pack is ready — now upload PDFs into it.',
+		fr: '3. Voilà ! Votre pack est prêt — téléversez-y maintenant des PDF.'
+	},
+	'library.helpUploadTitle': { en: 'How to Upload a PDF', fr: 'Comment téléverser un PDF' },
+	'library.helpUploadStep1': {
+		en: '1. Find the law you need on an official government website (e.g. laws-lois.justice.gc.ca, legifrance.gouv.fr).',
+		fr: '1. Trouvez la loi dont vous avez besoin sur un site gouvernemental officiel (ex. laws-lois.justice.gc.ca, legifrance.gouv.fr).'
+	},
+	'library.helpUploadStep2': {
+		en: '2. Download it as a PDF — most official sites have a download or print button.',
+		fr: '2. Téléchargez-la en PDF — la plupart des sites officiels ont un bouton de téléchargement ou d\'impression.'
+	},
+	'library.helpUploadStep3': {
+		en: '3. Select a pack, then click "Upload PDF" and pick your file.',
+		fr: '3. Sélectionnez un pack, puis cliquez sur « Téléverser PDF » et choisissez votre fichier.'
+	},
+	'library.helpUploadStep4': {
+		en: '4. The AI will automatically extract and index every article so it can cite them during your debates.',
+		fr: '4. L\'IA extraira et indexera automatiquement chaque article pour les citer durant vos débats.'
+	},
+	'library.helpExampleTitle': { en: 'Example: A Completed Pack', fr: 'Exemple : Un pack complété' },
+	'library.helpExamplePackName': { en: 'Canadian Federal Law', fr: 'Droit fédéral canadien' },
+	'library.helpExampleNote': {
+		en: 'Upload full law PDFs — the AI will search all of them simultaneously during your debates.',
+		fr: 'Téléversez les PDF complets — l\'IA les consultera tous simultanément durant vos débats.'
+	},
+	'library.helpGotIt': { en: 'Got it!', fr: 'Compris !' },
 
 	// ===== ABOUT =====
 	'about.title': { en: 'About Verdict', fr: 'À propos de Verdict' },
-	'about.kicker': { en: 'Platform Overview', fr: 'Aperçu de la plateforme' },
+	'about.kicker': { en: 'What is Verdict?', fr: 'Qu\'est-ce que Verdict ?' },
 	'about.description': {
-		en: 'A focused advocacy simulator where you build a case, constrain legal context with packs, and practice against adaptive AI counsel.',
-		fr: 'Un simulateur de plaidoirie ciblé où vous construisez une cause, encadrez le contexte juridique avec des packs et pratiquez contre un avocat IA adaptatif.'
+		en: 'Verdict is your AI-powered legal debate coach. Upload real laws as PDFs, build a case, and argue against an adaptive AI opponent — then get scored on your performance.',
+		fr: 'Verdict est votre coach de débat juridique propulsé par l\'IA. Téléversez de vraies lois en PDF, construisez une cause et plaidez contre un adversaire IA adaptatif — puis recevez une note sur votre performance.'
 	},
-	'about.mission': { en: 'The Mission', fr: 'La mission' },
+	'about.mission': { en: 'Why Verdict?', fr: 'Pourquoi Verdict ?' },
 	'about.missionText': {
-		en: 'Verdict gives legal professionals a safe, rigorous practice loop: stage facts, run adversarial exchanges, and close the case with actionable scoring feedback.',
-		fr: 'Verdict offre aux professionnels du droit une boucle d\'entraînement sécuritaire et rigoureuse : structurer les faits, mener des échanges contradictoires et clôturer la cause avec un retour de performance concret.'
+		en: 'Law school teaches you the rules — Verdict lets you practice using them. Whether you\'re a student preparing for moots, a professional sharpening advocacy skills, or simply curious about legal reasoning, Verdict gives you a safe space to argue, fail, learn, and improve.',
+		fr: 'L\'école de droit enseigne les règles — Verdict vous permet de les mettre en pratique. Que vous soyez étudiant(e) préparant un procès simulé, professionnel(le) perfectionnant vos compétences de plaidoirie, ou simplement curieux du raisonnement juridique, Verdict offre un espace sûr pour argumenter, échouer, apprendre et progresser.'
 	},
-	'about.highlightsTitle': { en: 'What You Can Do', fr: 'Ce que vous pouvez faire' },
-	'about.highlightPacksLabel': { en: 'Legal Packs', fr: 'Packs juridiques' },
+	'about.highlightsTitle': { en: 'What You Get', fr: 'Ce que vous obtenez' },
+	'about.highlightPacksLabel': { en: 'Your Own Legal Library', fr: 'Votre propre bibliothèque juridique' },
 	'about.highlightPacksText': {
-		en: 'Group your statutes, links, and uploaded documents by jurisdiction or topic to keep each simulation scoped and reusable.',
-		fr: 'Regroupez vos lois, liens et documents téléversés par juridiction ou sujet pour garder chaque simulation ciblée et réutilisable.'
+		en: 'Upload PDF legislation (Criminal Code, Labour Code, etc.) into organized packs. The AI reads and indexes them so it can cite real law during debates.',
+		fr: 'Téléversez des lois en PDF (Code criminel, Code du travail, etc.) dans des packs organisés. L\'IA les lit et les indexe pour citer le vrai droit durant les débats.'
 	},
-	'about.highlightDebateLabel': { en: 'Adversarial Debate', fr: 'Débat contradictoire' },
+	'about.highlightDebateLabel': { en: 'Realistic Courtroom Debates', fr: 'Débats judiciaires réalistes' },
 	'about.highlightDebateText': {
-		en: 'Argue as plaintiff or defendant while Advocate AI responds from the opposite side in jury or bench mode.',
-		fr: 'Plaidez comme demandeur ou défendeur pendant que l\'avocat IA répond du côté opposé, en mode jury ou juge seul.'
+		en: 'Pick plaintiff or defendant, choose jury or bench trial, and face an AI lawyer that adapts to your arguments and pushes back with real legal reasoning.',
+		fr: 'Choisissez demandeur ou défendeur, procès devant jury ou juge seul, et affrontez un avocat IA qui s\'adapte à vos arguments et réplique avec un raisonnement juridique réel.'
 	},
-	'about.highlightScoreLabel': { en: 'Performance Scoring', fr: 'Notation de performance' },
+	'about.highlightScoreLabel': { en: 'Performance Feedback', fr: 'Retour de performance' },
 	'about.highlightScoreText': {
-		en: 'End each case with a concise summary and five scoring pillars so you can track what to improve next.',
-		fr: 'Terminez chaque cause avec un résumé concis et cinq piliers de score pour cibler vos prochaines améliorations.'
+		en: 'Every case ends with a detailed scorecard across five pillars — legal accuracy, argument structure, persuasion, responsiveness, and fact usage — so you know exactly what to improve.',
+		fr: 'Chaque cause se termine par un bulletin détaillé sur cinq piliers — exactitude juridique, structure d\'argument, persuasion, réactivité et utilisation des faits — pour savoir exactement quoi améliorer.'
 	},
 	'about.return': { en: 'Return to Dashboard', fr: 'Retour au tableau de bord' },
 
 	// ===== HOW IT WORKS =====
 	'how.title': { en: 'How It Works', fr: 'Comment ça marche' },
-	'how.kicker': { en: 'Workflow Guide', fr: 'Guide du flux' },
-	'how.subtitle': { en: 'A simple five-step loop from case setup to scored review.', fr: 'Une boucle simple en cinq étapes, de la création de cause au bilan noté.' },
-	'how.workflow': { en: 'The Workflow', fr: 'Le processus' },
-	'how.step1Title': { en: 'Initialize a Case', fr: 'Créer une cause' },
+	'how.kicker': { en: 'Getting Started', fr: 'Pour commencer' },
+	'how.subtitle': { en: 'From uploading your first law to winning your first case — here\'s how Verdict works, step by step.', fr: 'Du téléversement de votre première loi à la victoire de votre première cause — voici comment Verdict fonctionne, étape par étape.' },
+	'how.sectionLibrary': { en: 'Step 1 — Build Your Legal Library', fr: 'Étape 1 — Construire votre bibliothèque juridique' },
+	'how.step1Title': { en: 'Create a Legal Pack', fr: 'Créer un pack juridique' },
 	'how.step1Desc': {
-		en: 'Define the facts, the legal issues, and your role (plaintiff/defendant).',
-		fr: 'Définissez les faits, les questions juridiques et votre rôle (demandeur/défendeur).'
+		en: 'Go to Library and create a new pack (e.g. "Canadian Criminal Law"). A pack is a folder that groups related laws together.',
+		fr: 'Allez dans Bibliothèque et créez un nouveau pack (ex. « Droit criminel canadien »). Un pack est un dossier qui regroupe des lois connexes.'
 	},
-	'how.step2Title': { en: 'Curate the Library', fr: 'Choisir les sources' },
+	'how.step2Title': { en: 'Upload PDF Legislation', fr: 'Téléverser des lois en PDF' },
 	'how.step2Desc': {
-		en: 'Select a legal pack and add URL/PDF/text sources relevant to your dispute.',
-		fr: 'Sélectionnez un pack juridique et ajoutez des sources URL/PDF/texte pertinentes à votre litige.'
+		en: 'Find the law you need online (e.g. from government websites), download it as PDF, and upload it to your pack. The AI will automatically read and index the content so it can reference it during debates.',
+		fr: 'Trouvez la loi dont vous avez besoin en ligne (ex. sites gouvernementaux), téléchargez-la en PDF et téléversez-la dans votre pack. L\'IA lira et indexera automatiquement le contenu pour le référencer durant les débats.'
 	},
-	'how.step3Title': { en: 'Enter Court', fr: 'Entrer en cour' },
+	'how.sectionCase': { en: 'Step 2 — Set Up Your Case', fr: 'Étape 2 — Préparer votre cause' },
+	'how.step3Title': { en: 'Select Your Pack', fr: 'Sélectionner votre pack' },
 	'how.step3Desc': {
-		en: 'Submit arguments and receive immediate opposition from Advocate AI.',
-		fr: 'Soumettez vos arguments et recevez immédiatement une opposition de l\'avocat IA.'
+		en: 'Go to Cases and pick the legal pack you just created. This tells the AI which laws apply to your case.',
+		fr: 'Allez dans Causes et choisissez le pack juridique que vous venez de créer. Cela indique à l\'IA quelles lois s\'appliquent à votre cause.'
 	},
-	'how.step4Title': { en: 'Track Live Signals', fr: 'Suivre les signaux en direct' },
+	'how.step4Title': { en: 'Fill In or Auto-Generate', fr: 'Remplir ou générer automatiquement' },
 	'how.step4Desc': {
-		en: 'Monitor juror/judge reactions and adapt your strategy round by round.',
-		fr: 'Surveillez les réactions du jury/juge et adaptez votre stratégie à chaque tour.'
+		en: 'Choose your side (plaintiff or defendant) and court mode (jury or bench). Then either write your own case details or hit Auto-Fill to let the AI generate a realistic scenario based on your uploaded laws.',
+		fr: 'Choisissez votre camp (demandeur ou défendeur) et le mode de procès (jury ou juge seul). Ensuite, rédigez vos détails de cause ou appuyez sur Remplissage auto pour que l\'IA génère un scénario réaliste basé sur vos lois téléversées.'
 	},
-	'how.step5Title': { en: 'Close with Scoring', fr: 'Clore avec une note' },
+	'how.sectionDebate': { en: 'Step 3 — Debate & Get Scored', fr: 'Étape 3 — Débattre et être noté' },
+	'how.step5Title': { en: 'Argue Your Case', fr: 'Plaidez votre cause' },
 	'how.step5Desc': {
-		en: 'End the case to generate a concise performance summary and five score pillars saved in Court history.',
-		fr: 'Terminez la cause pour générer un résumé de performance concis et cinq piliers de score sauvegardés dans l\'historique de la Cour.'
+		en: 'Enter the courtroom and present your arguments. The AI opponent responds with counter-arguments citing your uploaded laws. Jurors or the judge react in real time.',
+		fr: 'Entrez dans la salle d\'audience et présentez vos arguments. L\'adversaire IA réplique avec des contre-arguments citant vos lois téléversées. Les jurés ou le juge réagissent en temps réel.'
 	},
-	'how.aiDebater': { en: 'AI Debater', fr: 'Débatteur IA' },
-	'how.aiDebaterDesc': {
-		en: 'Advocate AI stays on the opposite side, challenges weak reasoning, and pushes you to defend facts and legal authority.',
-		fr: 'L\'avocat IA reste du côté opposé, met en cause les raisonnements faibles et vous pousse à défendre les faits et l\'autorité juridique.'
+	'how.step6Title': { en: 'Get Your Verdict', fr: 'Obtenez votre verdict' },
+	'how.step6Desc': {
+		en: 'When you\'re ready, close the case. You\'ll receive a detailed scorecard covering legal accuracy, argument structure, persuasion, responsiveness, and fact usage. Your results are saved so you can track your progress over time.',
+		fr: 'Quand vous êtes prêt(e), clôturez la cause. Vous recevrez un bulletin détaillé couvrant l\'exactitude juridique, la structure d\'argument, la persuasion, la réactivité et l\'utilisation des faits. Vos résultats sont sauvegardés pour suivre votre progression.'
 	},
-	'how.aiScoring': { en: 'AI + Rule Scoring', fr: 'Notation IA + règles' },
-	'how.aiScoringDesc': {
-		en: 'Final scoring blends adaptive AI evaluation with deterministic checks for law citation, structure, responsiveness, and fact fidelity.',
-		fr: 'La note finale combine une évaluation IA adaptative et des vérifications déterministes sur la citation du droit, la structure, la réactivité et la fidélité aux faits.'
+	'how.tipTitle': { en: 'Pro Tips', fr: 'Conseils pratiques' },
+	'how.tip1': {
+		en: 'You can upload multiple PDFs into one pack — the AI searches all of them during a debate.',
+		fr: 'Vous pouvez téléverser plusieurs PDF dans un pack — l\'IA les consulte tous durant un débat.'
+	},
+	'how.tip2': {
+		en: 'Auto-Fill creates realistic cases based on your actual uploaded laws — great for quick practice.',
+		fr: 'Le remplissage auto crée des causes réalistes basées sur vos lois téléversées — idéal pour la pratique rapide.'
+	},
+	'how.tip3': {
+		en: 'Try both sides! Arguing as plaintiff and defendant on the same case doubles your learning.',
+		fr: 'Essayez les deux camps ! Plaider comme demandeur et défendeur sur la même cause double votre apprentissage.'
 	},
 	'how.return': { en: 'Return to Dashboard', fr: 'Retour au tableau de bord' },
 
@@ -385,8 +449,40 @@ const translations = {
 	'pricing.currentPlan': { en: 'Current Plan', fr: 'Plan actuel' },
 	'pricing.subscribe': { en: 'Subscribe', fr: 'S\'abonner' },
 	'pricing.manageSub': { en: 'Manage Subscription', fr: 'Gérer l\'abonnement' },
+	'pricing.redirecting': { en: 'Redirecting to checkout…', fr: 'Redirection vers le paiement…' },
+	'pricing.openingPortal': { en: 'Opening billing portal…', fr: 'Ouverture du portail…' },
 	'pricing.talkToUs': { en: 'Talk to Us', fr: 'Contactez-nous' },
 	'pricing.contactUs': { en: 'Custom Pricing', fr: 'Tarif sur mesure' },
+	'pricing.contactTitle': { en: 'Get in Touch', fr: 'Prenez contact' },
+	'pricing.contactSubtitle': {
+		en: 'Tell us about your needs and we\'ll get back to you within 24 hours.',
+		fr: 'Décrivez vos besoins et nous vous répondrons dans les 24 heures.'
+	},
+	'pricing.contactNameLabel': { en: 'Full Name', fr: 'Nom complet' },
+	'pricing.contactNamePlaceholder': { en: 'Jane Doe', fr: 'Jean Tremblay' },
+	'pricing.contactEmailLabel': { en: 'Email', fr: 'Courriel' },
+	'pricing.contactEmailPlaceholder': { en: 'jane@firm.com', fr: 'jean@cabinet.ca' },
+	'pricing.contactMessageLabel': { en: 'Message', fr: 'Message' },
+	'pricing.contactMessagePlaceholder': {
+		en: 'Tell us about your team, use case, or any questions...',
+		fr: 'Parlez-nous de votre équipe, cas d\'utilisation ou questions...'
+	},
+	'pricing.contactSend': { en: 'Send Message', fr: 'Envoyer' },
+	'pricing.contactSending': { en: 'Sending…', fr: 'Envoi…' },
+	'pricing.contactSentTitle': { en: 'Message Sent!', fr: 'Message envoyé!' },
+	'pricing.contactSentDesc': {
+		en: 'We\'ll review your inquiry and get back to you shortly.',
+		fr: 'Nous examinerons votre demande et vous répondrons rapidement.'
+	},
+	'pricing.contactClose': { en: 'Close', fr: 'Fermer' },
+	'pricing.contactAllRequired': {
+		en: 'Please fill in all fields.',
+		fr: 'Veuillez remplir tous les champs.'
+	},
+	'pricing.contactError': {
+		en: 'Something went wrong. Please try again.',
+		fr: 'Une erreur est survenue. Veuillez réessayer.'
+	},
 	'pricing.successMessage': {
 		en: 'Welcome to Verdict Pro! You now have access to 30 debates per month.',
 		fr: 'Bienvenue dans Verdict Pro! Vous avez maintenant accès à 30 débats par mois.'
@@ -397,37 +493,37 @@ const translations = {
 	},
 	'pricing.freeName': { en: 'Free', fr: 'Gratuit' },
 	'pricing.freeDesc': {
-		en: 'Try Verdict with up to 3 credits.',
-		fr: 'Essayez Verdict avec jusqu\'à 3 crédits.'
+		en: 'Get started — no credit card needed.',
+		fr: 'Commencez — aucune carte requise.'
 	},
-	'pricing.freeFeature1': { en: '3 credits per month', fr: '3 crédits par mois' },
-	'pricing.freeFeature2': { en: '10 rounds per debate', fr: '10 tours par débat' },
-	'pricing.freeFeature3': { en: 'Performance scoring', fr: 'Notation de performance' },
+	'pricing.freeFeature1': { en: '3 debates per month', fr: '3 débats par mois' },
+	'pricing.freeFeature2': { en: 'Up to 10 rounds each', fr: 'Jusqu\'à 10 tours chacun' },
+	'pricing.freeFeature3': { en: 'AI scoring & feedback', fr: 'Notation et rétroaction IA' },
 	'pricing.proName': { en: 'Pro', fr: 'Pro' },
 	'pricing.proDesc': {
-		en: '20 credits per month for serious practitioners.',
-		fr: '20 crédits par mois pour les praticiens sérieux.'
+		en: 'For students and professionals who practice regularly.',
+		fr: 'Pour étudiants et professionnels qui pratiquent régulièrement.'
 	},
-	'pricing.proFeature1': { en: '20 credits per month', fr: '20 crédits par mois' },
-	'pricing.proFeature2': { en: '15 rounds per debate', fr: '15 tours par débat' },
-	'pricing.proFeature3': { en: 'Full case history & analytics', fr: 'Historique complet et analytique' },
+	'pricing.proFeature1': { en: '20 debates per month', fr: '20 débats par mois' },
+	'pricing.proFeature2': { en: 'Up to 15 rounds each', fr: 'Jusqu\'à 15 tours chacun' },
+	'pricing.proFeature3': { en: 'Full case history', fr: 'Historique complet des causes' },
 	'pricing.proFeature4': { en: 'Unlimited legal packs', fr: 'Packs juridiques illimités' },
 	'pricing.proPlusName': { en: 'Pro+', fr: 'Pro+' },
 	'pricing.proPlusDesc': {
-		en: '60 credits per month for power users.',
-		fr: '60 crédits par mois pour les utilisateurs avancés.'
+		en: 'Maximum firepower for power users.',
+		fr: 'Puissance maximale pour les utilisateurs avancés.'
 	},
-	'pricing.proPlusFeature1': { en: '60 credits per month', fr: '60 crédits par mois' },
-	'pricing.proPlusFeature2': { en: '20 rounds per debate', fr: '20 tours par débat' },
-	'pricing.proPlusFeature3': { en: 'Priority AI processing', fr: 'Traitement IA prioritaire' },
-	'pricing.proPlusFeature4': { en: 'Everything in Pro', fr: 'Tout le contenu Pro inclus' },
+	'pricing.proPlusFeature1': { en: '60 debates per month', fr: '60 débats par mois' },
+	'pricing.proPlusFeature2': { en: 'Up to 20 rounds each', fr: 'Jusqu\'à 20 tours chacun' },
+	'pricing.proPlusFeature3': { en: 'Priority AI responses', fr: 'Réponses IA prioritaires' },
+	'pricing.proPlusFeature4': { en: 'Everything in Pro', fr: 'Tout ce qui est dans Pro' },
 	'pricing.enterpriseName': { en: 'Enterprise', fr: 'Entreprise' },
 	'pricing.enterpriseDesc': {
 		en: 'For law firms, schools, and institutions.',
 		fr: 'Pour cabinets, écoles et institutions.'
 	},
-	'pricing.entFeature1': { en: 'Everything in Pro+', fr: 'Tout ce qui est dans Pro+' },
-	'pricing.entFeature2': { en: 'Custom deployment', fr: 'Déploiement personnalisé' },
+	'pricing.entFeature1': { en: 'Unlimited debates', fr: 'Débats illimités' },
+	'pricing.entFeature2': { en: 'Team management', fr: 'Gestion d\'équipe' },
 	'pricing.entFeature3': { en: 'Dedicated support', fr: 'Support dédié' },
 	'pricing.entFeature4': { en: 'Custom integrations', fr: 'Intégrations sur mesure' },
 	'pricing.limitReached': {

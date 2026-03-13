@@ -16,170 +16,7 @@ export type LegalPack = {
 const STORAGE_KEY = 'verdict.legalPacks.v1';
 const SELECTED_PACK_KEY = 'verdict.selectedPackId.v1';
 
-const defaultPacks: LegalPack[] = [
-	{
-		id: 'pack-canadian-constitutional-law',
-		name: 'Canadian Constitutional Law',
-		jurisdiction: 'Canada',
-		domain: 'Constitutional',
-		description: 'Core constitutional texts and rights framework for Canada.',
-		isDefault: true,
-		sources: [
-			{
-				id: 'source-canadian-charter',
-				title: 'Canadian Charter of Rights and Freedoms',
-				jurisdiction: 'Canada',
-				description: 'Constitution Act, 1982, Part I (fundamental freedoms and legal rights).',
-				lastUpdated: '2024-01-01',
-				sourceUrl: 'https://laws-lois.justice.gc.ca/eng/Const/page-12.html',
-				docType: 'statute',
-				trustLevel: 'official',
-				isCustom: false
-			},
-			{
-				id: 'source-constitution-act-1867',
-				title: 'Constitution Act, 1867',
-				jurisdiction: 'Canada',
-				description: 'Federal structure, powers, and constitutional architecture.',
-				lastUpdated: '2024-01-01',
-				sourceUrl: 'https://laws-lois.justice.gc.ca/eng/Const/page-1.html',
-				docType: 'statute',
-				trustLevel: 'official',
-				isCustom: false
-			},
-			{
-				id: 'source-canadian-bill-rights',
-				title: 'Canadian Bill of Rights',
-				jurisdiction: 'Canada',
-				description: 'Federal rights instrument applicable to federal law and institutions.',
-				lastUpdated: '2024-01-01',
-				sourceUrl: 'https://laws-lois.justice.gc.ca/eng/acts/c-12.3/',
-				docType: 'statute',
-				trustLevel: 'official',
-				isCustom: false
-				},
-				{
-					id: 'source-constitution-act-1982',
-					title: 'Constitution Act, 1982',
-					jurisdiction: 'Canada',
-					description: 'Part II (Aboriginal rights), amending formula, and constitutional supremacy provisions.',
-					lastUpdated: '2024-01-01',
-					sourceUrl: 'https://laws-lois.justice.gc.ca/eng/Const/page-15.html',
-					docType: 'statute',
-					trustLevel: 'official',
-					isCustom: false
-				},
-				{
-					id: 'source-supreme-court-act',
-					title: 'Supreme Court Act',
-					jurisdiction: 'Canada',
-					description: 'Jurisdiction, composition, and constitutional role of the Supreme Court of Canada.',
-					lastUpdated: '2024-01-01',
-					sourceUrl: 'https://laws-lois.justice.gc.ca/eng/acts/s-26/',
-					docType: 'statute',
-					trustLevel: 'official',
-					isCustom: false
-				},
-				{
-					id: 'source-canadian-human-rights-act',
-					title: 'Canadian Human Rights Act',
-					jurisdiction: 'Canada',
-					description: 'Federal anti-discrimination statute relevant to Charter-adjacent rights analysis.',
-					lastUpdated: '2024-01-01',
-					sourceUrl: 'https://laws-lois.justice.gc.ca/eng/acts/h-6/',
-					docType: 'statute',
-					trustLevel: 'official',
-					isCustom: false
-			}
-		]
-	},
-	{
-		id: 'pack-us-criminal-law',
-		name: 'US Criminal Law',
-		jurisdiction: 'United States',
-		domain: 'Criminal',
-		description: 'Starter federal criminal law references and constitutional protections.',
-		isDefault: true,
-		sources: [
-			{
-				id: 'source-us-constitution',
-				title: 'United States Constitution',
-				jurisdiction: 'United States',
-				description: 'Constitutional framework including due process and criminal procedure rights.',
-				lastUpdated: '2024-01-01',
-				sourceUrl: 'https://www.archives.gov/founding-docs/constitution-transcript',
-				docType: 'statute',
-				trustLevel: 'official',
-				isCustom: false
-			},
-			{
-				id: 'source-us-code-title-18',
-				title: 'U.S. Code Title 18 (Crimes and Criminal Procedure)',
-				jurisdiction: 'United States',
-				description: 'Federal criminal offences and procedure provisions.',
-				lastUpdated: '2024-01-01',
-				sourceUrl: 'https://uscode.house.gov/view.xhtml?path=/prelim@title18&edition=prelim',
-				docType: 'statute',
-				trustLevel: 'official',
-				isCustom: false
-			},
-			{
-				id: 'source-frcp',
-				title: 'Federal Rules of Criminal Procedure',
-				jurisdiction: 'United States',
-				description: 'Rules governing federal criminal proceedings.',
-				lastUpdated: '2024-01-01',
-				sourceUrl: 'https://www.law.cornell.edu/rules/frcrmp',
-				docType: 'regulation',
-				trustLevel: 'recognized',
-				isCustom: false
-			}
-		]
-	},
-	{
-		id: 'pack-french-civil-law',
-		name: 'French Civil Law',
-		jurisdiction: 'France',
-		domain: 'Civil',
-		description: 'Core French civil law references for obligations and contracts.',
-		isDefault: true,
-		sources: [
-			{
-				id: 'source-code-civil-france',
-				title: 'Code civil (France)',
-				jurisdiction: 'France',
-				description: 'Foundational French civil code including obligations and contracts.',
-				lastUpdated: '2024-01-01',
-				sourceUrl: 'https://www.legifrance.gouv.fr/codes/texte_lc/LEGITEXT000006070721/',
-				docType: 'statute',
-				trustLevel: 'official',
-				isCustom: false
-			},
-			{
-				id: 'source-code-procedure-civile-france',
-				title: 'Code de procédure civile',
-				jurisdiction: 'France',
-				description: 'Civil procedure framework in French courts.',
-				lastUpdated: '2024-01-01',
-				sourceUrl: 'https://www.legifrance.gouv.fr/codes/texte_lc/LEGITEXT000006070716/',
-				docType: 'statute',
-				trustLevel: 'official',
-				isCustom: false
-			},
-			{
-				id: 'source-code-consommation-france',
-				title: 'Code de la consommation',
-				jurisdiction: 'France',
-				description: 'French consumer law provisions relevant to civil disputes.',
-				lastUpdated: '2024-01-01',
-				sourceUrl: 'https://www.legifrance.gouv.fr/codes/texte_lc/LEGITEXT000006069565/',
-				docType: 'statute',
-				trustLevel: 'official',
-				isCustom: false
-			}
-		]
-	}
-];
+const defaultPacks: LegalPack[] = [];
 
 const withCustomFlag = (source: LibraryDocument): LibraryDocument => ({
 	...source,
@@ -212,26 +49,41 @@ const createLegalPacksStore = () => {
 		if (key) localStorage.setItem(key, JSON.stringify(packs));
 	};
 
+	/** Clear old default packs from storage on first load */
+	const clearLegacyDefaults = () => {
+		if (!browser) return;
+		const key = userKey(STORAGE_KEY);
+		const cleared = userKey('verdict.legacyPacksCleared');
+		if (cleared && localStorage.getItem(cleared)) return;
+		if (key) {
+			try {
+				const raw = localStorage.getItem(key);
+				if (raw) {
+					const parsed = JSON.parse(raw) as LegalPack[];
+					const filtered = parsed.filter((p) => !p.isDefault);
+					persist(filtered);
+					set(filtered);
+				}
+			} catch { /* ignore */ }
+		}
+		if (cleared) localStorage.setItem(cleared, '1');
+	};
+
 	const hydrate = () => {
 		if (!browser) return;
+		clearLegacyDefaults();
 		// Load localStorage immediately for fast display
 		try {
 			const key = userKey(STORAGE_KEY);
 			const raw = key ? localStorage.getItem(key) : null;
 			if (raw) {
 				const parsed = JSON.parse(raw) as LegalPack[];
-				const merged = [...defaultPacks];
-				for (const pack of parsed) {
-					const idx = merged.findIndex((p) => p.id === pack.id);
-					if (idx > -1) merged[idx] = pack;
-					else merged.push(pack);
-				}
-				set(merged);
+				set(parsed);
 			} else {
-				set(defaultPacks);
+				set([]);
 			}
 		} catch {
-			set(defaultPacks);
+			set([]);
 		}
 		_hydrated = true;
 	};
@@ -244,20 +96,12 @@ const createLegalPacksStore = () => {
 			if (!res.ok) return;
 			const data = await res.json();
 			if (data.packs && Array.isArray(data.packs) && data.packs.length > 0) {
-				// Merge remote packs with defaults
-				const merged = [...defaultPacks];
-				for (const pack of data.packs as LegalPack[]) {
-					const idx = merged.findIndex((p) => p.id === pack.id);
-					if (idx > -1) merged[idx] = pack;
-					else merged.push(pack);
-				}
-				set(merged);
-				persist(merged);
+				const remotePacks = data.packs as LegalPack[];
+				set(remotePacks);
+				persist(remotePacks);
 			} else if (!_hydrated) {
-				// First time user — push defaults to remote
-				set(defaultPacks);
-				persist(defaultPacks);
-				scheduleSync(defaultPacks);
+				set([]);
+				persist([]);
 			}
 		} catch {
 			// Offline — localStorage values are already loaded
@@ -287,7 +131,7 @@ const createLegalPacksStore = () => {
 
 	const deletePack = (id: string) => {
 		update((packs) => {
-			const next = packs.filter((pack) => pack.id !== id || pack.isDefault);
+			const next = packs.filter((pack) => pack.id !== id);
 			persist(next);
 			scheduleSync(next, [id]);
 			return next;

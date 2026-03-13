@@ -45,6 +45,46 @@
 	let session = $derived(data.session);
 	let userEmail = $derived(session?.user?.email ?? '');
 	let userInitial = $derived((session?.user?.user_metadata?.full_name?.[0] ?? userEmail?.[0] ?? '?').toUpperCase());
+
+	// Contact modal state
+	let contactOpen = $state(false);
+	let contactName = $state('');
+	let contactEmail = $state('');
+	let contactMessage = $state('');
+	let contactSending = $state(false);
+	let contactSent = $state(false);
+	let contactError = $state('');
+
+	const handleContact = async () => {
+		contactError = '';
+		if (!contactName.trim() || !contactEmail.trim() || !contactMessage.trim()) {
+			contactError = t('pricing.contactAllRequired', $language);
+			return;
+		}
+		contactSending = true;
+		try {
+			const res = await fetch('/api/contact', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ name: contactName.trim(), email: contactEmail.trim(), message: contactMessage.trim() })
+			});
+			if (!res.ok) throw new Error();
+			contactSent = true;
+		} catch {
+			contactError = t('pricing.contactError', $language);
+		} finally {
+			contactSending = false;
+		}
+	};
+
+	const closeContact = () => {
+		contactOpen = false;
+		contactName = '';
+		contactEmail = '';
+		contactMessage = '';
+		contactSent = false;
+		contactError = '';
+	};
 </script>
 
 <svelte:head>
@@ -121,13 +161,11 @@
 	<main class="flex-1 w-full flex flex-col h-screen overflow-hidden">
 		{#if !$focusMode}
 			<!-- Top Bar -->
-			<header class="h-10 border-b border-white/10 flex items-center justify-between px-6 bg-black/10">
-				<div class="flex items-center gap-4">
-					<p class="text-xs uppercase tracking-[0.25em] text-white/35 font-mono">Knowledge</p>
-				</div>
+			<header class="h-10 border-b border-white/10 flex items-center justify-end px-6 bg-black/10">
 				<div class="flex items-center gap-2">
 					<a href="/about" class="text-xs font-bold uppercase tracking-[0.18em] text-white/85 border border-white/20 bg-white/5 px-3 py-1.5 rounded hover:bg-white/15 hover:text-white transition-all">{t('nav.about', $language)}</a>
 					<a href="/how-it-works" class="text-xs font-bold uppercase tracking-[0.18em] text-white/85 border border-white/20 bg-white/5 px-3 py-1.5 rounded hover:bg-white/15 hover:text-white transition-all">{t('nav.howItWorks', $language)}</a>
+					<button type="button" onclick={() => (contactOpen = true)} class="text-xs font-bold uppercase tracking-[0.18em] text-white/85 border border-white/20 bg-white/5 px-3 py-1.5 rounded hover:bg-white/15 hover:text-white transition-all cursor-pointer">{t('nav.contact', $language)}</button>
 				</div>
 			</header>
 		{/if}
@@ -138,6 +176,88 @@
 		</div>
 	</main>
 </div>
+
+<!-- Contact Modal -->
+{#if contactOpen}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+		onkeydown={(e) => e.key === 'Escape' && closeContact()}
+	>
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<div class="absolute inset-0" onclick={closeContact}></div>
+
+		<div class="relative w-full max-w-md rounded-xl border border-white/15 bg-[#0e0e10] p-6 shadow-2xl">
+			<button
+				type="button"
+				onclick={closeContact}
+				class="absolute top-4 right-4 text-white/40 hover:text-white text-lg"
+			>✕</button>
+
+			<h3 class="text-lg font-display font-bold text-white mb-1">{t('pricing.contactTitle', $language)}</h3>
+			<p class="text-xs text-white/50 mb-5">{t('pricing.contactSubtitle', $language)}</p>
+
+			{#if contactSent}
+				<div class="text-center py-8">
+					<div class="text-3xl mb-3">✓</div>
+					<p class="text-sm font-semibold text-green-400 mb-1">{t('pricing.contactSentTitle', $language)}</p>
+					<p class="text-xs text-white/50">{t('pricing.contactSentDesc', $language)}</p>
+					<button
+						type="button"
+						onclick={closeContact}
+						class="mt-5 px-6 py-2 rounded-lg bg-white/10 text-xs font-bold uppercase tracking-wider text-white hover:bg-white/20 transition"
+					>{t('pricing.contactClose', $language)}</button>
+				</div>
+			{:else}
+				<div class="space-y-4">
+					<div>
+						<label for="contact-name" class="block text-xs font-semibold text-white/60 mb-1">{t('pricing.contactNameLabel', $language)}</label>
+						<input
+							id="contact-name"
+							type="text"
+							bind:value={contactName}
+							placeholder={t('pricing.contactNamePlaceholder', $language)}
+							class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/25 focus:border-white/30 focus:outline-none transition"
+						/>
+					</div>
+					<div>
+						<label for="contact-email" class="block text-xs font-semibold text-white/60 mb-1">{t('pricing.contactEmailLabel', $language)}</label>
+						<input
+							id="contact-email"
+							type="email"
+							bind:value={contactEmail}
+							placeholder={t('pricing.contactEmailPlaceholder', $language)}
+							class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/25 focus:border-white/30 focus:outline-none transition"
+						/>
+					</div>
+					<div>
+						<label for="contact-msg" class="block text-xs font-semibold text-white/60 mb-1">{t('pricing.contactMessageLabel', $language)}</label>
+						<textarea
+							id="contact-msg"
+							bind:value={contactMessage}
+							rows="4"
+							placeholder={t('pricing.contactMessagePlaceholder', $language)}
+							class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/25 focus:border-white/30 focus:outline-none transition resize-none"
+						></textarea>
+					</div>
+
+					{#if contactError}
+						<p class="text-xs text-red-400 font-semibold">{contactError}</p>
+					{/if}
+
+					<button
+						type="button"
+						onclick={handleContact}
+						disabled={contactSending}
+						class="w-full py-2.5 rounded-lg bg-white text-black text-xs font-bold uppercase tracking-wider hover:bg-white/90 transition disabled:opacity-50"
+					>
+						{contactSending ? t('pricing.contactSending', $language) : t('pricing.contactSend', $language)}
+					</button>
+				</div>
+			{/if}
+		</div>
+	</div>
+{/if}
 
 <!-- Desktop-only gate -->
 <div class="fixed inset-0 z-[9999] bg-ink flex flex-col items-center justify-center px-8 text-center lg:hidden">

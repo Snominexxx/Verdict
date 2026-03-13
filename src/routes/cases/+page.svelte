@@ -29,6 +29,7 @@
 	};
 
 	let formSubmitAttempted = $state(false);
+	let packMissing = $state(false);
 
 	let formData: FormSubmission = $state({
 		title: '',
@@ -61,6 +62,8 @@
 
 	const setPack = (packId: string) => {
 		selectedLegalPackId.select(packId);
+		packMissing = false;
+		errorMessage = '';
 		const pack = $legalPacksStore.find((p) => p.id === packId);
 		formData = {
 			...formData,
@@ -69,10 +72,18 @@
 	};
 
 	const autoFill = async () => {
+		if (!$selectedLegalPackId) {
+			packMissing = true;
+			errorMessage = t('cases.selectPackFirst', $language);
+			return;
+		}
+		packMissing = false;
 		generating = true;
+		errorMessage = '';
 		try {
 			const packPayload = selectedPack
 				? {
+						packId: selectedPack.id,
 						packName: selectedPack.name,
 						jurisdictions: [...new Set(selectedPack.sources.map((s) => s.jurisdiction).filter(Boolean))],
 						sourceTitles: selectedPack.sources.map((s) => s.title).slice(0, 10)
@@ -131,11 +142,10 @@
 	const handleSubmit = async () => {
 		formSubmitAttempted = true;
 		if (limitReached) return;
-		if (!formData.title.trim() || !formData.synopsis.trim()) return;
+		if (!formData.title.trim() || !formData.synopsis.trim() || !formData.issues.trim()) return;
 		if (!$selectedLegalPackId) return;
 		if (!formData.role) return;
-		if (formData.role === 'plaintiff' && !formData.remedy.trim()) return;
-		if (formData.role === 'defendant' && !formData.defendantPosition.trim()) return;
+		if (!formData.remedy.trim() || !formData.defendantPosition.trim()) return;
 		submitting = true;
 		errorMessage = '';
 		try {
@@ -213,8 +223,60 @@
 				</div>
 			{/if}
 			<form class="space-y-5" on:submit|preventDefault={handleSubmit}>
-				
-				<!-- Top row: Mode + Side + Auto-fill -->
+
+				<!-- Step 1: Legal Pack + Sources -->
+				<div class="space-y-3">
+					<div class="flex justify-between items-center">
+						<p class="text-xs font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.legalPack', $language)}</p>
+						<span class="text-xs text-white/40 font-mono">{formData.sources.length} {t('cases.selected', $language)}</span>
+					</div>
+
+					{#if errorMessage}
+						<div class="p-4 rounded-lg border-2 border-red-500 bg-red-500/20">
+							<p class="text-base font-bold text-red-400">⚠ {errorMessage}</p>
+						</div>
+					{/if}
+
+					<div class="flex flex-wrap gap-2">
+						{#each $legalPacksStore as pack}
+							<button
+								type="button"
+								on:click={() => setPack(pack.id)}
+								class={`text-left px-3 py-2 border rounded transition text-xs ${$selectedLegalPackId === pack.id ? 'border-white/40 bg-white/10 text-white' : 'border-white/10 bg-white/5 text-white/60 hover:bg-white/10'}`}
+							>
+								<span class="font-bold">{pack.name}</span>
+								<span class="text-white/40 ml-1">• {pack.sources.length}</span>
+							</button>
+						{/each}
+					</div>
+
+					{#if (formSubmitAttempted || packMissing) && !$selectedLegalPackId}
+						<p class="text-sm font-semibold text-red-400">{t('cases.selectPackRequired', $language)}</p>
+					{:else if selectedPack && selectedPack.sources.length === 0}
+						<p class="text-xs text-white/50">{t('cases.noSourcesInPack', $language)}</p>
+					{/if}
+
+					{#if selectedPack && selectedPack.sources.length > 0}
+						<div class="flex flex-wrap gap-1.5">
+							{#each selectedPack.sources as doc}
+								<label class={`
+									inline-flex items-center gap-1.5 px-2.5 py-1 border rounded-full transition-all cursor-pointer text-xs
+									${formData.sources.includes(doc.id) ? 'border-white/40 bg-white/10 text-white' : 'border-white/10 text-white/40 hover:bg-white/5'}
+								`}>
+									<input
+										type="checkbox"
+										checked={formData.sources.includes(doc.id)}
+										on:change={() => toggleSource(doc.id)}
+										class="w-3 h-3"
+									/>
+									<span class="truncate max-w-[180px]">{doc.title}</span>
+								</label>
+							{/each}
+						</div>
+					{/if}
+				</div>
+
+				<!-- Step 2: Mode + Side + Auto-fill -->
 				<div class="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
 					<div class="space-y-1.5">
 						<p class="text-xs font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.mode', $language)}</p>
@@ -251,7 +313,7 @@
 							</label>
 						</div>
 						{#if formSubmitAttempted && !formData.role}
-							<p class="text-xs text-flare">{t('cases.selectSideRequired', $language)}</p>
+							<p class="text-sm font-semibold text-red-400">{t('cases.selectSideRequired', $language)}</p>
 						{/if}
 					</div>
 					<div class="flex items-end">
@@ -271,12 +333,12 @@
 					<p class="text-xs font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.caseTitle', $language)}</p>
 					<input
 						type="text"
-						class={`w-full bg-white/10 rounded border px-4 py-3 text-base font-medium text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-colors placeholder-white/40 font-display ${formSubmitAttempted && !formData.title.trim() ? 'border-flare/60' : 'border-white/20'}`}
+						class={`w-full bg-white/10 rounded border px-4 py-3 text-base font-medium text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-colors placeholder-white/40 font-display ${formSubmitAttempted && !formData.title.trim() ? 'border-red-500 ring-1 ring-red-500/50' : 'border-white/20'}`}
 						bind:value={formData.title}
 						placeholder={t('cases.caseTitlePlaceholder', $language)}
 					/>
 					{#if formSubmitAttempted && !formData.title.trim()}
-						<p class="text-xs text-flare">{t('cases.fieldRequired', $language)}</p>
+						<p class="text-sm font-semibold text-red-400">{t('cases.fieldRequired', $language)}</p>
 					{/if}
 				</div>
 
@@ -284,12 +346,12 @@
 				<div class="space-y-1.5">
 					<p class="text-xs font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.whatHappened', $language)}</p>
 					<textarea
-						class={`w-full bg-white/10 border rounded px-4 py-3 text-sm text-white min-h-[160px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none leading-relaxed placeholder-white/40 ${formSubmitAttempted && !formData.synopsis.trim() ? 'border-flare/60' : 'border-white/20'}`}
+						class={`w-full bg-white/10 border rounded px-4 py-3 text-sm text-white min-h-[160px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none leading-relaxed placeholder-white/40 ${formSubmitAttempted && !formData.synopsis.trim() ? 'border-red-500 ring-1 ring-red-500/50' : 'border-white/20'}`}
 						bind:value={formData.synopsis}
 						placeholder={t('cases.whatHappenedPlaceholder', $language)}
 					></textarea>
 					{#if formSubmitAttempted && !formData.synopsis.trim()}
-						<p class="text-xs text-flare">{t('cases.fieldRequired', $language)}</p>
+						<p class="text-sm font-semibold text-red-400">{t('cases.fieldRequired', $language)}</p>
 					{/if}
 				</div>
 
@@ -298,15 +360,18 @@
 					<div class="space-y-1.5">
 						<p class="text-xs font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.mainQuestion', $language)}</p>
 						<textarea
-							class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-sm text-white min-h-[100px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none placeholder-white/40"
+							class={`w-full bg-white/10 border rounded px-4 py-3 text-sm text-white min-h-[100px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none placeholder-white/40 ${formSubmitAttempted && !formData.issues.trim() ? 'border-red-500 ring-1 ring-red-500/50' : 'border-white/20'}`}
 							bind:value={formData.issues}
 							placeholder={t('cases.mainQuestionPlaceholder', $language)}
 						></textarea>
+						{#if formSubmitAttempted && !formData.issues.trim()}
+							<p class="text-sm font-semibold text-red-400">{t('cases.fieldRequired', $language)}</p>
+						{/if}
 					</div>
 					<button
 						type="button"
 						on:click={() => (formData = { ...formData, role: 'plaintiff' })}
-						class={`text-left space-y-1.5 border rounded p-3 transition ${formData.role === 'plaintiff' ? 'border-white/40 bg-white/10' : formSubmitAttempted && !formData.remedy.trim() ? 'border-flare/40 bg-white/5' : 'border-white/15 bg-white/5 hover:bg-white/10'}`}
+						class={`text-left space-y-1.5 border rounded p-3 transition ${formData.role === 'plaintiff' ? 'border-white/40 bg-white/10' : formSubmitAttempted && !formData.remedy.trim() ? 'border-red-500 bg-red-500/5' : 'border-white/15 bg-white/5 hover:bg-white/10'}`}
 					>
 						<p class="text-xs font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.whatYouWant', $language)}</p>
 						<textarea
@@ -316,13 +381,13 @@
 							placeholder={formData.role === 'plaintiff' ? t('cases.plaintiffPlaceholderYou', $language) : t('cases.plaintiffPlaceholderOther', $language)}
 						></textarea>
 						{#if formSubmitAttempted && !formData.remedy.trim()}
-							<p class="text-xs text-flare">{t('cases.fieldRequired', $language)}</p>
+							<p class="text-sm font-semibold text-red-400">{t('cases.fieldRequired', $language)}</p>
 						{/if}
 					</button>
 					<button
 						type="button"
 						on:click={() => (formData = { ...formData, role: 'defendant' })}
-						class={`text-left space-y-1.5 border rounded p-3 transition ${formData.role === 'defendant' ? 'border-white/40 bg-white/10' : formSubmitAttempted && !formData.defendantPosition.trim() ? 'border-flare/40 bg-white/5' : 'border-white/15 bg-white/5 hover:bg-white/10'}`}
+						class={`text-left space-y-1.5 border rounded p-3 transition ${formData.role === 'defendant' ? 'border-white/40 bg-white/10' : formSubmitAttempted && !formData.defendantPosition.trim() ? 'border-red-500 bg-red-500/5' : 'border-white/15 bg-white/5 hover:bg-white/10'}`}
 					>
 						<p class="text-xs font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.whatDefendantWants', $language)}</p>
 						<textarea
@@ -332,55 +397,9 @@
 							placeholder={formData.role === 'defendant' ? t('cases.defendantPlaceholderYou', $language) : t('cases.defendantPlaceholderOther', $language)}
 						></textarea>
 						{#if formSubmitAttempted && !formData.defendantPosition.trim()}
-							<p class="text-xs text-flare">{t('cases.fieldRequired', $language)}</p>
+							<p class="text-sm font-semibold text-red-400">{t('cases.fieldRequired', $language)}</p>
 						{/if}
 					</button>
-				</div>
-
-				<!-- Legal Pack + Sources — compact row -->
-				<div class="border-t border-white/10 pt-4 space-y-3">
-					<div class="flex justify-between items-center">
-						<p class="text-xs font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.legalPack', $language)}</p>
-						<span class="text-xs text-white/40 font-mono">{formData.sources.length} {t('cases.selected', $language)}</span>
-					</div>
-
-					<div class="flex flex-wrap gap-2">
-						{#each $legalPacksStore as pack}
-							<button
-								type="button"
-								on:click={() => setPack(pack.id)}
-								class={`text-left px-3 py-2 border rounded transition text-xs ${$selectedLegalPackId === pack.id ? 'border-white/40 bg-white/10 text-white' : 'border-white/10 bg-white/5 text-white/60 hover:bg-white/10'}`}
-							>
-								<span class="font-bold">{pack.name}</span>
-								<span class="text-white/40 ml-1">• {pack.sources.length}</span>
-							</button>
-						{/each}
-					</div>
-
-					{#if formSubmitAttempted && !$selectedLegalPackId}
-						<p class="text-xs text-flare">{t('cases.selectPackRequired', $language)}</p>
-					{:else if selectedPack && selectedPack.sources.length === 0}
-						<p class="text-xs text-white/50">{t('cases.noSourcesInPack', $language)}</p>
-					{/if}
-
-					{#if selectedPack && selectedPack.sources.length > 0}
-						<div class="flex flex-wrap gap-1.5">
-							{#each selectedPack.sources as doc}
-								<label class={`
-									inline-flex items-center gap-1.5 px-2.5 py-1 border rounded-full transition-all cursor-pointer text-xs
-									${formData.sources.includes(doc.id) ? 'border-white/40 bg-white/10 text-white' : 'border-white/10 text-white/40 hover:bg-white/5'}
-								`}>
-									<input
-										type="checkbox"
-										checked={formData.sources.includes(doc.id)}
-										on:change={() => toggleSource(doc.id)}
-										class="w-3 h-3"
-									/>
-									<span class="truncate max-w-[180px]">{doc.title}</span>
-								</label>
-							{/each}
-						</div>
-					{/if}
 				</div>
 
 				<!-- Actions -->
@@ -392,10 +411,11 @@
 						disabled={
 							!formData.title.trim() ||
 							!formData.synopsis.trim() ||
+							!formData.issues.trim() ||
 							!$selectedLegalPackId ||
 							!formData.role ||
-							(formData.role === 'plaintiff' && !formData.remedy.trim()) ||
-							(formData.role === 'defendant' && !formData.defendantPosition.trim()) ||
+							!formData.remedy.trim() ||
+							!formData.defendantPosition.trim() ||
 							submitting
 						}
 					>
