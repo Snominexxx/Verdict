@@ -227,6 +227,11 @@ create policy "Users can delete own chunks"
   on document_chunks for delete
   using (auth.uid() = user_id);
 
+create policy "Users can update own chunks"
+  on document_chunks for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
 create or replace function match_chunks(
   query_embedding vector(1536),
   match_user_id uuid,

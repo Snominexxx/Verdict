@@ -174,14 +174,12 @@
 
 	const runBatchEmbedding = async (sourceId: string, totalChunks: number) => {
 		let embedded = 0;
-		let remaining = totalChunks;
 		let batchNum = 0;
-		const totalBatches = Math.ceil(totalChunks / 50);
 
-		indexingStatus = `${t('library.indexing', $language)} 1/${totalBatches}`;
+		indexingStatus = t('library.indexing', $language);
 		updateProgress(sourceId, 0);
 
-		while (remaining > 0) {
+		while (true) {
 			try {
 				const res = await fetch('/api/library/embed-batch', {
 					method: 'POST',
@@ -192,13 +190,15 @@
 				if (!res.ok) throw new Error(data?.message ?? 'Embedding failed');
 
 				embedded += data.embedded;
-				remaining = data.remaining;
 				batchNum++;
-				updateProgress(sourceId, (batchNum / totalBatches) * 100);
 
-				if (remaining > 0) {
-					indexingStatus = `${t('library.indexing', $language)} ${batchNum + 1}/${totalBatches}`;
-				}
+				// Use server's remaining count as the source of truth for progress
+				const total = embedded + data.remaining;
+				updateProgress(sourceId, Math.min((embedded / Math.max(total, 1)) * 100, 100));
+
+				if (data.remaining <= 0 || data.embedded === 0) break;
+
+				indexingStatus = t('library.indexing', $language);
 			} catch {
 				indexingStatus = t('library.indexError', $language);
 				setTimeout(() => (indexingStatus = null), 5000);
@@ -207,6 +207,7 @@
 			}
 		}
 
+		updateProgress(sourceId, 100);
 		indexingStatus = t('library.indexed', $language).replace('{count}', String(embedded));
 		setTimeout(() => (indexingStatus = null), 4000);
 		markIndexed(sourceId);

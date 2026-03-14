@@ -10,6 +10,7 @@
 
 import { env } from '$env/dynamic/private';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { assertSupabaseAdmin } from './supabaseAdmin';
 
 // ─────────────────────────────────────────────────────────
 // Types
@@ -415,10 +416,11 @@ export const embedChunkBatch = async (args: {
 	sourceId: string;
 	limit?: number;
 }): Promise<{ embedded: number; remaining: number }> => {
-	const { supabase, userId, sourceId, limit = 50 } = args;
+	const { userId, sourceId, limit = 50 } = args;
+	const admin = assertSupabaseAdmin();
 
-	// Fetch un-embedded chunks
-	const { data: chunks, error: fetchErr } = await supabase
+	// Fetch un-embedded chunks (use admin to bypass RLS)
+	const { data: chunks, error: fetchErr } = await admin
 		.from('document_chunks')
 		.select('id, content')
 		.match({ user_id: userId, source_id: sourceId })
@@ -434,7 +436,7 @@ export const embedChunkBatch = async (args: {
 
 	// Update each chunk with its embedding
 	for (let i = 0; i < chunks.length; i++) {
-		const { error: updateErr } = await supabase
+		const { error: updateErr } = await admin
 			.from('document_chunks')
 			.update({ embedding: JSON.stringify(embeddings[i]) })
 			.eq('id', chunks[i].id);
@@ -445,7 +447,7 @@ export const embedChunkBatch = async (args: {
 	}
 
 	// Count remaining un-embedded
-	const { count } = await supabase
+	const { count } = await admin
 		.from('document_chunks')
 		.select('id', { count: 'exact', head: true })
 		.match({ user_id: userId, source_id: sourceId })
