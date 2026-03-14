@@ -91,6 +91,20 @@
 	<link rel="icon" href={favicon} />
 	<meta name="theme-color" content="#020617" />
 	<meta name="description" content={t('meta.description', $language)} />
+
+	<!-- Open Graph -->
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="Verdict — AI Legal Debates" />
+	<meta property="og:description" content={t('meta.description', $language)} />
+	<meta property="og:url" content="https://verdictmvp.netlify.app" />
+	<meta property="og:image" content="https://verdictmvp.netlify.app/og-image.png" />
+
+	<!-- Twitter Card -->
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Verdict — AI Legal Debates" />
+	<meta name="twitter:description" content={t('meta.description', $language)} />
+	<meta name="twitter:image" content="https://verdictmvp.netlify.app/og-image.png" />
+
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
 	<link

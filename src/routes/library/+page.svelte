@@ -3,6 +3,7 @@
 	import type { LibraryDocument } from '$lib/data/library';
 	import { legalPacksStore, selectedLegalPackId, type LegalPack } from '$lib/stores/legalPacks';
 	import { language } from '$lib/stores/language';
+	import { indexingSourceIds, indexingProgress, markIndexing, markIndexed, updateProgress } from '$lib/stores/indexing';
 	import { t } from '$lib/i18n';
 
 	let selectedDoc: LibraryDocument | null = null;
@@ -166,6 +167,7 @@
 
 		// Start batch embedding if chunks were stored
 		if (pendingChunks > 0 && pendingSourceId) {
+			markIndexing(pendingSourceId);
 			runBatchEmbedding(pendingSourceId, pendingChunks);
 		}
 	};
@@ -177,6 +179,7 @@
 		const totalBatches = Math.ceil(totalChunks / 50);
 
 		indexingStatus = `${t('library.indexing', $language)} 1/${totalBatches}`;
+		updateProgress(sourceId, 0);
 
 		while (remaining > 0) {
 			try {
@@ -191,6 +194,7 @@
 				embedded += data.embedded;
 				remaining = data.remaining;
 				batchNum++;
+				updateProgress(sourceId, (batchNum / totalBatches) * 100);
 
 				if (remaining > 0) {
 					indexingStatus = `${t('library.indexing', $language)} ${batchNum + 1}/${totalBatches}`;
@@ -198,12 +202,14 @@
 			} catch {
 				indexingStatus = t('library.indexError', $language);
 				setTimeout(() => (indexingStatus = null), 5000);
+				markIndexed(sourceId);
 				return;
 			}
 		}
 
 		indexingStatus = t('library.indexed', $language).replace('{count}', String(embedded));
 		setTimeout(() => (indexingStatus = null), 4000);
+		markIndexed(sourceId);
 	};
 
 	const removeSourceFromPack = (sourceId: string) => {
@@ -331,15 +337,25 @@
 
 					<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
 						{#each selectedPack.sources as doc}
-							<div class="border border-white/10 rounded-lg p-4 bg-white/[0.02] space-y-2">
-								<div class="flex items-start justify-between gap-2">
-									<button type="button" class="text-left flex-1 min-w-0" on:click={() => openReader(doc)}>
-										<p class="text-sm font-semibold text-white leading-snug truncate">{doc.title}</p>
-									</button>
-									{#if doc.isCustom}
+						<div class="border border-white/10 rounded-lg p-4 bg-white/[0.02] space-y-2 {$indexingSourceIds.has(doc.id) ? 'opacity-60' : ''}">
+							<div class="flex items-start justify-between gap-2">
+								<button type="button" class="text-left flex-1 min-w-0" on:click={() => openReader(doc)}>
+									<p class="text-sm font-semibold text-white leading-snug truncate">{doc.title}</p>
+								</button>
+								{#if $indexingSourceIds.has(doc.id)}
+									<span class="inline-flex items-center gap-1 text-xs text-flare/80 font-mono shrink-0">
+										<span class="inline-block w-2.5 h-2.5 border-2 border-flare/30 border-t-flare rounded-full animate-spin"></span>
+										{t('library.indexingBadge', $language)}
+									</span>
+								{:else if doc.isCustom}
 										<button type="button" class="text-xs px-2 py-0.5 border border-white/15 rounded text-white/60 hover:text-white" on:click={() => removeSourceFromPack(doc.id)}>{t('library.remove', $language)}</button>
 									{/if}
 								</div>
+								{#if $indexingSourceIds.has(doc.id)}
+									<div class="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+										<div class="h-full bg-flare/70 rounded-full transition-all duration-500 ease-out" style="width: {$indexingProgress[doc.id] ?? 0}%"></div>
+									</div>
+								{/if}
 								<p class="text-sm text-white/60 leading-relaxed line-clamp-2">{doc.description}</p>
 								{#if doc.content && doc.content.length > 0}
 									<details class="mt-1">

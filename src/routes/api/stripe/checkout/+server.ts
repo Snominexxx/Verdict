@@ -2,10 +2,15 @@ import { json, redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { stripe } from '$lib/server/stripe';
 import { env } from '$env/dynamic/private';
+import { rateLimit } from '$lib/server/rateLimit';
 
 export const POST: RequestHandler = async ({ locals, url, request }) => {
 	const { session } = await locals.safeGetSession();
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
+
+	// Rate limit: 5 checkout attempts per 60 seconds
+	const rl = rateLimit(session.user.id, 'stripe_checkout', 5, 60_000);
+	if (!rl.allowed) return json({ error: 'Too many requests' }, { status: 429 });
 
 	const body = await request.json().catch(() => ({}));
 	const requestedTier = (body as { tier?: string }).tier ?? 'pro';

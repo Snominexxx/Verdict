@@ -3,6 +3,7 @@ import type { RequestHandler } from '@sveltejs/kit';
 import { PDFParse } from 'pdf-parse';
 import { storeChunksOnly } from '$lib/server/rag';
 import { assertSupabaseAdmin } from '$lib/server/supabaseAdmin';
+import { rateLimit } from '$lib/server/rateLimit';
 
 const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -28,6 +29,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const { session } = await locals.safeGetSession();
 	if (!session) {
 		throw error(401, 'Authentication required.');
+	}
+
+	// Rate limit: 10 PDF uploads per 60 seconds
+	const rl = rateLimit(session.user.id, 'ingest_pdf', 10, 60_000);
+	if (!rl.allowed) {
+		throw error(429, 'Too many uploads. Please wait a moment.');
 	}
 
 	const contentType = request.headers.get('content-type') ?? '';

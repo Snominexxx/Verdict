@@ -3,12 +3,19 @@ import { error, json } from '@sveltejs/kit';
 import type { DebateTurn, StagedCase } from '$lib/types';
 import type { LibraryDocument } from '$lib/data/library';
 import { generatePerformanceEvaluation } from '$lib/server/llm';
+import { rateLimit } from '$lib/server/rateLimit';
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const { session } = await locals.safeGetSession();
 	if (!session) throw error(401, 'Authentication required.');
+
+	// Rate limit: 5 score requests per 60 seconds per user
+	const rl = rateLimit(session.user.id, 'score', 5, 60_000);
+	if (!rl.allowed) {
+		throw error(429, 'Too many score requests. Please wait a moment and try again.');
+	}
 
 	const payload = await request.json();
 	const stagedCase = payload.case as StagedCase | undefined;

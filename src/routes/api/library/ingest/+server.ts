@@ -1,5 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
+import { rateLimit } from '$lib/server/rateLimit';
 
 const officialHostPatterns = [/\.gov$/i, /\.gc\.ca$/i, /legisquebec\.gouv\.qc\.ca$/i, /justice\.gc\.ca$/i, /canlii\.org$/i];
 const recognizedHostPatterns = [/court/i, /legis/i, /law/i, /bar/i, /canlii\.org$/i];
@@ -87,6 +88,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const { session } = await locals.safeGetSession();
 	if (!session) {
 		throw error(401, 'Authentication required.');
+	}
+
+	// Rate limit: 10 URL ingests per 60 seconds
+	const rl = rateLimit(session.user.id, 'ingest_url', 10, 60_000);
+	if (!rl.allowed) {
+		throw error(429, 'Too many requests. Please wait a moment.');
 	}
 
 	const payload = await request.json().catch(() => null);

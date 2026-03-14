@@ -2,6 +2,7 @@ import type { RequestHandler } from '@sveltejs/kit';
 import { json, error } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { searchChunks, formatChunksForPrompt } from '$lib/server/rag';
+import { rateLimit } from '$lib/server/rateLimit';
 
 const universalCaseTypes = [
 	'wrongful dismissal from employment',
@@ -19,6 +20,12 @@ const universalCaseTypes = [
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const { session } = await locals.safeGetSession();
 	if (!session) throw error(401, 'Authentication required.');
+
+	// Rate limit: 5 requests per 60 seconds per user
+	const rl = rateLimit(session.user.id, 'generate_case', 5, 60_000);
+	if (!rl.allowed) {
+		throw error(429, 'Too many requests. Please wait a moment and try again.');
+	}
 
 	if (!env.LLM_API_KEY) {
 		throw error(500, 'LLM_API_KEY is not configured.');

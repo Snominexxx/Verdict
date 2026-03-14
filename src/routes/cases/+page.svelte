@@ -6,6 +6,7 @@
 	import { get } from 'svelte/store';
 	import { caseHistoryStore } from '$lib/stores/caseHistory';
 	import { legalPacksStore, selectedLegalPackId } from '$lib/stores/legalPacks';
+	import { indexingSourceIds } from '$lib/stores/indexing';
 	import { language } from '$lib/stores/language';
 	import { t } from '$lib/i18n';
 	import { subscriptionStore, TIER_CONFIG } from '$lib/stores/subscription';
@@ -94,7 +95,12 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ language: $language, pack: packPayload })
 			});
-			if (!response.ok) throw new Error('Failed to generate case');
+			if (!response.ok) {
+				const text = await response.text();
+				let msg = 'Failed to generate case';
+				try { msg = JSON.parse(text).message ?? msg; } catch {}
+				throw new Error(msg);
+			}
 			const data = await response.json();
 			formData = {
 				...formData,
@@ -106,26 +112,31 @@
 			};
 		} catch (err) {
 			console.error('Auto-fill failed:', err);
-			const jurisdiction = selectedPack
-				? [...new Set(selectedPack.sources.map((s) => s.jurisdiction).filter(Boolean))].join(' / ') || ''
-				: '';
-			const locationLabel = jurisdiction || ($language === 'fr' ? 'le pays concerné' : 'the relevant jurisdiction');
-			formData = {
-				...formData,
-				title: $language === 'fr' ? `Exemple c. Partie adverse` : `Example v. Opposing Party`,
-				synopsis: $language === 'fr'
-					? `Litige civil typique dans ${locationLabel}. Un employé a été congédié sans préavis après 3 ans de service. L'employeur invoque une restructuration mais a embauché un remplaçant peu après.`
-					: `Typical civil dispute in ${locationLabel}. An employee was dismissed without notice after 3 years of service. The employer cited restructuring but hired a replacement shortly after.`,
-				issues: $language === 'fr'
-					? 'Le congédiement était-il justifié? Y a-t-il droit à une indemnité?'
-					: 'Was the dismissal justified? Is there entitlement to compensation?',
-				remedy: $language === 'fr'
-					? 'Compensation pour perte de salaire et indemnité de départ.'
-					: 'Compensation for lost wages and severance pay.',
-				defendantPosition: $language === 'fr'
-					? 'Rejet de la réclamation ou réduction des montants demandés.'
-					: 'Dismissal of the claim or reduction of requested amounts.'
-			};
+			const errMsg = err instanceof Error ? err.message : '';
+			if (errMsg.includes('limit reached') || errMsg.includes('Too many')) {
+				errorMessage = errMsg;
+			} else {
+				const jurisdiction = selectedPack
+					? [...new Set(selectedPack.sources.map((s) => s.jurisdiction).filter(Boolean))].join(' / ') || ''
+					: '';
+				const locationLabel = jurisdiction || ($language === 'fr' ? 'le pays concerné' : 'the relevant jurisdiction');
+				formData = {
+					...formData,
+					title: $language === 'fr' ? `Exemple c. Partie adverse` : `Example v. Opposing Party`,
+					synopsis: $language === 'fr'
+						? `Litige civil typique dans ${locationLabel}. Un employé a été congédié sans préavis après 3 ans de service. L'employeur invoque une restructuration mais a embauché un remplaçant peu après.`
+						: `Typical civil dispute in ${locationLabel}. An employee was dismissed without notice after 3 years of service. The employer cited restructuring but hired a replacement shortly after.`,
+					issues: $language === 'fr'
+						? 'Le congédiement était-il justifié? Y a-t-il droit à une indemnité?'
+						: 'Was the dismissal justified? Is there entitlement to compensation?',
+					remedy: $language === 'fr'
+						? 'Compensation pour perte de salaire et indemnité de départ.'
+						: 'Compensation for lost wages and severance pay.',
+					defendantPosition: $language === 'fr'
+						? 'Rejet de la réclamation ou réduction des montants demandés.'
+						: 'Dismissal of the claim or reduction of requested amounts.'
+				};
+			}
 		} finally {
 			generating = false;
 		}
@@ -258,7 +269,7 @@
 
 					{#if selectedPack && selectedPack.sources.length > 0}
 						<div class="flex flex-wrap gap-1.5">
-							{#each selectedPack.sources as doc}
+							{#each selectedPack.sources.filter((s) => !$indexingSourceIds.has(s.id)) as doc}
 								<label class={`
 									inline-flex items-center gap-1.5 px-2.5 py-1 border rounded-full transition-all cursor-pointer text-xs
 									${formData.sources.includes(doc.id) ? 'border-white/40 bg-white/10 text-white' : 'border-white/10 text-white/40 hover:bg-white/5'}

@@ -6,7 +6,11 @@ import type { LibraryDocument } from '$lib/data/library';
 import { libraryDocuments } from '$lib/data/library';
 import { generateDebateAnalysis, generateBenchTrialAnalysis } from '$lib/server/llm';
 import { searchChunks, formatChunksForPrompt } from '$lib/server/rag';
+import { checkCredits, recordUsage, isCaseCharged } from '$lib/server/credits';
+import { rateLimit } from '$lib/server/rateLimit';
 import type { StagedCase } from '$lib/types';
+
+const MAX_PROMPT_LENGTH = 10_000;
 
 const normalizeSources = (payloadSources: unknown, fallbackIds: string[]): LibraryDocument[] => {
 	if (Array.isArray(payloadSources) && payloadSources.length) {
@@ -31,6 +35,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const { session } = await locals.safeGetSession();
 	if (!session) throw error(401, 'Authentication required.');
 
+	// Rate limit: 10 requests per 60 seconds per user
+	const rl = rateLimit(session.user.id, 'debate', 10, 60_000);
+	if (!rl.allowed) {
+		throw error(429, 'Too many requests. Please wait a moment and try again.');
+	}
+
 	const payload = await request.json();
 	const prompt = String(payload.prompt ?? '').trim();
 	const stagedCase = payload.case as StagedCase | undefined;
@@ -40,12 +50,35 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'A prompt is required.');
 	}
 
+	if (prompt.length > MAX_PROMPT_LENGTH) {
+		throw error(400, `Prompt too long (max ${MAX_PROMPT_LENGTH} characters).`);
+	}
+
 	if (!stagedCase) {
 		throw error(400, 'No staged case supplied.');
 	}
 
 	if (stagedCase.role !== 'plaintiff' && stagedCase.role !== 'defendant') {
 		throw error(400, 'Invalid staged case role.');
+	}
+
+	// Credit check: 1 credit per case, only on first message.
+	// We record usage BEFORE the LLM call to prevent race-condition abuse.
+	// The unique(user_id, case_id) constraint ensures only 1 credit per case.
+	const caseId = stagedCase.id;
+	if (!caseId) {
+		throw error(400, 'Case ID is required.');
+	}
+	const alreadyCharged = await isCaseCharged(session.user.id, caseId);
+	if (!alreadyCharged) {
+		const credits = await checkCredits(session.user.id);
+		if (!credits.allowed) {
+			throw error(403, `Monthly debate limit reached (${credits.used}/${credits.limit}). Upgrade your plan for more.`);
+		}
+		// Charge now (upsert ignores duplicates from concurrent requests)
+		try { await recordUsage(session.user.id, caseId); } catch (e) {
+			console.error('Failed to record usage:', e);
+		}
 	}
 
 	const sources = normalizeSources(payload.sources, stagedCase.sources);

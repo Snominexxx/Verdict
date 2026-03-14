@@ -264,3 +264,44 @@ begin
   limit match_count;
 end;
 $$;
+
+-- 8. Usage Log — tracks credit consumption per billing period
+create table if not exists usage_log (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  action      text not null default 'debate',
+  case_id     text,
+  created_at  timestamptz not null default now()
+);
+
+create unique index if not exists idx_usage_log_user_case
+  on usage_log(user_id, case_id);
+
+create index if not exists idx_usage_log_user_date
+  on usage_log(user_id, created_at desc);
+
+alter table usage_log enable row level security;
+
+create policy "Users can read own usage"
+  on usage_log for select
+  using (auth.uid() = user_id);
+
+-- Insert & delete via service_role only (bypasses RLS)
+
+-- Helper: count usage in current billing period
+create or replace function get_usage_count(
+  p_user_id uuid,
+  p_action  text default null,
+  p_since   timestamptz default (date_trunc('month', now()))
+)
+returns int
+language sql
+stable
+security definer
+as $$
+  select count(*)::int
+  from usage_log
+  where user_id = p_user_id
+    and created_at >= p_since
+    and (p_action is null or action = p_action);
+$$;

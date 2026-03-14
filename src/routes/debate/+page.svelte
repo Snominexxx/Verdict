@@ -144,7 +144,9 @@
 			});
 			if (!response.ok) {
 				const text = await response.text();
-				throw new Error(text || 'Debate request failed.');
+				let msg = text || 'Debate request failed.';
+				try { msg = JSON.parse(text).message ?? msg; } catch {}
+				throw new Error(msg);
 			}
 			const result = await response.json();
 

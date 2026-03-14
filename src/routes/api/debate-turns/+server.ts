@@ -1,5 +1,9 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { rateLimit } from '$lib/server/rateLimit';
+
+const MAX_TURNS_PER_SAVE = 50;
+const MAX_MESSAGE_LENGTH = 50_000;
 
 // GET — load debate turns for a case
 export const GET: RequestHandler = async ({ url, locals }) => {
@@ -37,20 +41,25 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const { session } = await locals.safeGetSession();
 	if (!session) throw error(401, 'Authentication required.');
 
+	// Rate limit: 10 saves per 60 seconds
+	const rl = rateLimit(session.user.id, 'save_turns', 10, 60_000);
+	if (!rl.allowed) throw error(429, 'Too many requests.');
+
 	const body = await request.json();
 	const caseId = body.caseId;
 	const turns = body.turns;
 
 	if (!caseId || typeof caseId !== 'string') throw error(400, 'caseId is required.');
 	if (!Array.isArray(turns) || turns.length === 0) throw error(400, 'turns array is required.');
+	if (turns.length > MAX_TURNS_PER_SAVE) throw error(400, `Too many turns (max ${MAX_TURNS_PER_SAVE}).`);
 
 	const rows = turns.map((t: { role: string; speaker: string; message: string; citations?: string[] }) => ({
 		case_id: caseId,
 		user_id: session.user.id,
-		role: String(t.role),
-		speaker: String(t.speaker),
-		message: String(t.message),
-		citations: t.citations ?? []
+		role: String(t.role).slice(0, 50),
+		speaker: String(t.speaker).slice(0, 200),
+		message: String(t.message).slice(0, MAX_MESSAGE_LENGTH),
+		citations: Array.isArray(t.citations) ? t.citations.slice(0, 20) : []
 	}));
 
 	const { error: dbError } = await locals.supabase.from('debate_turns').insert(rows);

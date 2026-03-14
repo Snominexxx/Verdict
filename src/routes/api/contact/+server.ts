@@ -1,8 +1,16 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { assertSupabaseAdmin } from '$lib/server/supabaseAdmin';
+import { rateLimit } from '$lib/server/rateLimit';
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, getClientAddress }) => {
+	// Rate limit by IP: 3 contact submissions per 5 minutes
+	const ip = getClientAddress();
+	const rl = rateLimit(ip, 'contact', 3, 5 * 60_000);
+	if (!rl.allowed) {
+		throw error(429, 'Too many submissions. Please try again later.');
+	}
+
 	const { name, email, message } = await request.json();
 
 	if (

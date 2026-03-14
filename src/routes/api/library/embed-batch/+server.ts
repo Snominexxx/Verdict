@@ -1,6 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { embedChunkBatch } from '$lib/server/rag';
+import { rateLimit } from '$lib/server/rateLimit';
 
 /**
  * POST — Embed a batch of un-embedded chunks for a source document.
@@ -10,6 +11,12 @@ import { embedChunkBatch } from '$lib/server/rag';
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const { session } = await locals.safeGetSession();
 	if (!session) throw error(401, 'Authentication required.');
+
+	// Rate limit: 30 batch calls per 60 seconds (supports large docs but blocks abuse)
+	const rl = rateLimit(session.user.id, 'embed_batch', 30, 60_000);
+	if (!rl.allowed) {
+		throw error(429, 'Too many embedding requests. Please wait a moment.');
+	}
 
 	const payload = await request.json().catch(() => null);
 	if (!payload?.sourceId) {
