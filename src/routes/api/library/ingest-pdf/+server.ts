@@ -1,6 +1,8 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { PDFParse } from 'pdf-parse';
+import { storeChunksOnly } from '$lib/server/rag';
+import { assertSupabaseAdmin } from '$lib/server/supabaseAdmin';
 
 const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -35,6 +37,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	let pdfBytes: Uint8Array;
 	let filename = 'document.pdf';
+	let packId = '';
 
 	if (contentType.includes('multipart/form-data')) {
 		const formData = await request.formData();
@@ -49,6 +52,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			throw error(400, 'Only PDF files are accepted.');
 		}
 		filename = file.name;
+		packId = (formData.get('packId') as string) || '';
 		pdfBytes = new Uint8Array(await file.arrayBuffer());
 	} else {
 		const arrayBuffer = await request.arrayBuffer();
@@ -73,10 +77,36 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const excerpt = text.slice(0, 320);
 		const jurisdiction = detectJurisdiction(filename, text);
 		const docType = detectDocType(text);
+		const sourceId = `pdf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+		// Store chunks (text only, no embeddings) in Supabase
+		let totalChunks = 0;
+		if (text.length >= 50) {
+			try {
+				const supabase = assertSupabaseAdmin();
+				totalChunks = await storeChunksOnly({
+					supabase,
+					userId: session.user.id,
+					sourceId,
+					packId: packId || undefined,
+					content: text,
+					metadata: {
+						title,
+						jurisdiction,
+						docType,
+						trustLevel: 'unverified',
+						sourceUrl: `uploaded://${filename}`
+					}
+				});
+			} catch (storeErr) {
+				console.error('Failed to store chunks:', storeErr);
+				// Non-fatal: document is still returned, user can retry embedding
+			}
+		}
 
 		return json({
 			document: {
-				id: `pdf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+				id: sourceId,
 				title,
 				jurisdiction,
 				description: excerpt,
@@ -87,7 +117,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				trustLevel: 'unverified' as const,
 				isCustom: true,
 				note: 'Uploaded PDF. Review extracted text for accuracy.'
-			}
+			},
+			totalChunks
 		});
 	} catch (err) {
 		if (err instanceof Response) throw err;

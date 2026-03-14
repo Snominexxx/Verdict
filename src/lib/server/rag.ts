@@ -358,6 +358,102 @@ export const deleteDocumentChunks = async (args: {
 	await supabase.from('document_chunks').delete().match({ user_id: userId, source_id: sourceId });
 };
 
+/**
+ * Store chunks (text only, no embeddings) for later batch embedding.
+ * Returns the number of chunks stored.
+ */
+export const storeChunksOnly = async (args: {
+	supabase: SupabaseClient;
+	userId: string;
+	sourceId: string;
+	packId?: string;
+	content: string;
+	metadata: ChunkMetadata;
+}): Promise<number> => {
+	const { supabase, userId, sourceId, packId, content, metadata } = args;
+
+	// Delete existing chunks for this source (re-index)
+	await supabase.from('document_chunks').delete().match({ user_id: userId, source_id: sourceId });
+
+	// Chunk the document
+	const chunks = chunkDocument(content);
+	if (!chunks.length) return 0;
+
+	// Store chunks without embeddings
+	const rows = chunks.map((chunk) => ({
+		user_id: userId,
+		source_id: sourceId,
+		pack_id: packId || null,
+		chunk_index: chunk.chunkIndex,
+		heading: chunk.heading,
+		content: chunk.content,
+		token_count: chunk.tokenCount,
+		embedding: null,
+		metadata
+	}));
+
+	const BATCH_SIZE = 100;
+	for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+		const batch = rows.slice(i, i + BATCH_SIZE);
+		const { error } = await supabase.from('document_chunks').insert(batch);
+		if (error) {
+			console.error(`Failed to insert chunk batch ${i}:`, error);
+			throw new Error(`Failed to store document chunks: ${error.message}`);
+		}
+	}
+
+	return chunks.length;
+};
+
+/**
+ * Embed a batch of un-embedded chunks for a given source.
+ * Returns { embedded, remaining }.
+ */
+export const embedChunkBatch = async (args: {
+	supabase: SupabaseClient;
+	userId: string;
+	sourceId: string;
+	limit?: number;
+}): Promise<{ embedded: number; remaining: number }> => {
+	const { supabase, userId, sourceId, limit = 50 } = args;
+
+	// Fetch un-embedded chunks
+	const { data: chunks, error: fetchErr } = await supabase
+		.from('document_chunks')
+		.select('id, content')
+		.match({ user_id: userId, source_id: sourceId })
+		.is('embedding', null)
+		.order('chunk_index', { ascending: true })
+		.limit(limit);
+
+	if (fetchErr) throw new Error(`Failed to fetch chunks: ${fetchErr.message}`);
+	if (!chunks?.length) return { embedded: 0, remaining: 0 };
+
+	// Generate embeddings
+	const embeddings = await generateEmbeddings(chunks.map((c) => c.content));
+
+	// Update each chunk with its embedding
+	for (let i = 0; i < chunks.length; i++) {
+		const { error: updateErr } = await supabase
+			.from('document_chunks')
+			.update({ embedding: JSON.stringify(embeddings[i]) })
+			.eq('id', chunks[i].id);
+
+		if (updateErr) {
+			console.error(`Failed to update chunk ${chunks[i].id}:`, updateErr);
+		}
+	}
+
+	// Count remaining un-embedded
+	const { count } = await supabase
+		.from('document_chunks')
+		.select('id', { count: 'exact', head: true })
+		.match({ user_id: userId, source_id: sourceId })
+		.is('embedding', null);
+
+	return { embedded: chunks.length, remaining: count ?? 0 };
+};
+
 // ─────────────────────────────────────────────────────────
 // 4. SEMANTIC SEARCH — Find relevant chunks for a query
 // ─────────────────────────────────────────────────────────

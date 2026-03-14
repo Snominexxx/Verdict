@@ -114,11 +114,16 @@
 			sourceError = t('library.fileRequired', $language);
 			return;
 		}
+		if (!selectedPack) {
+			sourceError = t('library.noPackSelected', $language);
+			return;
+		}
 
 		ingesting = true;
 		try {
 			const formData = new FormData();
 			formData.append('file', sourceFile);
+			formData.append('packId', selectedPack.id);
 			const response = await fetch('/api/library/ingest-pdf', {
 				method: 'POST',
 				body: formData
@@ -135,6 +140,9 @@
 				title: sourceTitle.trim() || ingested.title,
 				description: sourceDescription.trim() || ingested.description
 			};
+			// Store totalChunks for batch embedding after save
+			pendingChunks = payload.totalChunks ?? 0;
+			pendingSourceId = ingested.id;
 		} catch (err) {
 			sourceError = err instanceof Error ? err.message : t('library.pdfParseFailed', $language);
 		} finally {
@@ -143,6 +151,8 @@
 	};
 
 	let indexingStatus: string | null = null;
+	let pendingChunks = 0;
+	let pendingSourceId = '';
 
 	const saveSourceToPack = () => {
 		if (!selectedPack || !previewDoc) return;
@@ -154,41 +164,46 @@
 		legalPacksStore.addSourceToPack(selectedPack.id, doc);
 		closeSourceModal();
 
-		// Async: index the document for RAG (chunk + embed)
-		if (doc.content && doc.content.length >= 50) {
-			const charCount = Math.round(doc.content.length / 1000);
-			indexingStatus = `${t('library.indexing', $language)} (${charCount}k chars)`;
-			fetch('/api/library/index', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					sourceId: doc.id,
-					packId: selectedPack.id,
-					content: doc.content,
-					metadata: {
-						title: doc.title,
-						jurisdiction: doc.jurisdiction,
-						docType: doc.docType,
-						trustLevel: doc.trustLevel,
-						sourceUrl: doc.sourceUrl
-					}
-				})
-			})
-				.then((res) => res.json())
-				.then((data) => {
-					if (data?.success) {
-						indexingStatus = t('library.indexed', $language).replace('{count}', String(data.chunkCount));
-						setTimeout(() => (indexingStatus = null), 4000);
-					} else {
-						indexingStatus = t('library.indexError', $language);
-						setTimeout(() => (indexingStatus = null), 5000);
-					}
-				})
-				.catch(() => {
-					indexingStatus = t('library.indexError', $language);
-					setTimeout(() => (indexingStatus = null), 5000);
-				});
+		// Start batch embedding if chunks were stored
+		if (pendingChunks > 0 && pendingSourceId) {
+			runBatchEmbedding(pendingSourceId, pendingChunks);
 		}
+	};
+
+	const runBatchEmbedding = async (sourceId: string, totalChunks: number) => {
+		let embedded = 0;
+		let remaining = totalChunks;
+		let batchNum = 0;
+		const totalBatches = Math.ceil(totalChunks / 50);
+
+		indexingStatus = `${t('library.indexing', $language)} 1/${totalBatches}`;
+
+		while (remaining > 0) {
+			try {
+				const res = await fetch('/api/library/embed-batch', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ sourceId })
+				});
+				const data = await res.json();
+				if (!res.ok) throw new Error(data?.message ?? 'Embedding failed');
+
+				embedded += data.embedded;
+				remaining = data.remaining;
+				batchNum++;
+
+				if (remaining > 0) {
+					indexingStatus = `${t('library.indexing', $language)} ${batchNum + 1}/${totalBatches}`;
+				}
+			} catch {
+				indexingStatus = t('library.indexError', $language);
+				setTimeout(() => (indexingStatus = null), 5000);
+				return;
+			}
+		}
+
+		indexingStatus = t('library.indexed', $language).replace('{count}', String(embedded));
+		setTimeout(() => (indexingStatus = null), 4000);
 	};
 
 	const removeSourceFromPack = (sourceId: string) => {
