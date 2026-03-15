@@ -31,7 +31,23 @@
 	onMount(() => {
 		legalPacksStore.hydrate();
 		selectedLegalPackId.hydrate();
+		checkPendingIndexing();
 	});
+
+	/** On page load, check for sources with un-embedded chunks and auto-resume. */
+	const checkPendingIndexing = async () => {
+		try {
+			const res = await fetch('/api/library/pending');
+			if (!res.ok) return;
+			const { sourceIds } = await res.json() as { sourceIds: string[] };
+			for (const sid of sourceIds) {
+				if (!$indexingSourceIds.has(sid)) {
+					markIndexing(sid);
+					runBatchEmbedding(sid, 0);
+				}
+			}
+		} catch { /* silent */ }
+	};
 
 	$: packs = $legalPacksStore;
 	$: selectedPack = packs.find((p) => p.id === $selectedLegalPackId) ?? packs[0] ?? null;
