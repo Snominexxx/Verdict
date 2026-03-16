@@ -82,12 +82,16 @@
 		generating = true;
 		errorMessage = '';
 		try {
+			const selectedSources = selectedPack
+				? selectedPack.sources.filter((s) => formData.sources.includes(s.id))
+				: [];
 			const packPayload = selectedPack
 				? {
 						packId: selectedPack.id,
 						packName: selectedPack.name,
-						jurisdictions: [...new Set(selectedPack.sources.map((s) => s.jurisdiction).filter(Boolean))],
-						sourceTitles: selectedPack.sources.map((s) => s.title).slice(0, 10)
+						jurisdictions: [...new Set(selectedSources.map((s) => s.jurisdiction).filter(Boolean))],
+						sourceTitles: selectedSources.map((s) => s.title).slice(0, 10),
+						sourceIds: selectedSources.map((s) => s.id)
 					}
 				: null;
 			const response = await fetch('/api/generate-case', {

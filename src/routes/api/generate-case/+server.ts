@@ -14,7 +14,17 @@ const universalCaseTypes = [
 	'property damage dispute between neighbours',
 	'failed renovation or construction contract',
 	'insurance claim denial',
-	'professional negligence'
+	'professional negligence',
+	'defamation or libel',
+	'product liability',
+	'intellectual property infringement',
+	'medical malpractice',
+	'fraud or misrepresentation',
+	'partnership dissolution',
+	'non-compete clause violation',
+	'discrimination in housing',
+	'environmental contamination liability',
+	'inheritance or succession dispute'
 ];
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -32,7 +42,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	let language = 'en';
-	let pack: { packId?: string; packName?: string; jurisdictions?: string[]; sourceTitles?: string[] } | null = null;
+	let pack: { packId?: string; packName?: string; jurisdictions?: string[]; sourceTitles?: string[]; sourceIds?: string[] } | null = null;
 	try {
 		const body = await request.json();
 		language = body?.language ?? 'en';
@@ -54,30 +64,42 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// RAG: try to get relevant legal text from the user's indexed documents
 	let ragContext = '';
 	try {
-		const ragQuery = `${caseType} ${jurisdictionLabel} legal dispute civil court`;
-		const chunks = await searchChunks({
+		const ragQuery = `legal dispute court case ${jurisdictionLabel}`;
+		const allChunks = await searchChunks({
 			supabase: locals.supabase,
 			userId: session.user.id,
 			query: ragQuery,
 			packId: pack?.packId ? String(pack.packId) : undefined,
-			maxChunks: 8,
-			maxTokens: 4000
+			maxChunks: 20,
+			maxTokens: 6000
 		});
+		// Filter to only the sources the user selected (if specified)
+		const selectedIds = pack?.sourceIds?.filter(Boolean);
+		const chunks = selectedIds?.length
+			? allChunks.filter((c) => selectedIds.includes(c.sourceId)).slice(0, 8)
+			: allChunks.slice(0, 8);
 		if (chunks.length > 0) {
-			ragContext = `\n\nThe user has indexed the following legal documents. Base the case scenario on these ACTUAL legal provisions:\n${formatChunksForPrompt(chunks)}\n\nThe generated case MUST reference real articles/sections from these documents. Make the scenario naturally arise from these specific legal provisions.`;
+			ragContext = `\n\nThe user has indexed the following legal documents. Base the case scenario on these ACTUAL legal provisions:\n${formatChunksForPrompt(chunks)}\n\nThe generated case MUST reference real articles/sections from these documents. Make the scenario naturally arise from these specific legal provisions. Infer the correct jurisdiction from the document content — do NOT assume Quebec or Canada unless the documents explicitly reference them.`;
 		}
 	} catch {
 		// RAG is optional — skip silently if not available
 	}
 
 	const langInstruction = language === 'fr'
-		? `Generate a realistic case scenario for a civil court simulation set in ${jurisdictionLabel}. Output JSON only. ALL text values MUST be in French (Canadian French).`
-		: `Generate a realistic case scenario for a civil court simulation set in ${jurisdictionLabel}. Output JSON only.`;
+		? `Generate a realistic case scenario for a court simulation set in ${jurisdictionLabel}. Output JSON only. ALL text values MUST be in French (Canadian French).`
+		: `Generate a realistic case scenario for a court simulation set in ${jurisdictionLabel}. Output JSON only.`;
 
-	const userPrompt = `Create a ${caseType} case. The user is the plaintiff.${language === 'fr' ? ' Respond entirely in French (Canadian French).' : ''}
+	// If RAG found content from user's documents, let the AI pick the case type from that content.
+	// Otherwise, fall back to a random universal case type.
+	const caseTypeInstruction = ragContext
+		? 'Based on the legal provisions below, create a realistic case scenario that naturally arises from those specific laws. Choose the most appropriate type of dispute for the subject matter of these documents.'
+		: `Create a ${caseType} case.`;
+
+	const userPrompt = `${caseTypeInstruction} The user is the plaintiff.${language === 'fr' ? ' Respond entirely in French (Canadian French).' : ''}
 ${sourcesContext}${ragContext}
 
 The case must be realistic and grounded in ${jurisdictionLabel} law. Use names, dates, and amounts appropriate for that jurisdiction.
+Be creative and original — do NOT reuse common example names like "Smith", "Johnson" or "Tremblay". Vary the facts, amounts, dates, and legal issues each time.
 
 Return JSON with these exact keys:
 {

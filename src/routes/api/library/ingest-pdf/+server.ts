@@ -10,10 +10,18 @@ const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10 MB
 const detectJurisdiction = (filename: string, text: string) => {
 	const haystack = `${filename} ${text.slice(0, 2000)}`.toLowerCase();
 	if (haystack.includes('quebec') || haystack.includes('québec') || haystack.includes('qc')) return 'Quebec';
+	if (/\bfrance\b|français|française|république française|code civil(?! du qu)/.test(haystack)) return 'France';
+	if (haystack.includes('ontario')) return 'Ontario';
+	if (haystack.includes('alberta')) return 'Alberta';
+	if (haystack.includes('british columbia') || haystack.includes('colombie-britannique')) return 'British Columbia';
 	if (haystack.includes('canada') || haystack.includes('canadian')) return 'Canada';
 	if (haystack.includes('texas') || haystack.includes(' tx ')) return 'Texas';
+	if (haystack.includes('california')) return 'California';
+	if (haystack.includes('new york')) return 'New York';
 	if (haystack.includes('kansas') || haystack.includes(' ks ')) return 'Kansas';
-	if (haystack.includes('federal')) return 'Federal';
+	if (haystack.includes('federal') || haystack.includes('fédéral')) return 'Federal';
+	if (/\bunited states\b|\bu\.?s\.?\b/.test(haystack)) return 'United States';
+	if (/\bunited kingdom\b|\bu\.?k\.?\b/.test(haystack)) return 'United Kingdom';
 	return 'Other';
 };
 
