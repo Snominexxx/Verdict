@@ -21,6 +21,10 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 		throw error(400, 'Name, email, and message are required.');
 	}
 
+	if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+		throw error(400, 'Please provide a valid email address.');
+	}
+
 	const supabase = assertSupabaseAdmin();
 
 	const { error: dbError } = await supabase

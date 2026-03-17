@@ -440,6 +440,22 @@ const translations = {
 		en: 'Submissions are graded across persuasion, citation discipline, and realism.',
 		fr: 'Les soumissions sont évaluées selon la persuasion, la rigueur des citations et le réalisme.'
 	},
+	'jury.weightPersuasion': {
+		en: 'Weight persuasive clarity (40%) — track concessions and reframed issues.',
+		fr: 'Clarté de persuasion (40 %) — suivi des concessions et des reformulations.'
+	},
+	'jury.weightCitation': {
+		en: 'Weight citation discipline (35%) — penalize references outside uploaded packets.',
+		fr: 'Rigueur des citations (35 %) — pénaliser les références hors des documents soumis.'
+	},
+	'jury.weightRealism': {
+		en: 'Weight realism (25%) — how practical is the remedy or defence.',
+		fr: 'Réalisme (25 %) — le caractère pratique du recours ou de la défense.'
+	},
+	'jury.scoresExport': {
+		en: 'Scores and rationales are saved for dashboards and performance tracking.',
+		fr: 'Les scores et justifications sont sauvegardés pour les tableaux de bord et le suivi.'
+	},
 
 	// ===== PRICING =====
 	'pricing.kicker': { en: 'Plans & Pricing', fr: 'Plans et tarifs' },
@@ -510,8 +526,8 @@ const translations = {
 	},
 	'pricing.proFeature1': { en: '20 debates per month', fr: '20 débats par mois' },
 	'pricing.proFeature2': { en: 'Up to 15 rounds each', fr: 'Jusqu\'à 15 tours chacun' },
-	'pricing.proFeature3': { en: 'Full case history', fr: 'Historique complet des causes' },
-	'pricing.proFeature4': { en: 'Unlimited legal packs', fr: 'Packs juridiques illimités' },
+	'pricing.proFeature3': { en: 'Case history & persistence', fr: 'Historique et sauvegarde des causes' },
+	'pricing.proFeature4': { en: 'PDF upload & AI indexing', fr: 'Téléversement PDF et indexation IA' },
 	'pricing.proPlusName': { en: 'Pro+', fr: 'Pro+' },
 	'pricing.proPlusDesc': {
 		en: 'Maximum firepower for power users.',
@@ -519,7 +535,7 @@ const translations = {
 	},
 	'pricing.proPlusFeature1': { en: '60 debates per month', fr: '60 débats par mois' },
 	'pricing.proPlusFeature2': { en: 'Up to 20 rounds each', fr: 'Jusqu\'à 20 tours chacun' },
-	'pricing.proPlusFeature3': { en: 'Priority AI responses', fr: 'Réponses IA prioritaires' },
+	'pricing.proPlusFeature3': { en: 'Longer, deeper arguments', fr: 'Arguments plus longs et approfondis' },
 	'pricing.proPlusFeature4': { en: 'Everything in Pro', fr: 'Tout ce qui est dans Pro' },
 	'pricing.enterpriseName': { en: 'Enterprise', fr: 'Entreprise' },
 	'pricing.enterpriseDesc': {
@@ -527,9 +543,9 @@ const translations = {
 		fr: 'Pour cabinets, écoles et institutions.'
 	},
 	'pricing.entFeature1': { en: 'Unlimited debates', fr: 'Débats illimités' },
-	'pricing.entFeature2': { en: 'Team management', fr: 'Gestion d\'équipe' },
+	'pricing.entFeature2': { en: 'Volume pricing', fr: 'Tarification en volume' },
 	'pricing.entFeature3': { en: 'Dedicated support', fr: 'Support dédié' },
-	'pricing.entFeature4': { en: 'Custom integrations', fr: 'Intégrations sur mesure' },
+	'pricing.entFeature4': { en: 'Custom onboarding', fr: 'Intégration personnalisée' },
 	'pricing.limitReached': {
 		en: 'You\'ve reached your credit limit for this period.',
 		fr: 'Vous avez atteint votre limite de crédits pour cette période.'

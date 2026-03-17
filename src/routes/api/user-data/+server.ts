@@ -15,6 +15,11 @@ export const GET: RequestHandler = async ({ locals }) => {
 	const { session } = await locals.safeGetSession();
 	if (!session) throw error(401, 'Not authenticated');
 
+	const rl = rateLimit(session.user.id, 'user_data_read', 20, 60_000);
+	if (!rl.allowed) {
+		throw error(429, 'Too many requests. Please wait a moment.');
+	}
+
 	const userId = session.user.id;
 	const supabase = locals.supabase;
 

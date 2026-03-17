@@ -41,12 +41,12 @@
 				<p class="text-sm text-white/60">{t('jury.scoringDesc', $language)}</p>
 			</div>
 			<ul class="space-y-3 text-sm text-white/70">
-				<li>Weight persuasive clarity (40%) — track concessions and reframed issues.</li>
-				<li>Weight citation discipline (35%) — penalize references outside uploaded packets.</li>
-				<li>Weight realism (25%) — how practical is the remedy or defence.</li>
+				<li>{t('jury.weightPersuasion', $language)}</li>
+				<li>{t('jury.weightCitation', $language)}</li>
+				<li>{t('jury.weightRealism', $language)}</li>
 			</ul>
 			<div class="text-xs text-white/60">
-				Scores + rationales are POSTed back to Supabase for dashboards and PDF exports.
+				{t('jury.scoresExport', $language)}
 			</div>
 		</div>
 	</section>

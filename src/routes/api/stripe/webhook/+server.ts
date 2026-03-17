@@ -10,10 +10,11 @@ const supabaseAdmin = createClient(
 	env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 );
 
-const resolveTier = (subscription: Stripe.Subscription): 'pro' | 'pro_plus' => {
+const resolveTier = (subscription: Stripe.Subscription): 'pro' | 'pro_plus' | 'free' => {
 	const priceId = subscription.items?.data?.[0]?.price?.id;
 	if (priceId && priceId === env.STRIPE_PRICE_ID_PLUS) return 'pro_plus';
-	return 'pro';
+	if (priceId && priceId === env.STRIPE_PRICE_ID) return 'pro';
+	return 'free';
 };
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -100,6 +101,26 @@ export const POST: RequestHandler = async ({ request }) => {
 			await supabaseAdmin.from('subscriptions').update({
 				tier: 'free',
 				status: 'canceled',
+				current_period_end: null,
+				updated_at: new Date().toISOString()
+			}).eq('user_id', sub.user_id);
+			break;
+		}
+
+		case 'invoice.payment_failed': {
+			const invoice = event.data.object as Stripe.Invoice;
+			const customerId = invoice.customer as string;
+
+			const { data: sub } = await supabaseAdmin
+				.from('subscriptions')
+				.select('user_id')
+				.eq('stripe_customer_id', customerId)
+				.single();
+
+			if (!sub) break;
+
+			await supabaseAdmin.from('subscriptions').update({
+				status: 'past_due',
 				updated_at: new Date().toISOString()
 			}).eq('user_id', sub.user_id);
 			break;

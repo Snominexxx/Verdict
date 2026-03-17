@@ -25,7 +25,7 @@ async function getUserTier(userId: string): Promise<string> {
 		.eq('user_id', userId)
 		.single();
 
-	if (!data || data.status !== 'active') return 'free';
+	if (!data || !['active', 'trialing'].includes(data.status)) return 'free';
 	return data.tier ?? 'free';
 }
 

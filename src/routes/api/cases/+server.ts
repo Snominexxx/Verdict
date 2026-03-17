@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { assertSupabaseAdmin } from '$lib/server/supabaseAdmin';
 import { dev } from '$app/environment';
 import { mapRowToStagedCase } from '$lib/server/caseMapper';
+import { rateLimit } from '$lib/server/rateLimit';
 
 const CASE_COOKIE = 'verdict_case_id';
 
@@ -33,6 +34,11 @@ const normalizePayload = (payload: Record<string, unknown>) => {
 export const POST: RequestHandler = async ({ request, cookies, locals }) => {
 	const { session } = await locals.safeGetSession();
 	if (!session) throw error(401, 'Authentication required.');
+
+	const rl = rateLimit(session.user.id, 'create_case', 10, 60_000);
+	if (!rl.allowed) {
+		throw error(429, 'Too many requests. Please wait a moment.');
+	}
 
 	const body = await request.json();
 	const payload = normalizePayload(body);
