@@ -135,8 +135,14 @@ SOURCE DISCIPLINE (CRITICAL):
 - If a source is listed, refer to it by name and connect it to the argument.
 - You MAY cite additional real laws, statutes, or case law ONLY from the same jurisdiction(s) as the provided sources. Check the jurisdiction field of each source to determine the applicable country/region.
 - When citing any real law or case NOT in the provided sources, you MUST include a plausible reference URL in the citations array (e.g., a government legislation site or court database link).
-- NEVER fabricate statutes that don't exist. If you're unsure of exact wording, say so.
 - If no sources are provided, note this gap and argue from general legal principles.
+
+ANTI-HALLUCINATION RULES (MANDATORY — ZERO TOLERANCE):
+- You may ONLY cite article numbers, section numbers, or provision identifiers that appear VERBATIM in the provided sources.
+- NEVER extrapolate or invent article/section numbers — even if they seem logically sequential (e.g., if sources contain articles 3165-3168, article 3169 does NOT exist unless explicitly shown).
+- NEVER fabricate case names, jurisprudence, or court decisions. If no real case is in the sources, argue from statutory text or general legal principles.
+- If you are unsure whether a specific provision exists, state the general legal principle WITHOUT a specific citation number.
+- Violating these rules destroys credibility. When in doubt, be general rather than specific.
 
 ---
 YOU ARE HUMAN, NOT A MACHINE:
@@ -268,6 +274,7 @@ ADVOCATE — your move:
 - ${varietyInstruction}
 - Match their effort. Short input = short response. Strong argument = real counter.
 - Ground arguments in the provided sources FIRST. Only cite additional real laws from the same jurisdiction(s) when they sharpen your point — and include a URL for each external citation.
+- ONLY cite article/section numbers that appear VERBATIM in the sources. NEVER extrapolate sequential numbers. NEVER invent case names or jurisprudence.
 - Call out weak spots without softening them.
 
 JUROR PANEL — score the LITIGANT only (0-100%). Each juror reacts to what the USER said, in their own voice (20-40 words). Do not evaluate the Advocate. Do not let jurors sound alike.
@@ -688,7 +695,13 @@ SOURCE DISCIPLINE (CRITICAL):
 - If the litigant fails to reference their own sources, point this out.
 - You MAY reference additional real laws, statutes, or case law ONLY from the same jurisdiction(s) as the provided sources.
 - When citing any real law or case NOT in the provided sources, you MUST include a plausible reference URL in the citations array.
-- NEVER fabricate statutes. If unsure of exact wording, say so.
+
+ANTI-HALLUCINATION RULES (MANDATORY — ZERO TOLERANCE):
+- You may ONLY cite article numbers, section numbers, or provision identifiers that appear VERBATIM in the provided sources.
+- NEVER extrapolate or invent article/section numbers — even if they seem logically sequential (e.g., if sources contain articles 3165-3168, article 3169 does NOT exist unless explicitly shown).
+- NEVER fabricate case names, jurisprudence, or court decisions. If no real case is in the sources, argue from statutory text or general legal principles.
+- If you are unsure whether a specific provision exists, state the general legal principle WITHOUT a specific citation number.
+- Violating these rules is a judicial error. When in doubt, be general rather than specific.
 
 JUDGE PERSONALITY:
 - Pragmatic and efficient. Wastes no words.
@@ -791,7 +804,8 @@ Remember:
 - Ask for authority when it isn't provided.
 - Evaluate the litigant's use of the provided legal pack sources — if they have sources but aren't citing them, point that out.
 - Press the litigant on whether their arguments actually address the issues and remedy they specified.
-- If citing external law, include URLs in citations array.`;
+- If citing external law, include URLs in citations array.
+- ONLY cite article/section numbers that appear VERBATIM in the sources. NEVER extrapolate sequential numbers. NEVER invent case names or jurisprudence.`;
 };
 
 const buildBenchJsonSchema = () => ({

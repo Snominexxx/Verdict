@@ -75,7 +75,7 @@
 		<!-- Logo -->
 		<div class="text-center space-y-2">
 			<h1 class="text-3xl font-display font-bold text-white">Verdict</h1>
-			<p class="text-xs text-white/50">{t('auth.tagline', $language)}</p>
+			<p class="text-sm text-white/60">{t('auth.tagline', $language)}</p>
 		</div>
 
 		<!-- Google button -->
@@ -97,7 +97,7 @@
 		<!-- Divider -->
 		<div class="flex items-center gap-3">
 			<div class="flex-1 h-px bg-white/15"></div>
-			<span class="text-[10px] uppercase tracking-widest text-white/40">{t('auth.or', $language)}</span>
+			<span class="text-xs uppercase tracking-widest text-white/50">{t('auth.or', $language)}</span>
 			<div class="flex-1 h-px bg-white/15"></div>
 		</div>
 
@@ -136,14 +136,14 @@
 		</form>
 
 		{#if errorMsg}
-			<p class="text-xs text-red-400 text-center">{errorMsg}</p>
+			<p class="text-sm text-red-400 text-center">{errorMsg}</p>
 		{/if}
 		{#if successMsg}
-			<p class="text-xs text-emerald-400 text-center">{successMsg}</p>
+			<p class="text-sm text-emerald-400 text-center">{successMsg}</p>
 		{/if}
 
 		<!-- Toggle mode -->
-		<p class="text-center text-xs text-white/50">
+		<p class="text-center text-sm text-white/60">
 			{mode === 'login' ? t('auth.noAccount', $language) : t('auth.haveAccount', $language)}
 			<button type="button" onclick={() => { mode = mode === 'login' ? 'signup' : 'login'; errorMsg = ''; successMsg = ''; }} class="text-white underline underline-offset-2 hover:text-white/80">
 				{mode === 'login' ? t('auth.signUpLink', $language) : t('auth.signInLink', $language)}

@@ -4,6 +4,7 @@
 	import { stageCase } from '$lib/stores/stagedCase';
 	import { seedTranscript, saveTurns, debateStore } from '$lib/stores/debate';
 	import { get } from 'svelte/store';
+	import { caseDraftStore } from '$lib/stores/caseDraft';
 	import { caseHistoryStore } from '$lib/stores/caseHistory';
 	import { legalPacksStore, selectedLegalPackId } from '$lib/stores/legalPacks';
 	import { indexingSourceIds } from '$lib/stores/indexing';
@@ -32,16 +33,7 @@
 	let formSubmitAttempted = $state(false);
 	let packMissing = $state(false);
 
-	let formData: FormSubmission = $state({
-		title: '',
-		synopsis: '',
-		issues: '',
-		remedy: '',
-		defendantPosition: '',
-		role: '',
-		sources: [],
-		courtType: 'jury' as CourtType
-	});
+	let formData: FormSubmission = $state(get(caseDraftStore));
 
 	let submission: StagedCase | null = $state(null);
 	let submitting = $state(false);
@@ -51,6 +43,11 @@
 	onMount(() => {
 		legalPacksStore.hydrate();
 		selectedLegalPackId.hydrate();
+	});
+
+	// Keep the draft store in sync so data survives navigation
+	$effect(() => {
+		caseDraftStore.set({ ...formData });
 	});
 
 	const selectedPack = $derived($legalPacksStore.find((pack) => pack.id === $selectedLegalPackId) ?? null);
@@ -94,10 +91,11 @@
 						sourceIds: selectedSources.map((s) => s.id)
 					}
 				: null;
+			const recentTitles = $caseHistoryStore.slice(0, 5).map((c) => c.title);
 			const response = await fetch('/api/generate-case', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ language: $language, pack: packPayload })
+				body: JSON.stringify({ language: $language, pack: packPayload, recentTitles })
 			});
 			if (!response.ok) {
 				const text = await response.text();
@@ -193,6 +191,7 @@
 			const openingTurns = get(debateStore);
 			if (openingTurns.length) saveTurns(staged.id, openingTurns);
 			submission = staged;
+			caseDraftStore.clear();
 			await goto('/debate');
 		} catch (err) {
 			console.error('Case creation failed', err);
@@ -206,14 +205,14 @@
 
 <div class="h-full grid grid-rows-[auto_1fr] gap-0">
 	<!-- Module Header -->
-	<header class="border-b border-white/10 bg-black/20 px-6 py-4 flex items-center justify-between">
+	<header class="border-b border-white/15 bg-black/20 px-6 py-4 flex items-center justify-between">
 		<div>
-			<h2 class="text-base font-bold uppercase tracking-wider text-white">{t('cases.header', $language)}</h2>
-			<p class="text-sm text-white/50 mt-1">{t('cases.subheader', $language)}</p>
+			<h2 class="text-lg font-bold uppercase tracking-wider text-white">{t('cases.header', $language)}</h2>
+			<p class="text-sm text-white/70 mt-1">{t('cases.subheader', $language)}</p>
 		</div>
 		<div class="flex gap-2">
 			<!-- Toolbar placeholders -->
-			<button class="px-3 py-1.5 border border-white/10 hover:bg-white/5 text-xs text-white/70 rounded">{t('cases.resetForm', $language)}</button>
+			<button class="px-3 py-1.5 border border-white/20 hover:bg-white/10 text-sm text-white/80 rounded">{t('cases.resetForm', $language)}</button>
 		</div>
 	</header>
 
@@ -222,7 +221,7 @@
 			{#if limitReached}
 				<div class="mb-6 p-5 rounded-xl border border-white/15 bg-white/5 text-center">
 					<p class="text-sm font-semibold text-white mb-2">{t('pricing.limitReached', $language)}</p>
-					<p class="text-xs text-white/50 mb-4">{t('pricing.limitDesc', $language)}</p>
+					<p class="text-sm text-white/60 mb-4">{t('pricing.limitDesc', $language)}</p>
 					{#if tier !== 'enterprise'}
 						<a href="/pricing" class="inline-block px-5 py-2 rounded-lg bg-white text-black text-xs font-bold uppercase tracking-wider hover:bg-white/90 transition">
 							{t('pricing.upgradePro', $language)}
@@ -230,10 +229,10 @@
 					{/if}
 				</div>
 			{:else if debatesRemaining <= currentLimit}
-				<div class="mb-4 px-4 py-2 rounded-lg border border-white/10 bg-white/5 flex items-center justify-between">
-					<p class="text-xs text-white/50">{t('pricing.debatesRemaining', $language)}: <span class="text-white font-bold">{debatesRemaining}/{currentLimit}</span></p>
+				<div class="mb-4 px-4 py-2 rounded-lg border border-white/15 bg-white/5 flex items-center justify-between">
+					<p class="text-sm text-white/60">{t('pricing.debatesRemaining', $language)}: <span class="text-white font-bold">{debatesRemaining}/{currentLimit}</span></p>
 					{#if tier !== 'enterprise'}
-						<a href="/pricing" class="text-[10px] font-bold uppercase tracking-wider text-white/60 hover:text-white transition">{t('pricing.upgradePro', $language)}</a>
+						<a href="/pricing" class="text-xs font-bold uppercase tracking-wider text-white/70 hover:text-white transition">{t('pricing.upgradePro', $language)}</a>
 					{/if}
 				</div>
 			{/if}
@@ -242,8 +241,8 @@
 				<!-- Step 1: Legal Pack + Sources -->
 				<div class="space-y-3">
 					<div class="flex justify-between items-center">
-						<p class="text-xs font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.legalPack', $language)}</p>
-						<span class="text-xs text-white/40 font-mono">{formData.sources.length} {t('cases.selected', $language)}</span>
+						<p class="text-sm font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.legalPack', $language)}</p>
+						<span class="text-sm text-white/50 font-mono">{formData.sources.length} {t('cases.selected', $language)}</span>
 					</div>
 
 					{#if errorMessage}
@@ -257,26 +256,28 @@
 							<button
 								type="button"
 								on:click={() => setPack(pack.id)}
-								class={`text-left px-3 py-2 border rounded transition text-xs ${$selectedLegalPackId === pack.id ? 'border-white/40 bg-white/10 text-white' : 'border-white/10 bg-white/5 text-white/60 hover:bg-white/10'}`}
+								class={`text-left px-3 py-2 border rounded transition text-sm ${$selectedLegalPackId === pack.id ? 'border-white/40 bg-white/15 text-white' : 'border-white/20 bg-white/5 text-white/70 hover:bg-white/10'}`}
 							>
 								<span class="font-bold">{pack.name}</span>
-								<span class="text-white/40 ml-1">• {pack.sources.length}</span>
+								<span class="text-white/50 ml-1">• {pack.sources.length}</span>
 							</button>
 						{/each}
 					</div>
 
 					{#if (formSubmitAttempted || packMissing) && !$selectedLegalPackId}
 						<p class="text-sm font-semibold text-red-400">{t('cases.selectPackRequired', $language)}</p>
-					{:else if selectedPack && selectedPack.sources.length === 0}
-						<p class="text-xs text-white/50">{t('cases.noSourcesInPack', $language)}</p>
+					{/if}
+
+					{#if selectedPack && selectedPack.sources.length === 0}
+						<p class="text-sm text-white/60">{t('cases.noSourcesInPack', $language)}</p>
 					{/if}
 
 					{#if selectedPack && selectedPack.sources.length > 0}
 						<div class="flex flex-wrap gap-1.5">
 							{#each selectedPack.sources.filter((s) => !$indexingSourceIds.has(s.id)) as doc}
 								<label class={`
-									inline-flex items-center gap-1.5 px-2.5 py-1 border rounded-full transition-all cursor-pointer text-xs
-									${formData.sources.includes(doc.id) ? 'border-white/40 bg-white/10 text-white' : 'border-white/10 text-white/40 hover:bg-white/5'}
+								inline-flex items-center gap-1.5 px-2.5 py-1 border rounded-full transition-all cursor-pointer text-sm
+								${formData.sources.includes(doc.id) ? 'border-white/40 bg-white/15 text-white' : 'border-white/20 text-white/60 hover:bg-white/10'}
 								`}>
 									<input
 										type="checkbox"
@@ -294,35 +295,35 @@
 				<!-- Step 2: Mode + Side + Auto-fill -->
 				<div class="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
 					<div class="space-y-1.5">
-						<p class="text-xs font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.mode', $language)}</p>
+						<p class="text-sm font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.mode', $language)}</p>
 						<div class="flex gap-2">
 							<label class="flex-1 cursor-pointer">
 								<input type="radio" name="courtType" value="jury" bind:group={formData.courtType} class="sr-only peer" />
-								<div class="text-center py-2.5 border border-white/20 text-xs font-bold uppercase text-white/70 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
+								<div class="text-center py-2.5 border border-white/25 text-sm font-bold uppercase text-white/80 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
 									{t('cases.jury', $language)}
 								</div>
 							</label>
 							<label class="flex-1 cursor-pointer">
 								<input type="radio" name="courtType" value="bench" bind:group={formData.courtType} class="sr-only peer" />
-								<div class="text-center py-2.5 border border-white/20 text-xs font-bold uppercase text-white/70 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
+								<div class="text-center py-2.5 border border-white/25 text-sm font-bold uppercase text-white/80 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
 									{t('cases.judge', $language)}
 								</div>
 							</label>
 						</div>
-						<p class="text-xs text-white/40 leading-relaxed mt-1">{formData.courtType === 'jury' ? t('cases.juryDesc', $language) : t('cases.judgeDesc', $language)}</p>
+						<p class="text-sm text-white/50 leading-relaxed mt-1">{formData.courtType === 'jury' ? t('cases.juryDesc', $language) : t('cases.judgeDesc', $language)}</p>
 					</div>
 					<div class="space-y-1.5">
-						<p class="text-xs font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.yourSide', $language)}</p>
+						<p class="text-sm font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.yourSide', $language)}</p>
 						<div class="flex gap-2">
 							<label class="flex-1 cursor-pointer">
 								<input type="radio" name="role" value="plaintiff" bind:group={formData.role} class="sr-only peer" />
-								<div class="text-center py-2.5 border border-white/20 text-xs font-bold uppercase text-white/70 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
+								<div class="text-center py-2.5 border border-white/25 text-sm font-bold uppercase text-white/80 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
 									{t('cases.plaintiff', $language)}
 								</div>
 							</label>
 							<label class="flex-1 cursor-pointer">
 								<input type="radio" name="role" value="defendant" bind:group={formData.role} class="sr-only peer" />
-								<div class="text-center py-2.5 border border-white/20 text-xs font-bold uppercase text-white/70 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
+								<div class="text-center py-2.5 border border-white/25 text-sm font-bold uppercase text-white/80 bg-white/5 rounded peer-checked:bg-white peer-checked:text-black peer-checked:border-white transition-all hover:bg-white/10">
 									{t('cases.defendant', $language)}
 								</div>
 							</label>
@@ -336,7 +337,7 @@
 							type="button"
 							on:click={autoFill}
 							disabled={generating}
-							class="px-4 py-2.5 border border-flare/50 text-flare text-xs font-bold uppercase rounded hover:bg-flare/10 transition-all disabled:opacity-50 disabled:cursor-wait whitespace-nowrap"
+							class="px-5 py-2.5 border border-flare/50 text-flare text-sm font-bold uppercase rounded hover:bg-flare/10 transition-all disabled:opacity-50 disabled:cursor-wait whitespace-nowrap"
 						>
 							{generating ? t('cases.generating', $language) : t('cases.autoFill', $language)}
 						</button>
@@ -345,7 +346,7 @@
 
 				<!-- Case Title -->
 				<div class="space-y-1.5">
-					<p class="text-xs font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.caseTitle', $language)}</p>
+					<p class="text-sm font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.caseTitle', $language)}</p>
 					<input
 						type="text"
 						class={`w-full bg-white/10 rounded border px-4 py-3 text-base font-medium text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-colors placeholder-white/40 font-display ${formSubmitAttempted && !formData.title.trim() ? 'border-red-500 ring-1 ring-red-500/50' : 'border-white/20'}`}
@@ -359,7 +360,7 @@
 
 				<!-- What Happened — full width -->
 				<div class="space-y-1.5">
-					<p class="text-xs font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.whatHappened', $language)}</p>
+					<p class="text-sm font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.whatHappened', $language)}</p>
 					<textarea
 						class={`w-full bg-white/10 border rounded px-4 py-3 text-sm text-white min-h-[160px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none leading-relaxed placeholder-white/40 ${formSubmitAttempted && !formData.synopsis.trim() ? 'border-red-500 ring-1 ring-red-500/50' : 'border-white/20'}`}
 						bind:value={formData.synopsis}
@@ -373,7 +374,7 @@
 				<!-- Issues + Positions — 3-column row -->
 				<div class="grid gap-4 md:grid-cols-3">
 					<div class="space-y-1.5">
-						<p class="text-xs font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.mainQuestion', $language)}</p>
+						<p class="text-sm font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.mainQuestion', $language)}</p>
 						<textarea
 							class={`w-full bg-white/10 border rounded px-4 py-3 text-sm text-white min-h-[100px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none placeholder-white/40 ${formSubmitAttempted && !formData.issues.trim() ? 'border-red-500 ring-1 ring-red-500/50' : 'border-white/20'}`}
 							bind:value={formData.issues}
@@ -388,7 +389,7 @@
 						on:click={() => (formData = { ...formData, role: 'plaintiff' })}
 						class={`text-left space-y-1.5 border rounded p-3 transition ${formData.role === 'plaintiff' ? 'border-white/40 bg-white/10' : formSubmitAttempted && !formData.remedy.trim() ? 'border-red-500 bg-red-500/5' : 'border-white/15 bg-white/5 hover:bg-white/10'}`}
 					>
-						<p class="text-xs font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.whatYouWant', $language)}</p>
+						<p class="text-sm font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.whatYouWant', $language)}</p>
 						<textarea
 							class="w-full bg-white/10 border border-white/20 rounded px-3 py-2 text-sm text-white min-h-[80px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none placeholder-white/40"
 							bind:value={formData.remedy}
@@ -404,7 +405,7 @@
 						on:click={() => (formData = { ...formData, role: 'defendant' })}
 						class={`text-left space-y-1.5 border rounded p-3 transition ${formData.role === 'defendant' ? 'border-white/40 bg-white/10' : formSubmitAttempted && !formData.defendantPosition.trim() ? 'border-red-500 bg-red-500/5' : 'border-white/15 bg-white/5 hover:bg-white/10'}`}
 					>
-						<p class="text-xs font-bold uppercase tracking-widest text-white/60 font-mono">{t('cases.whatDefendantWants', $language)}</p>
+						<p class="text-sm font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.whatDefendantWants', $language)}</p>
 						<textarea
 							class="w-full bg-white/10 border border-white/20 rounded px-3 py-2 text-sm text-white min-h-[80px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none placeholder-white/40"
 							bind:value={formData.defendantPosition}
@@ -418,11 +419,11 @@
 				</div>
 
 				<!-- Actions -->
-				<div class="flex items-center justify-between gap-4 pt-4 border-t border-white/10">
-					<p class="text-xs text-white/30 font-mono hidden sm:block">{t('cases.systemReady', $language)}</p>
+				<div class="flex items-center justify-between gap-4 pt-4 border-t border-white/15">
+					<p class="text-sm text-white/40 font-mono hidden sm:block">{t('cases.systemReady', $language)}</p>
 					<button
 						type="submit"
-						class="px-8 py-3 bg-white hover:bg-white/90 text-black text-xs font-bold uppercase tracking-widest rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+						class="px-8 py-3 bg-white hover:bg-white/90 text-black text-sm font-bold uppercase tracking-widest rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 						disabled={
 							!formData.title.trim() ||
 							!formData.synopsis.trim() ||

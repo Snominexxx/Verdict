@@ -64,14 +64,14 @@
 	<div class="max-w-3xl mx-auto px-6 py-10">
 		<!-- Header -->
 		<div class="mb-8">
-			<p class="text-[10px] uppercase tracking-[0.25em] text-white/40 font-mono mb-2">{t('dashboard.kicker', $language)}</p>
+			<p class="text-xs uppercase tracking-[0.25em] text-white/60 font-mono mb-2">{t('dashboard.kicker', $language)}</p>
 			<h1 class="text-2xl font-display font-bold text-white">{t('dashboard.title', $language)}</h1>
 		</div>
 
 		<div class="grid gap-5">
 			<!-- Subscription Card -->
-			<div class="rounded-xl border border-white/10 bg-white/5 p-5">
-				<h2 class="text-[11px] font-bold uppercase tracking-widest text-white/50 font-mono mb-3">{t('dashboard.subscription', $language)}</h2>
+			<div class="rounded-xl border border-white/15 bg-white/[0.06] p-5">
+				<h2 class="text-xs font-bold uppercase tracking-widest text-white/60 font-mono mb-3">{t('dashboard.subscription', $language)}</h2>
 				<div class="flex items-center justify-between">
 					<div>
 						<p class="text-lg font-display font-bold text-white">{tierLabel}</p>
@@ -82,11 +82,11 @@
 						{/if}
 					</div>
 					{#if tier === 'free'}
-						<a href="/pricing" class="px-4 py-2 rounded-lg bg-white text-black text-[10px] font-bold uppercase tracking-wider hover:bg-white/90 transition">
+						<a href="/pricing" class="px-4 py-2 rounded-lg bg-white text-black text-xs font-bold uppercase tracking-wider hover:bg-white/90 transition">
 							{t('pricing.upgradePro', $language)}
 						</a>
 					{:else}
-						<a href="/pricing" class="px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-[10px] font-bold uppercase tracking-wider text-white/70 hover:bg-white/15 transition">
+						<a href="/pricing" class="px-4 py-2 rounded-lg border border-white/25 bg-white/10 text-xs font-bold uppercase tracking-wider text-white/80 hover:bg-white/15 transition">
 							{t('pricing.manageSub', $language)}
 						</a>
 					{/if}
@@ -94,43 +94,43 @@
 				<!-- Credits & Limits -->
 				<div class="mt-4 pt-4 border-t border-white/10 grid grid-cols-2 gap-4">
 					<div>
-						<p class="text-[10px] uppercase tracking-wider text-white/40 mb-1">{t('dashboard.creditsUsed', $language)}</p>
-						<p class="text-lg font-bold text-white">{creditsUsed}<span class="text-sm text-white/40">/{creditsTotal}</span></p>
+						<p class="text-xs uppercase tracking-wider text-white/50 mb-1">{t('dashboard.creditsUsed', $language)}</p>
+						<p class="text-lg font-bold text-white">{creditsUsed}<span class="text-sm text-white/50">/{creditsTotal}</span></p>
 					</div>
 					<div>
-						<p class="text-[10px] uppercase tracking-wider text-white/40 mb-1">{t('dashboard.maxRounds', $language)}</p>
+						<p class="text-xs uppercase tracking-wider text-white/50 mb-1">{t('dashboard.maxRounds', $language)}</p>
 						<p class="text-lg font-bold text-white">{maxRounds}</p>
 					</div>
 				</div>
 			</div>
 
 			<!-- Cases Stats -->
-			<div class="rounded-xl border border-white/10 bg-white/5 p-5">
-				<h2 class="text-[11px] font-bold uppercase tracking-widest text-white/50 font-mono mb-3">{t('dashboard.cases', $language)}</h2>
+			<div class="rounded-xl border border-white/15 bg-white/[0.06] p-5">
+				<h2 class="text-xs font-bold uppercase tracking-widest text-white/60 font-mono mb-3">{t('dashboard.cases', $language)}</h2>
 				<div class="grid grid-cols-3 gap-4">
 					<div class="text-center">
 						<p class="text-2xl font-bold text-white">{totalCases}</p>
-						<p class="text-[10px] uppercase tracking-wider text-white/40 mt-1">{t('dashboard.totalCases', $language)}</p>
+						<p class="text-xs uppercase tracking-wider text-white/50 mt-1">{t('dashboard.totalCases', $language)}</p>
 					</div>
 					<div class="text-center">
 						<p class="text-2xl font-bold text-white">{ongoingCases.length}</p>
-						<p class="text-[10px] uppercase tracking-wider text-white/40 mt-1">{t('court.ongoing', $language)}</p>
+						<p class="text-xs uppercase tracking-wider text-white/50 mt-1">{t('court.ongoing', $language)}</p>
 					</div>
 					<div class="text-center">
 						<p class="text-2xl font-bold text-white">{finishedCases.length}</p>
-						<p class="text-[10px] uppercase tracking-wider text-white/40 mt-1">{t('court.finished', $language)}</p>
+						<p class="text-xs uppercase tracking-wider text-white/50 mt-1">{t('court.finished', $language)}</p>
 					</div>
 				</div>
 			</div>
 
 			<!-- Performance Scores -->
-			<div class="rounded-xl border border-white/10 bg-white/5 p-5">
-				<h2 class="text-[11px] font-bold uppercase tracking-widest text-white/50 font-mono mb-3">{t('dashboard.performance', $language)}</h2>
+			<div class="rounded-xl border border-white/15 bg-white/[0.06] p-5">
+				<h2 class="text-xs font-bold uppercase tracking-widest text-white/60 font-mono mb-3">{t('dashboard.performance', $language)}</h2>
 				{#if scores}
 					<!-- Overall Average -->
 					<div class="flex items-center justify-between mb-4 pb-4 border-b border-white/10">
 						<p class="text-sm font-semibold text-white">{t('debate.metricAverage', $language)}</p>
-						<p class="text-2xl font-bold text-white">{scores.average}<span class="text-sm text-white/40">%</span></p>
+						<p class="text-2xl font-bold text-white">{scores.average}<span class="text-sm text-white/50">%</span></p>
 					</div>
 					<!-- 5 Pillars -->
 					<div class="space-y-3">
@@ -145,9 +145,9 @@
 							</div>
 						{/each}
 					</div>
-					<p class="text-[10px] text-white/30 mt-3">{t('dashboard.basedOn', $language)} {scoredCases.length} {scoredCases.length === 1 ? t('dashboard.debate', $language) : t('dashboard.debates', $language)}</p>
+					<p class="text-xs text-white/50 mt-3">{t('dashboard.basedOn', $language)} {scoredCases.length} {scoredCases.length === 1 ? t('dashboard.debate', $language) : t('dashboard.debates', $language)}</p>
 				{:else}
-					<p class="text-xs text-white/40">{t('dashboard.noScores', $language)}</p>
+					<p class="text-sm text-white/50">{t('dashboard.noScores', $language)}</p>
 				{/if}
 			</div>
 		</div>

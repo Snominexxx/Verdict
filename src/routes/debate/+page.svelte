@@ -410,10 +410,10 @@
 {#if !stagedCase}
 	<div class="h-full flex items-center justify-center p-8">
 		<div class="text-center space-y-4 max-w-md">
-			<div class="w-16 h-16 border border-white/10 rounded-full flex items-center justify-center mx-auto text-2xl mb-6">∅</div>
-			<p class="text-xs uppercase tracking-[0.2em] text-white/40">{t('debate.noCase', $language)}</p>
+			<div class="w-16 h-16 border border-white/15 rounded-full flex items-center justify-center mx-auto text-2xl mb-6">∅</div>
+			<p class="text-sm uppercase tracking-[0.2em] text-white/60">{t('debate.noCase', $language)}</p>
 			<h2 class="text-xl font-display text-white">{t('debate.noCaseDesc', $language)}</h2>
-			<a href="/cases" class="inline-block mt-4 px-6 py-2 border border-white/20 hover:bg-white/5 text-white text-xs font-mono uppercase transition rounded-sm">
+			<a href="/cases" class="inline-block mt-4 px-6 py-2.5 border border-white/30 hover:bg-white/10 text-white text-sm font-mono uppercase transition rounded-sm">
 				{t('debate.launchBuilder', $language)}
 			</a>
 		</div>
@@ -422,30 +422,30 @@
 	<div class="grid grid-cols-1 lg:grid-cols-[300px_1fr_320px] h-[calc(100vh-3.5rem)] overflow-hidden min-h-0">
 		<!-- Left: Case Context -->
 		<aside class="hidden lg:flex flex-col border-r border-white/10 bg-black/20 overflow-hidden min-h-0">
-			<div class="p-5 border-b border-white/5">
-				<p class="text-xs uppercase tracking-[0.2em] text-white/30 mb-2">{t('debate.activeCase', $language)}</p>
+			<div class="p-5 border-b border-white/10">
+				<p class="text-sm uppercase tracking-[0.2em] text-white/50 mb-2">{t('debate.activeCase', $language)}</p>
 				<h2 class="text-lg font-display text-white leading-tight">{stagedCase.title}</h2>
-				<div class="flex items-center gap-2 mt-3 text-sm font-mono text-white/50">
-					<span class={stagedCase.role === 'plaintiff' ? 'text-flare' : 'text-white/50'}>{t('debate.pl', $language)}</span>
-					<span class="text-white/20">{t('debate.vs', $language)}</span>
-					<span class={stagedCase.role === 'defendant' ? 'text-flare' : 'text-white/50'}>{t('debate.df', $language)}</span>
+				<div class="flex items-center gap-2 mt-3 text-sm font-mono text-white/60">
+					<span class={stagedCase.role === 'plaintiff' ? 'text-flare' : 'text-white/60'}>{t('debate.pl', $language)}</span>
+					<span class="text-white/30">{t('debate.vs', $language)}</span>
+					<span class={stagedCase.role === 'defendant' ? 'text-flare' : 'text-white/60'}>{t('debate.df', $language)}</span>
 				</div>
 			</div>
 			
 			<div class="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-hide min-h-0">
 				<div>
-					<p class="text-xs uppercase tracking-[0.1em] text-white/30 mb-2 font-mono">{t('debate.synopsis', $language)}</p>
-					<p class="text-sm text-white/70 leading-relaxed font-light">{stagedCase.synopsis}</p>
+					<p class="text-sm uppercase tracking-[0.1em] text-white/50 mb-2 font-mono">{t('debate.synopsis', $language)}</p>
+					<p class="text-sm text-white/80 leading-relaxed font-light">{stagedCase.synopsis}</p>
 				</div>
 				<div>
-					<p class="text-xs uppercase tracking-[0.1em] text-white/30 mb-2 font-mono">{t('debate.issues', $language)}</p>
-					<p class="text-sm text-white/70 leading-relaxed font-light">{stagedCase.issues || t('debate.na', $language)}</p>
+					<p class="text-sm uppercase tracking-[0.1em] text-white/50 mb-2 font-mono">{t('debate.issues', $language)}</p>
+					<p class="text-sm text-white/80 leading-relaxed font-light">{stagedCase.issues || t('debate.na', $language)}</p>
 				</div>
 				<div>
-					<p class="text-xs uppercase tracking-[0.1em] text-white/30 mb-2 font-mono">{t('debate.sources', $language)}</p>
+					<p class="text-sm uppercase tracking-[0.1em] text-white/50 mb-2 font-mono">{t('debate.sources', $language)}</p>
 					<div class="flex flex-wrap gap-2">
 						{#each allowedSources as source}
-							<div class="px-2 py-1 border border-white/10 rounded-sm text-xs text-white/50 bg-white/5 truncate max-w-full">
+							<div class="px-2 py-1 border border-white/15 rounded-sm text-sm text-white/60 bg-white/5 truncate max-w-full">
 								{source.title}
 							</div>
 						{/each}
@@ -453,22 +453,22 @@
 				</div>
 			</div>
 			
-			<div class="p-4 border-t border-white/5 space-y-2">
+			<div class="p-4 border-t border-white/10 space-y-2">
 				<button
 					type="button"
 					on:click={exitCourt}
-					class="w-full py-2 text-xs uppercase tracking-widest text-white/70 hover:text-white transition flex items-center justify-center gap-2 border border-white/15 hover:border-white/40 rounded-sm"
+					class="w-full py-2.5 text-sm uppercase tracking-widest text-white/80 hover:text-white transition flex items-center justify-center gap-2 border border-white/20 hover:border-white/40 rounded-sm"
 				>
 					{t('debate.exitCourt', $language)}
 				</button>
 				<button
 					type="button"
 					on:click={endCase}
-					class="w-full py-2 text-xs uppercase tracking-widest text-white/70 hover:text-flare transition flex items-center justify-center gap-2 border border-flare/40 hover:border-flare rounded-sm"
+					class="w-full py-2.5 text-sm uppercase tracking-widest text-white/80 hover:text-flare transition flex items-center justify-center gap-2 border border-flare/40 hover:border-flare rounded-sm"
 				>
 					{t('debate.endCase', $language)}
 				</button>
-				<button on:click={restartDebate} class="w-full py-2 text-xs uppercase tracking-widest text-white/40 hover:text-flare transition flex items-center justify-center gap-2 hover:bg-white/5 rounded-sm">
+				<button on:click={restartDebate} class="w-full py-2.5 text-sm uppercase tracking-widest text-white/50 hover:text-flare transition flex items-center justify-center gap-2 hover:bg-white/5 rounded-sm">
 					{t('debate.resetSim', $language)}
 				</button>
 			</div>
@@ -523,12 +523,12 @@
 			<div class="p-4 border-t border-white/10 bg-[#05030b]/80 backdrop-blur-md">
 				{#if roundCapReached}
 					<div class="text-center py-3">
-						<p class="text-sm font-semibold text-white/70 mb-1">{t('debate.roundLimitReached', $language)}</p>
-						<p class="text-xs text-white/40">{t('debate.roundLimitDesc', $language)}</p>
+						<p class="text-sm font-semibold text-white/80 mb-1">{t('debate.roundLimitReached', $language)}</p>
+						<p class="text-sm text-white/50">{t('debate.roundLimitDesc', $language)}</p>
 					</div>
 				{:else}
 					<div class="flex items-center justify-between mb-2">
-						<span class="text-[10px] text-white/30 font-mono">{t('debate.roundCounter', $language)}: {litigantTurnCount}/{maxRounds}</span>
+						<span class="text-xs text-white/50 font-mono">{t('debate.roundCounter', $language)}: {litigantTurnCount}/{maxRounds}</span>
 					</div>
 				{/if}
 				<form class="relative" on:submit|preventDefault={submitPrompt}>
@@ -540,7 +540,7 @@
 						on:keydown={(e) => { if((e.ctrlKey || e.metaKey) && e.key === 'Enter') submitPrompt(); }}
 					></textarea>
 					<div class="absolute bottom-3 right-3 flex items-center gap-2">
-						<span class="text-xs text-white/40 font-mono hidden sm:inline-block">CTRL+ENTER</span>
+						<span class="text-sm text-white/50 font-mono hidden sm:inline-block">CTRL+ENTER</span>
 						<button
 							type="submit"
 							aria-label="Send Message"
@@ -559,7 +559,7 @@
 			<div class="p-5 border-b border-white/5">
 				<div class="flex items-center justify-between mb-3">
 					<div>
-						<p class="text-xs uppercase tracking-[0.2em] text-white/50">{t('debate.panel', $language)}</p>
+					<p class="text-sm uppercase tracking-[0.2em] text-white/60">{t('debate.panel', $language)}</p>
 						<h2 class="text-base font-display text-white mt-1">{isBenchTrial ? t('debate.judgeLabel', $language) : t('debate.juryLabel', $language)}</h2>
 					</div>
 					<div class="flex gap-1">
@@ -586,13 +586,13 @@
 									plaintiffVotes >= 3 ? 'text-flare' : 
 									defenseVotes >= 3 ? 'text-pulse' : 'text-white/70'
 								}`}>{verdictStatus}</p>
-						<p class="text-xs text-white/40 mt-0.5">
+						<p class="text-sm text-white/50 mt-0.5">
 							{plaintiffVotes} {t('debate.plaintiffLabel', $language)} · {defenseVotes} {t('debate.defenseLabel', $language)} · {hungVotes} {t('debate.undecided', $language)}
 								</p>
 							</div>
 							<div class="text-right">
 								<p class={`text-xl font-mono font-bold ${getScoreColor(avgScore)}`}>{avgScore}%</p>
-								<p class="text-[11px] text-white/40 uppercase">{t('debate.avgScore', $language)}</p>
+								<p class="text-xs text-white/50 uppercase">{t('debate.avgScore', $language)}</p>
 							</div>
 						</div>
 					</div>

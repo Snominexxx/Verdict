@@ -279,14 +279,14 @@
 
 <section class="h-full grid grid-rows-[auto_1fr] gap-0">
 	<!-- Header -->
-	<header class="border-b border-white/10 bg-black/20 px-6 py-5 flex items-center justify-end">
+	<header class="border-b border-white/15 bg-black/20 px-6 py-5 flex items-center justify-end">
 		<button
 			type="button"
 			on:click={() => (helpModalOpen = true)}
-			class="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-white/20 transition font-medium shrink-0"
+			class="flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-sm text-white/80 hover:text-white hover:bg-white/20 transition font-medium shrink-0"
 			title={t('library.helpTitle', $language)}
 		>
-			<span class="w-5 h-5 rounded-full bg-white/15 flex items-center justify-center text-xs font-bold">?</span>
+			<span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">?</span>
 			{t('library.helpBtn', $language)}
 		</button>
 	</header>
@@ -294,10 +294,10 @@
 	<div class="flex-1 overflow-y-auto">
 		<div class="grid gap-5 lg:grid-cols-[280px_1fr] px-6 py-5">
 			<!-- Packs sidebar -->
-			<aside class="border border-white/10 rounded-xl p-4 space-y-3 self-start">
+			<aside class="border border-white/15 rounded-xl p-4 space-y-3 self-start">
 				<div class="flex items-center justify-between">
-					<h3 class="text-xs font-bold uppercase tracking-widest text-white/60">{t('library.myPacks', $language)}</h3>
-					<button type="button" on:click={openCreatePack} class="px-2.5 py-1.5 border border-white/15 rounded text-xs font-bold uppercase tracking-widest text-white/70 hover:bg-white/10">
+					<h3 class="text-sm font-bold uppercase tracking-widest text-white/70">{t('library.myPacks', $language)}</h3>
+					<button type="button" on:click={openCreatePack} class="px-2.5 py-1.5 border border-white/20 rounded text-sm font-bold uppercase tracking-widest text-white/80 hover:bg-white/10">
 						{t('library.createPack', $language)}
 					</button>
 				</div>
@@ -314,16 +314,16 @@
 									selectPack(pack.id);
 								}
 							}}
-							class={`w-full text-left border rounded-lg p-3 transition cursor-pointer ${selectedPack?.id === pack.id ? 'border-white/40 bg-white/10' : 'border-white/10 hover:bg-white/5'}`}
+							class={`w-full text-left border rounded-lg p-3 transition cursor-pointer ${selectedPack?.id === pack.id ? 'border-white/40 bg-white/15' : 'border-white/15 hover:bg-white/10'}`}
 						>
 							<p class="text-sm font-semibold text-white">{pack.name}</p>
-							<p class="text-xs text-white/50 mt-0.5">{pack.jurisdiction} · {pack.domain}</p>
+							<p class="text-sm text-white/60 mt-0.5">{pack.jurisdiction} · {pack.domain}</p>
 							<div class="flex items-center justify-between mt-2">
-								<p class="text-xs text-white/40">{pack.sources.length} {t('library.documents', $language)}</p>
+								<p class="text-sm text-white/50">{pack.sources.length} {t('library.documents', $language)}</p>
 								<div class="flex gap-1.5">
-									<button type="button" on:click|stopPropagation={() => openEditPack(pack)} class="text-xs px-2 py-0.5 border border-white/15 rounded text-white/60 hover:text-white">{t('library.edit', $language)}</button>
+									<button type="button" on:click|stopPropagation={() => openEditPack(pack)} class="text-sm px-2 py-0.5 border border-white/20 rounded text-white/70 hover:text-white">{t('library.edit', $language)}</button>
 									{#if !pack.isDefault}
-										<button type="button" on:click|stopPropagation={() => removePack(pack)} class="text-xs px-2 py-0.5 border border-white/15 rounded text-white/60 hover:text-white">{t('library.delete', $language)}</button>
+										<button type="button" on:click|stopPropagation={() => removePack(pack)} class="text-sm px-2 py-0.5 border border-white/20 rounded text-white/70 hover:text-white">{t('library.delete', $language)}</button>
 									{/if}
 								</div>
 							</div>
@@ -333,28 +333,28 @@
 			</aside>
 
 			<!-- Sources panel -->
-			<div class="border border-white/10 rounded-xl p-5 space-y-5">
+			<div class="border border-white/15 rounded-xl p-5 space-y-5">
 				{#if selectedPack}
 					<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 						<div>
-							<h3 class="text-base font-bold text-white">{selectedPack.name}</h3>
-							<p class="text-sm text-white/50 mt-0.5">{selectedPack.jurisdiction} · {selectedPack.domain}</p>
+							<h3 class="text-lg font-bold text-white">{selectedPack.name}</h3>
+							<p class="text-sm text-white/60 mt-0.5">{selectedPack.jurisdiction} · {selectedPack.domain}</p>
 							{#if selectedPack.description}
 								<p class="text-sm text-white/60 mt-1">{selectedPack.description}</p>
 							{/if}
 						</div>
-						<button type="button" on:click={() => openSourceModal()} class="px-4 py-2 border border-white/15 rounded text-xs font-bold uppercase tracking-widest text-white/70 hover:bg-white/10">{t('library.uploadPdf', $language)}</button>
+						<button type="button" on:click={() => openSourceModal()} class="px-4 py-2 border border-white/25 rounded text-sm font-bold uppercase tracking-widest text-white/80 hover:bg-white/10">{t('library.uploadPdf', $language)}</button>
 					</div>
 
 					{#if selectedPack.sources.length === 0}
-						<div class="border border-dashed border-white/15 rounded-xl p-8 text-center">
-							<p class="text-sm text-white/50">{t('library.emptyPack', $language)}</p>
+						<div class="border border-dashed border-white/20 rounded-xl p-8 text-center">
+							<p class="text-sm text-white/60">{t('library.emptyPack', $language)}</p>
 						</div>
 					{/if}
 
 					<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
 						{#each selectedPack.sources as doc}
-						<div class="border border-white/10 rounded-lg p-4 bg-white/[0.02] space-y-2 {$indexingSourceIds.has(doc.id) ? 'opacity-60' : ''}">
+						<div class="border border-white/15 rounded-lg p-4 bg-white/[0.04] space-y-2 {$indexingSourceIds.has(doc.id) ? 'opacity-60' : ''}">
 							<div class="flex items-start justify-between gap-2">
 								<button type="button" class="text-left flex-1 min-w-0" on:click={() => openReader(doc)}>
 									<p class="text-sm font-semibold text-white leading-snug truncate">{doc.title}</p>
@@ -365,7 +365,7 @@
 										{t('library.indexingBadge', $language)}
 									</span>
 								{:else if doc.isCustom}
-										<button type="button" class="text-xs px-2 py-0.5 border border-white/15 rounded text-white/60 hover:text-white" on:click={() => removeSourceFromPack(doc.id)}>{t('library.remove', $language)}</button>
+										<button type="button" class="text-sm px-2 py-0.5 border border-white/20 rounded text-white/70 hover:text-white" on:click={() => removeSourceFromPack(doc.id)}>{t('library.remove', $language)}</button>
 									{/if}
 								</div>
 								{#if $indexingSourceIds.has(doc.id)}
@@ -373,7 +373,7 @@
 										<div class="h-full bg-flare/70 rounded-full transition-all duration-500 ease-out" style="width: {$indexingProgress[doc.id] ?? 0}%"></div>
 									</div>
 								{/if}
-								<p class="text-sm text-white/60 leading-relaxed line-clamp-2">{doc.description}</p>
+								<p class="text-sm text-white/70 leading-relaxed line-clamp-2">{doc.description}</p>
 								{#if doc.content && doc.content.length > 0}
 									<details class="mt-1">
 										<summary class="text-xs text-flare/70 hover:text-flare cursor-pointer select-none">View extracted text</summary>
@@ -385,20 +385,20 @@
 								{/if}
 								<div class="flex gap-2 flex-wrap">
 									{#if doc.docType}
-										<span class="text-[11px] px-2 py-0.5 border border-white/15 rounded-full text-white/60 uppercase">{doc.docType}</span>
+										<span class="text-xs px-2 py-0.5 border border-white/20 rounded-full text-white/70 uppercase">{doc.docType}</span>
 									{/if}
 									{#if doc.trustLevel}
-										<span class={`text-[11px] px-2 py-0.5 border rounded-full uppercase ${doc.trustLevel === 'official' ? 'border-emerald-400/40 text-emerald-300' : doc.trustLevel === 'recognized' ? 'border-amber-400/40 text-amber-300' : 'border-red-400/40 text-red-300'}`}>{doc.trustLevel}</span>
+										<span class={`text-xs px-2 py-0.5 border rounded-full uppercase ${doc.trustLevel === 'official' ? 'border-emerald-400/40 text-emerald-300' : doc.trustLevel === 'recognized' ? 'border-amber-400/40 text-amber-300' : 'border-red-400/40 text-red-300'}`}>{doc.trustLevel}</span>
 									{/if}
 									{#if doc.content}
-										<span class="text-[11px] px-2 py-0.5 border border-sky-400/30 rounded-full text-sky-300" title="{Math.round(doc.content.length / 1000)}k chars extracted">{Math.round(doc.content.length / 1000)}k chars</span>
+										<span class="text-xs px-2 py-0.5 border border-sky-400/30 rounded-full text-sky-300" title="{Math.round(doc.content.length / 1000)}k chars extracted">{Math.round(doc.content.length / 1000)}k chars</span>
 									{/if}
 								</div>
 							</div>
 						{/each}
 					</div>
 				{:else}
-					<p class="text-white/50 text-sm">{t('library.noPackSelected', $language)}</p>
+					<p class="text-white/60 text-sm">{t('library.noPackSelected', $language)}</p>
 				{/if}
 			</div>
 		</div>
@@ -414,7 +414,7 @@
 		on:click={(event) => { if (event.target === event.currentTarget) helpModalOpen = false; }}
 		on:keydown={(event) => { if (event.key === 'Escape') helpModalOpen = false; }}
 	>
-		<div class="bg-[#111] border border-white/15 rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6 space-y-6">
+		<div class="bg-[#111] border border-white/20 rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6 space-y-6">
 			<div class="flex items-center justify-between">
 				<h2 class="text-lg font-display font-bold text-white">{t('library.helpTitle', $language)}</h2>
 				<button type="button" on:click={() => (helpModalOpen = false)} class="text-white/40 hover:text-white text-xl leading-none">&times;</button>
@@ -422,14 +422,14 @@
 
 			<!-- What is a Pack? -->
 			<div class="space-y-2">
-				<h3 class="text-sm font-bold uppercase tracking-widest text-white/70">📁 {t('library.helpWhatPackTitle', $language)}</h3>
-				<p class="text-sm text-white/60 leading-relaxed">{t('library.helpWhatPackDesc', $language)}</p>
+				<h3 class="text-sm font-bold uppercase tracking-widest text-white/80">📁 {t('library.helpWhatPackTitle', $language)}</h3>
+				<p class="text-sm text-white/70 leading-relaxed">{t('library.helpWhatPackDesc', $language)}</p>
 			</div>
 
 			<!-- How to Create a Pack -->
 			<div class="space-y-2">
-				<h3 class="text-sm font-bold uppercase tracking-widest text-white/70">➕ {t('library.helpCreatePackTitle', $language)}</h3>
-				<div class="text-sm text-white/60 leading-relaxed space-y-1">
+				<h3 class="text-sm font-bold uppercase tracking-widest text-white/80">➕ {t('library.helpCreatePackTitle', $language)}</h3>
+				<div class="text-sm text-white/70 leading-relaxed space-y-1">
 					<p>{t('library.helpCreateStep1', $language)}</p>
 					<p>{t('library.helpCreateStep2', $language)}</p>
 					<p>{t('library.helpCreateStep3', $language)}</p>
@@ -438,8 +438,8 @@
 
 			<!-- How to Upload a PDF -->
 			<div class="space-y-2">
-				<h3 class="text-sm font-bold uppercase tracking-widest text-white/70">📄 {t('library.helpUploadTitle', $language)}</h3>
-				<div class="text-sm text-white/60 leading-relaxed space-y-1">
+				<h3 class="text-sm font-bold uppercase tracking-widest text-white/80">📄 {t('library.helpUploadTitle', $language)}</h3>
+				<div class="text-sm text-white/70 leading-relaxed space-y-1">
 					<p>{t('library.helpUploadStep1', $language)}</p>
 					<p>{t('library.helpUploadStep2', $language)}</p>
 					<p>{t('library.helpUploadStep3', $language)}</p>

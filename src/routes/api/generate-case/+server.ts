@@ -24,7 +24,38 @@ const universalCaseTypes = [
 	'non-compete clause violation',
 	'discrimination in housing',
 	'environmental contamination liability',
-	'inheritance or succession dispute'
+	'inheritance or succession dispute',
+	'custody or parental rights dispute',
+	'breach of fiduciary duty',
+	'wrongful eviction',
+	'unjust enrichment claim',
+	'boundary or easement dispute',
+	'breach of non-disclosure agreement',
+	'unpaid contractor or subcontractor',
+	'denial of disability benefits',
+	'harassment or hostile work environment',
+	'consumer debt dispute'
+];
+
+const ragQueryTopics = [
+	'obligations contracts breach damages',
+	'property ownership rights boundaries',
+	'family custody parental support',
+	'succession inheritance estate will',
+	'civil liability fault negligence',
+	'lease rental housing tenant landlord',
+	'employment dismissal wages labour',
+	'sale purchase warranty defect',
+	'mandate agency representation authority',
+	'security hypothec surety guarantee',
+	'prescription limitation period delay',
+	'privacy rights defamation reputation',
+	'insurance claim indemnity coverage',
+	'partnership association dissolution',
+	'unjust enrichment restitution',
+	'publication of rights registration',
+	'administration property trust',
+	'evidence proof burden testimony'
 ];
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -43,15 +74,23 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	let language = 'en';
 	let pack: { packId?: string; packName?: string; jurisdictions?: string[]; sourceTitles?: string[]; sourceIds?: string[] } | null = null;
+	let recentTitles: string[] = [];
 	try {
 		const body = await request.json();
 		language = body?.language ?? 'en';
 		pack = body?.pack ?? null;
+		recentTitles = Array.isArray(body?.recentTitles) ? body.recentTitles.slice(0, 5) : [];
 	} catch {
 		// No body or invalid JSON — defaults apply
 	}
 
-	const caseType = universalCaseTypes[Math.floor(Math.random() * universalCaseTypes.length)];
+	// Pick 2 random case types, excluding any that match recent titles
+	const recentLower = recentTitles.map((t: string) => (t ?? '').toLowerCase());
+	const available = universalCaseTypes.filter((ct) => !recentLower.some((rt: string) => rt.includes(ct.split(' ')[0])));
+	const pool = available.length >= 2 ? available : universalCaseTypes;
+	const shuffled = pool.sort(() => Math.random() - 0.5);
+	const caseTypeA = shuffled[0];
+	const caseTypeB = shuffled[1];
 	const model = env.OPENAI_MODEL ?? 'gpt-4o-mini';
 
 	// Build jurisdiction context from the selected pack
@@ -64,7 +103,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// RAG: try to get relevant legal text from the user's indexed documents
 	let ragContext = '';
 	try {
-		const ragQuery = `legal dispute court case ${jurisdictionLabel}`;
+		const ragTopic = ragQueryTopics[Math.floor(Math.random() * ragQueryTopics.length)];
+		const ragQuery = `${ragTopic} ${jurisdictionLabel}`;
 		const allChunks = await searchChunks({
 			supabase: locals.supabase,
 			userId: session.user.id,
@@ -79,7 +119,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			? allChunks.filter((c) => selectedIds.includes(c.sourceId)).slice(0, 8)
 			: allChunks.slice(0, 8);
 		if (chunks.length > 0) {
-			ragContext = `\n\nThe user has indexed the following legal documents. Base the case scenario on these ACTUAL legal provisions:\n${formatChunksForPrompt(chunks)}\n\nThe generated case MUST reference real articles/sections from these documents. Make the scenario naturally arise from these specific legal provisions. Infer the correct jurisdiction from the document content — do NOT assume Quebec or Canada unless the documents explicitly reference them.`;
+			ragContext = `\n\nThe user has indexed the following legal documents. Base the case scenario on these ACTUAL legal provisions:\n${formatChunksForPrompt(chunks)}\n\nCITATION RULES (MANDATORY):\n- You may ONLY reference article numbers, section numbers, or provision identifiers that appear VERBATIM in the text above.\n- NEVER extrapolate, infer, or invent article/section numbers — even if they seem logically sequential (e.g., if you see articles 3165-3168, do NOT assume 3169 exists).\n- If no specific article fits the scenario, describe the legal concept in GENERAL TERMS without citing any specific number.\n- NEVER invent case names or jurisprudence references.\n\nMake the scenario naturally arise from these specific legal provisions. Infer the correct jurisdiction from the document content — do NOT assume Quebec or Canada unless the documents explicitly reference them.`;
 		}
 	} catch {
 		// RAG is optional — skip silently if not available
@@ -92,11 +132,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// If RAG found content from user's documents, let the AI pick the case type from that content.
 	// Otherwise, fall back to a random universal case type.
 	const caseTypeInstruction = ragContext
-		? 'Based on the legal provisions below, create a realistic case scenario that naturally arises from those specific laws. Choose the most appropriate type of dispute for the subject matter of these documents.'
-		: `Create a ${caseType} case.`;
+		? 'Based on the legal provisions below, create a realistic case scenario that naturally arises from those specific laws. Choose the most appropriate type of dispute for the subject matter of these documents. You may reference specific articles ONLY if they appear verbatim in the provided text. Otherwise, describe legal concepts in general terms without specific article numbers.'
+		: `Create a case about one of these two dispute types: (A) ${caseTypeA}, or (B) ${caseTypeB}. Pick whichever would make the most interesting scenario. Do NOT cite specific article numbers, statute sections, or case names. Describe the situation in plain factual language only.`;
+
+	const recentExclusion = recentTitles.length
+		? `\n\nIMPORTANT: The user has already generated these cases — you MUST generate something COMPLETELY DIFFERENT in topic, parties, and facts:\n${recentTitles.map((t: string) => `- ${t}`).join('\n')}`
+		: '';
 
 	const userPrompt = `${caseTypeInstruction} The user is the plaintiff.${language === 'fr' ? ' Respond entirely in French (Canadian French).' : ''}
-${sourcesContext}${ragContext}
+${sourcesContext}${ragContext}${recentExclusion}
 
 The case must be realistic and grounded in ${jurisdictionLabel} law. Use names, dates, and amounts appropriate for that jurisdiction.
 Be creative and original — do NOT reuse common example names like "Smith", "Johnson" or "Tremblay". Vary the facts, amounts, dates, and legal issues each time.
@@ -119,12 +163,12 @@ Return JSON with these exact keys:
 			},
 			body: JSON.stringify({
 				model,
-				temperature: 0.9,
+				temperature: 0.7,
 				messages: [
 					{ role: 'system', content: langInstruction },
 					{ role: 'user', content: userPrompt }
 				],
-				max_tokens: 300
+				max_tokens: 500
 			})
 		});
 
