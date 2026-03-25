@@ -5,6 +5,7 @@
  */
 
 import { assertSupabaseAdmin } from './supabaseAdmin';
+import { env } from '$env/dynamic/private';
 
 const TIER_LIMITS: Record<string, number> = {
 	free: 3,
@@ -14,10 +15,23 @@ const TIER_LIMITS: Record<string, number> = {
 };
 
 /**
+ * Check if a user is an admin (unlimited access) by looking up their email.
+ */
+async function isAdminUser(userId: string): Promise<boolean> {
+	const adminEmails = (env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+	if (!adminEmails.length) return false;
+	const admin = assertSupabaseAdmin();
+	const { data } = await admin.auth.admin.getUserById(userId);
+	const email = data?.user?.email?.toLowerCase() ?? '';
+	return email !== '' && adminEmails.includes(email);
+}
+
+/**
  * Get the user's tier from the subscriptions table.
  * Falls back to 'free' if no row exists.
  */
 async function getUserTier(userId: string): Promise<string> {
+	if (await isAdminUser(userId)) return 'enterprise';
 	const admin = assertSupabaseAdmin();
 	const { data } = await admin
 		.from('subscriptions')
