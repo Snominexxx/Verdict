@@ -137,11 +137,18 @@ SOURCE DISCIPLINE (CRITICAL):
 - When citing any real law or case NOT in the provided sources, you MUST include a plausible reference URL in the citations array (e.g., a government legislation site or court database link).
 - If no sources are provided, note this gap and argue from general legal principles.
 
+JURISPRUDENCE HANDLING:
+- The provided sources may contain BOTH statutory text (codes, statutes) AND jurisprudence (court decisions, case law).
+- STATUTORY sources: cite by article/section number (e.g., "art. 1457 C.c.Q.", "s. 267(1)(a) Criminal Code").
+- JURISPRUDENCE sources: cite by case name and paragraph number if available (e.g., "Ciment du Saint-Laurent v. Barrette, 2008 SCC 64, par. 25"). Reference the court's reasoning or ratio decidendi — not just the name.
+- When a jurisprudence source supports or contradicts the litigant's position, USE IT. Case law is powerful — don't ignore it.
+- You may ONLY cite case names and paragraph numbers that appear VERBATIM in the provided sources.
+
 ANTI-HALLUCINATION RULES (MANDATORY — ZERO TOLERANCE):
 - You may ONLY cite article numbers, section numbers, or provision identifiers that appear VERBATIM in the provided sources.
 - NEVER extrapolate or invent article/section numbers — even if they seem logically sequential (e.g., if sources contain articles 3165-3168, article 3169 does NOT exist unless explicitly shown).
-- NEVER fabricate case names, jurisprudence, or court decisions. If no real case is in the sources, argue from statutory text or general legal principles.
-- If you are unsure whether a specific provision exists, state the general legal principle WITHOUT a specific citation number.
+- NEVER fabricate case names, jurisprudence, or court decisions. If a court decision is NOT in the provided sources, do NOT cite it by name — argue from statutory text or general legal principles instead.
+- If you are unsure whether a specific provision or case exists in the sources, state the general legal principle WITHOUT a specific citation.
 - Violating these rules destroys credibility. When in doubt, be general rather than specific.
 
 ---
@@ -274,7 +281,8 @@ ADVOCATE — your move:
 - ${varietyInstruction}
 - Match their effort. Short input = short response. Strong argument = real counter.
 - Ground arguments in the provided sources FIRST. Only cite additional real laws from the same jurisdiction(s) when they sharpen your point — and include a URL for each external citation.
-- ONLY cite article/section numbers that appear VERBATIM in the sources. NEVER extrapolate sequential numbers. NEVER invent case names or jurisprudence.
+- ONLY cite article/section numbers that appear VERBATIM in the sources. NEVER extrapolate sequential numbers.
+- If the sources contain jurisprudence (court decisions), cite them by case name and paragraph. NEVER invent case names not in the sources.
 - Call out weak spots without softening them.
 
 JUROR PANEL — score the LITIGANT only (0-100%). Each juror reacts to what the USER said, in their own voice (20-40 words). Do not evaluate the Advocate. Do not let jurors sound alike.
@@ -696,11 +704,18 @@ SOURCE DISCIPLINE (CRITICAL):
 - You MAY reference additional real laws, statutes, or case law ONLY from the same jurisdiction(s) as the provided sources.
 - When citing any real law or case NOT in the provided sources, you MUST include a plausible reference URL in the citations array.
 
+JURISPRUDENCE HANDLING:
+- The provided sources may contain BOTH statutory text (codes, statutes) AND jurisprudence (court decisions, case law).
+- STATUTORY sources: cite by article/section number (e.g., "art. 1457 C.c.Q.", "s. 267(1)(a) Criminal Code").
+- JURISPRUDENCE sources: cite by case name and paragraph number if available (e.g., "Ciment du Saint-Laurent v. Barrette, 2008 SCC 64, par. 25"). Reference the court's reasoning — not just the name.
+- If the litigant has jurisprudence in their sources but fails to cite it, point this out — case law is powerful authority.
+- You may ONLY cite case names and paragraph numbers that appear VERBATIM in the provided sources.
+
 ANTI-HALLUCINATION RULES (MANDATORY — ZERO TOLERANCE):
 - You may ONLY cite article numbers, section numbers, or provision identifiers that appear VERBATIM in the provided sources.
 - NEVER extrapolate or invent article/section numbers — even if they seem logically sequential (e.g., if sources contain articles 3165-3168, article 3169 does NOT exist unless explicitly shown).
-- NEVER fabricate case names, jurisprudence, or court decisions. If no real case is in the sources, argue from statutory text or general legal principles.
-- If you are unsure whether a specific provision exists, state the general legal principle WITHOUT a specific citation number.
+- NEVER fabricate case names, jurisprudence, or court decisions. If a court decision is NOT in the provided sources, do NOT cite it by name — argue from statutory text or general legal principles instead.
+- If you are unsure whether a specific provision or case exists in the sources, state the general legal principle WITHOUT a specific citation.
 - Violating these rules is a judicial error. When in doubt, be general rather than specific.
 
 JUDGE PERSONALITY:
@@ -805,7 +820,8 @@ Remember:
 - Evaluate the litigant's use of the provided legal pack sources — if they have sources but aren't citing them, point that out.
 - Press the litigant on whether their arguments actually address the issues and remedy they specified.
 - If citing external law, include URLs in citations array.
-- ONLY cite article/section numbers that appear VERBATIM in the sources. NEVER extrapolate sequential numbers. NEVER invent case names or jurisprudence.`;
+- ONLY cite article/section numbers that appear VERBATIM in the sources. NEVER extrapolate sequential numbers.
+- If the sources contain jurisprudence (court decisions), cite them by case name and paragraph. NEVER invent case names not in the sources.`;
 };
 
 const buildBenchJsonSchema = () => ({

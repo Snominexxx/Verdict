@@ -119,7 +119,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			? allChunks.filter((c) => selectedIds.includes(c.sourceId)).slice(0, 8)
 			: allChunks.slice(0, 8);
 		if (chunks.length > 0) {
-			ragContext = `\n\nThe user has indexed the following legal documents. Base the case scenario on these ACTUAL legal provisions:\n${formatChunksForPrompt(chunks)}\n\nCITATION RULES (MANDATORY):\n- You may ONLY reference article numbers, section numbers, or provision identifiers that appear VERBATIM in the text above.\n- NEVER extrapolate, infer, or invent article/section numbers — even if they seem logically sequential (e.g., if you see articles 3165-3168, do NOT assume 3169 exists).\n- If no specific article fits the scenario, describe the legal concept in GENERAL TERMS without citing any specific number.\n- NEVER invent case names or jurisprudence references.\n\nMake the scenario naturally arise from these specific legal provisions. Infer the correct jurisdiction from the document content — do NOT assume Quebec or Canada unless the documents explicitly reference them.`;
+			ragContext = `\n\nThe user has indexed the following legal documents. Base the case scenario on these ACTUAL legal provisions:\n${formatChunksForPrompt(chunks)}\n\nCITATION RULES (MANDATORY):\n- You may ONLY reference article numbers, section numbers, or provision identifiers that appear VERBATIM in the text above.\n- NEVER extrapolate, infer, or invent article/section numbers — even if they seem logically sequential (e.g., if you see articles 3165-3168, do NOT assume 3169 exists).\n- If no specific article fits the scenario, describe the legal concept in GENERAL TERMS without citing any specific number.\n- If the text above contains court decisions or jurisprudence (e.g., case names like "Ciment du Saint-Laurent v. Barrette"), you MAY reference those case names VERBATIM. NEVER invent case names that do not appear in the text.\n\nMake the scenario naturally arise from these specific legal provisions. Infer the correct jurisdiction from the document content — do NOT assume Quebec or Canada unless the documents explicitly reference them.`;
 		}
 	} catch {
 		// RAG is optional — skip silently if not available
@@ -132,8 +132,23 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// If RAG found content from user's documents, let the AI pick the case type from that content.
 	// Otherwise, fall back to a random universal case type.
 	const caseTypeInstruction = ragContext
-		? 'Based on the legal provisions below, create a realistic case scenario that naturally arises from those specific laws. Choose the most appropriate type of dispute for the subject matter of these documents. You may reference specific articles ONLY if they appear verbatim in the provided text. Otherwise, describe legal concepts in general terms without specific article numbers.'
-		: `Create a case about one of these two dispute types: (A) ${caseTypeA}, or (B) ${caseTypeB}. Pick whichever would make the most interesting scenario. Do NOT cite specific article numbers, statute sections, or case names. Describe the situation in plain factual language only.`;
+		? `Based on the legal provisions below, create a SPECIFIC, TIGHTLY SCOPED case scenario.
+
+SPECIFICITY RULES:
+- Pick exactly 1 or 2 specific articles/sections from the provided text as the legal crux of the dispute.
+- Build the fact pattern so the outcome DEPENDS on the interpretation of those specific provisions — not on vague "general principles."
+- The synopsis must name the specific articles in play (e.g., "The dispute turns on article 1457 C.c.Q." or "The Crown relies on s. 267(1)(a) of the Criminal Code").
+- The issues field must frame a precise legal question, not a broad topic (BAD: "liability issues" — GOOD: "Whether the defendant's failure to salt the walkway constitutes fault under art. 1457 C.c.Q.").
+- If the provided text includes court decisions or jurisprudence, you MAY reference the case name in the issues or synopsis to ground the scenario.
+- You may ONLY reference article numbers, case names, or section numbers that appear VERBATIM in the provided text.
+- If no specific article fits, describe the legal concept in general terms without citing any specific number.`
+		: `Create a case about one of these two dispute types: (A) ${caseTypeA}, or (B) ${caseTypeB}. Pick whichever would make the most interesting scenario.
+
+SPECIFICITY RULES:
+- Invent a concrete fact pattern with specific names, dates, dollar amounts, and a clear triggering event.
+- The synopsis must describe WHAT HAPPENED — not legal theory (BAD: "A contract dispute arose" — GOOD: "On March 3, 2024, Dubois paid $12,000 for a kitchen renovation that Lemieux abandoned after demolishing the existing cabinets.").
+- The issues field must be a precise legal question, not a broad topic.
+- Do NOT cite specific article numbers, statute sections, or case names.`;
 
 	const recentExclusion = recentTitles.length
 		? `\n\nIMPORTANT: The user has already generated these cases — you MUST generate something COMPLETELY DIFFERENT in topic, parties, and facts:\n${recentTitles.map((t: string) => `- ${t}`).join('\n')}`

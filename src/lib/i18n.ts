@@ -272,6 +272,7 @@ const translations = {
 	'library.delete': { en: 'Delete', fr: 'Supprimer' },
 	'library.addUrl': { en: 'Add URL', fr: 'Ajouter URL' },
 	'library.uploadPdf': { en: 'Upload PDF', fr: 'Téléverser PDF' },
+	'library.uploadDoc': { en: 'Upload Document', fr: 'Téléverser un document' },
 	'library.pasteText': { en: 'Paste Text', fr: 'Coller texte' },
 	'library.noPackSelected': { en: 'Select a legal pack to view and manage its sources.', fr: 'Sélectionnez un pack juridique pour voir et gérer ses sources.' },
 	'library.packName': { en: 'Pack name', fr: 'Nom du pack' },
@@ -286,12 +287,19 @@ const translations = {
 	'library.sourceText': { en: 'Paste source text', fr: 'Coller le texte de la source' },
 	'library.fileRequired': { en: 'Please select a file first.', fr: 'Veuillez d\'abord sélectionner un fichier.' },
 	'library.pasteRequired': { en: 'Please provide a title and text.', fr: 'Veuillez fournir un titre et du texte.' },
-	'library.pdfParseFailed': { en: 'Failed to extract text from PDF.', fr: 'Impossible d\'extraire le texte du PDF.' },
-	'library.pdfSupported': { en: 'Upload a PDF — text will be extracted and indexed automatically.', fr: 'Téléversez un PDF — le texte sera extrait et indexé automatiquement.' },
+	'library.pdfParseFailed': { en: 'Failed to extract text from document.', fr: 'Impossible d\'extraire le texte du document.' },
+	'library.pdfSupported': { en: 'Upload a PDF or Word document (.docx) — text will be extracted and indexed automatically.', fr: 'Téléversez un PDF ou un document Word (.docx) — le texte sera extrait et indexé automatiquement.' },
 	'library.parsingPdf': { en: 'Extracting text...', fr: 'Extraction du texte...' },
+	'library.largeFileWarning': { en: 'Large file detected. For best results with very long documents (e.g. full Criminal Code), consider uploading specific parts or chapters.', fr: 'Fichier volumineux détecté. Pour de meilleurs résultats avec les très longs documents (ex. Code criminel complet), envisagez de téléverser des parties ou chapitres spécifiques.' },
+	'library.extractingPages': { en: 'Loading PDF...', fr: 'Chargement du PDF...' },
+	'library.extractingPageN': { en: 'Extracting page {current} of {total}...', fr: 'Extraction de la page {current} sur {total}...' },
+	'library.extractingWord': { en: 'Extracting Word document...', fr: 'Extraction du document Word...' },
+	'library.storingChunks': { en: 'Storing chunks...', fr: 'Stockage des fragments...' },
+	'library.noTextExtracted': { en: 'No text could be extracted from this document.', fr: 'Aucun texte n\'a pu être extrait de ce document.' },
+	'library.unsupportedFormat': { en: 'Unsupported file format. Please upload a PDF or Word document (.docx).', fr: 'Format de fichier non supporté. Veuillez téléverser un PDF ou un document Word (.docx).' },
 	'library.emptyPack': {
-		en: 'No sources yet — click "Upload PDF" to add your first law.',
-		fr: 'Aucune source — cliquez sur « Téléverser PDF » pour ajouter votre première loi.'
+		en: 'No sources yet — click "Upload Document" to add your first law or jurisprudence.',
+		fr: 'Aucune source — cliquez sur « Téléverser un document » pour ajouter votre première loi ou jurisprudence.'
 	},
 	'library.helpTitle': { en: 'How to Use the Library', fr: 'Comment utiliser la bibliothèque' },
 	'library.helpWhatPackTitle': { en: 'What is a Legal Pack?', fr: 'Qu\'est-ce qu\'un pack juridique ?' },
@@ -309,21 +317,21 @@ const translations = {
 		fr: '2. Donnez-lui un nom, une juridiction (ex. Canada, France) et un domaine (ex. Criminel, Civil).'
 	},
 	'library.helpCreateStep3': {
-		en: '3. Done! Your pack is ready — now upload PDFs into it.',
-		fr: '3. Voilà ! Votre pack est prêt — téléversez-y maintenant des PDF.'
+		en: '3. Done! Your pack is ready — now upload PDFs or Word documents into it.',
+		fr: '3. Voilà ! Votre pack est prêt — téléversez-y maintenant des PDF ou documents Word.'
 	},
-	'library.helpUploadTitle': { en: 'How to Upload a PDF', fr: 'Comment téléverser un PDF' },
+	'library.helpUploadTitle': { en: 'How to Upload Documents', fr: 'Comment téléverser des documents' },
 	'library.helpUploadStep1': {
-		en: '1. Find the law you need on an official government website (e.g. laws-lois.justice.gc.ca, legifrance.gouv.fr).',
-		fr: '1. Trouvez la loi dont vous avez besoin sur un site gouvernemental officiel (ex. laws-lois.justice.gc.ca, legifrance.gouv.fr).'
+		en: '1. Find the law or court decision you need on an official website (e.g. laws-lois.justice.gc.ca, canlii.ca, legifrance.gouv.fr).',
+		fr: '1. Trouvez la loi ou la décision de justice sur un site officiel (ex. laws-lois.justice.gc.ca, canlii.ca, legifrance.gouv.fr).'
 	},
 	'library.helpUploadStep2': {
-		en: '2. Download it as a PDF — most official sites have a download or print button.',
-		fr: '2. Téléchargez-la en PDF — la plupart des sites officiels ont un bouton de téléchargement ou d\'impression.'
+		en: '2. Download it as a PDF or Word document (.docx).',
+		fr: '2. Téléchargez-la en PDF ou en document Word (.docx).'
 	},
 	'library.helpUploadStep3': {
-		en: '3. Select a pack, then click "Upload PDF" and pick your file.',
-		fr: '3. Sélectionnez un pack, puis cliquez sur « Téléverser PDF » et choisissez votre fichier.'
+		en: '3. Select a pack, then click "Upload Document" and pick your file.',
+		fr: '3. Sélectionnez un pack, puis cliquez sur « Téléverser un document » et choisissez votre fichier.'
 	},
 	'library.helpUploadStep4': {
 		en: '4. The AI will automatically extract and index every article so it can cite them during your debates.',
@@ -332,8 +340,8 @@ const translations = {
 	'library.helpExampleTitle': { en: 'Example: A Completed Pack', fr: 'Exemple : Un pack complété' },
 	'library.helpExamplePackName': { en: 'Canadian Federal Law', fr: 'Droit fédéral canadien' },
 	'library.helpExampleNote': {
-		en: 'Upload full law PDFs — the AI will search all of them simultaneously during your debates.',
-		fr: 'Téléversez les PDF complets — l\'IA les consultera tous simultanément durant vos débats.'
+		en: 'Upload law PDFs and court decisions — the AI will search all of them simultaneously during your debates.',
+		fr: 'Téléversez les PDF de lois et les décisions de justice — l\'IA les consultera tous simultanément durant vos débats.'
 	},
 	'library.helpGotIt': { en: 'Got it!', fr: 'Compris !' },
 

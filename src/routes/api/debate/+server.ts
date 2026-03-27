@@ -93,8 +93,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			userId: session.user.id,
 			query: ragQuery,
 			packId: stagedCase.packId,
-			maxChunks: 15,
-			maxTokens: 12000
+			maxChunks: 10,
+			maxTokens: 8000
 		});
 		if (chunks.length > 0) {
 			ragContext = formatChunksForPrompt(chunks);

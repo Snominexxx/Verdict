@@ -27,6 +27,7 @@
 	let sourceFile: File | null = null;
 	let sourceError: string | null = null;
 	let previewDoc: LibraryDocument | null = null;
+	let parseProgress = '';
 
 	onMount(() => {
 		legalPacksStore.hydrate();
@@ -127,6 +128,7 @@
 	const prepareUploadSource = async () => {
 		sourceError = null;
 		previewDoc = null;
+		parseProgress = '';
 		if (!sourceFile) {
 			sourceError = t('library.fileRequired', $language);
 			return;
@@ -136,14 +138,81 @@
 			return;
 		}
 
+		const ext = sourceFile.name.toLowerCase().slice(sourceFile.name.lastIndexOf('.'));
+		if (ext !== '.pdf' && ext !== '.docx') {
+			sourceError = t('library.unsupportedFormat', $language);
+			return;
+		}
+
 		ingesting = true;
 		try {
-			const formData = new FormData();
-			formData.append('file', sourceFile);
-			formData.append('packId', selectedPack.id);
-			const response = await fetch('/api/library/ingest-pdf', {
+			let extractedText = '';
+
+			if (ext === '.pdf') {
+				// Client-side PDF parsing — no server timeout
+				parseProgress = t('library.extractingPages', $language);
+				const arrayBuffer = await sourceFile.arrayBuffer();
+				const pdfjsLib = await import('pdfjs-dist');
+				pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+					'pdfjs-dist/build/pdf.worker.min.mjs',
+					import.meta.url
+				).href;
+				const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+				const totalPages = pdf.numPages;
+				const pageTexts: string[] = [];
+				for (let i = 1; i <= totalPages; i++) {
+					if (i % 50 === 0 || i === totalPages) {
+						parseProgress = t('library.extractingPageN', $language)
+							.replace('{current}', String(i))
+							.replace('{total}', String(totalPages));
+					}
+					const page = await pdf.getPage(i);
+					const content = await page.getTextContent();
+					// Reconstruct lines using Y-coordinate changes between text items
+					let pageText = '';
+					let lastY: number | null = null;
+					for (const item of content.items) {
+						if (!('str' in item) || !item.str) continue;
+						const y = (item as any).transform?.[5] ?? null;
+						if (lastY !== null && y !== null && Math.abs(y - lastY) > 2) {
+							pageText += '\n';
+						} else if (pageText) {
+							pageText += ' ';
+						}
+						pageText += item.str;
+						if (y !== null) lastY = y;
+					}
+					pageTexts.push(pageText);
+				}
+				extractedText = pageTexts.join('\n');
+			} else {
+				// Client-side DOCX parsing
+				parseProgress = t('library.extractingWord', $language);
+				const arrayBuffer = await sourceFile.arrayBuffer();
+				const mammoth = await import('mammoth');
+				const result = await mammoth.extractRawText({ arrayBuffer });
+				extractedText = result.value ?? '';
+			}
+
+			// Normalize whitespace but PRESERVE newlines (they carry legal structure)
+			const text = extractedText
+				.replace(/[^\S\n]+/g, ' ')      // collapse horizontal whitespace (spaces/tabs) only
+				.replace(/\n{3,}/g, '\n\n')     // cap consecutive newlines at 2
+				.trim();
+			if (!text || text.length < 20) {
+				throw new Error(t('library.noTextExtracted', $language));
+			}
+
+			// Send extracted text to server for chunking + storage
+			parseProgress = t('library.storingChunks', $language);
+			const response = await fetch('/api/library/ingest-text', {
 				method: 'POST',
-				body: formData
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					text,
+					filename: sourceFile.name,
+					packId: selectedPack.id
+				})
 			});
 			const payload = await response.json().catch(() => null);
 			if (!response.ok || !payload?.document) {
@@ -157,11 +226,12 @@
 				title: sourceTitle.trim() || ingested.title,
 				description: sourceDescription.trim() || ingested.description
 			};
-			// Store totalChunks for batch embedding after save
 			pendingChunks = payload.totalChunks ?? 0;
 			pendingSourceId = ingested.id;
+			parseProgress = '';
 		} catch (err) {
 			sourceError = err instanceof Error ? err.message : t('library.pdfParseFailed', $language);
+			parseProgress = '';
 		} finally {
 			ingesting = false;
 		}
@@ -343,7 +413,7 @@
 								<p class="text-sm text-white/60 mt-1">{selectedPack.description}</p>
 							{/if}
 						</div>
-						<button type="button" on:click={() => openSourceModal()} class="px-4 py-2 border border-white/25 rounded text-sm font-bold uppercase tracking-widest text-white/80 hover:bg-white/10">{t('library.uploadPdf', $language)}</button>
+						<button type="button" on:click={() => openSourceModal()} class="px-4 py-2 border border-white/25 rounded text-sm font-bold uppercase tracking-widest text-white/80 hover:bg-white/10">{t('library.uploadDoc', $language)}</button>
 					</div>
 
 					{#if selectedPack.sources.length === 0}
@@ -539,9 +609,12 @@
 
 			<input bind:value={sourceTitle} placeholder={t('library.sourceTitle', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-base text-white" />
 			<input bind:value={sourceDescription} placeholder={t('library.sourceDescription', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-base text-white" />
-			<input type="file" accept=".pdf" on:change={(e) => (sourceFile = (e.currentTarget as HTMLInputElement).files?.[0] ?? null)} class="w-full text-sm text-white/70" />
+			<input type="file" accept=".pdf,.docx" on:change={(e) => (sourceFile = (e.currentTarget as HTMLInputElement).files?.[0] ?? null)} class="w-full text-sm text-white/70" />
 			<p class="text-sm text-white/40">{t('library.pdfSupported', $language)}</p>
-			<button type="button" on:click={prepareUploadSource} disabled={ingesting} class="px-4 py-2 border border-white/20 rounded text-sm font-bold uppercase tracking-widest text-white hover:bg-white/10 disabled:opacity-50">{ingesting ? t('library.parsingPdf', $language) : t('library.preview', $language)}</button>
+			{#if sourceFile && sourceFile.size > 5 * 1024 * 1024}
+				<p class="text-sm text-amber-300/80">⚠ {t('library.largeFileWarning', $language)}</p>
+			{/if}
+			<button type="button" on:click={prepareUploadSource} disabled={ingesting} class="px-4 py-2 border border-white/20 rounded text-sm font-bold uppercase tracking-widest text-white hover:bg-white/10 disabled:opacity-50">{ingesting ? (parseProgress || t('library.parsingPdf', $language)) : t('library.preview', $language)}</button>
 
 			{#if sourceError}
 				<p class="text-sm text-red-300">{sourceError}</p>

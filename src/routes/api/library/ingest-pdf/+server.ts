@@ -1,11 +1,13 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { PDFParse } from 'pdf-parse';
+import mammoth from 'mammoth';
 import { storeChunksOnly } from '$lib/server/rag';
 import { assertSupabaseAdmin } from '$lib/server/supabaseAdmin';
 import { rateLimit } from '$lib/server/rateLimit';
 
-const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15 MB
+const ACCEPTED_EXTENSIONS = ['.pdf', '.docx'];
 
 const detectJurisdiction = (filename: string, text: string) => {
 	const haystack = `${filename} ${text.slice(0, 2000)}`.toLowerCase();
@@ -46,53 +48,58 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	const contentType = request.headers.get('content-type') ?? '';
-	if (!contentType.includes('multipart/form-data') && !contentType.includes('application/pdf')) {
-		throw error(400, 'Expected a PDF file upload.');
+	if (!contentType.includes('multipart/form-data')) {
+		throw error(400, 'Expected a file upload (multipart/form-data).');
 	}
 
-	let pdfBytes: Uint8Array;
+	let fileBytes: Uint8Array;
 	let filename = 'document.pdf';
 	let packId = '';
 
-	if (contentType.includes('multipart/form-data')) {
-		const formData = await request.formData();
-		const file = formData.get('file');
-		if (!file || !(file instanceof File)) {
-			throw error(400, 'No PDF file provided.');
-		}
-		if (file.size > MAX_PDF_SIZE) {
-			throw error(400, 'PDF file exceeds 10 MB limit.');
-		}
-		if (!file.name.toLowerCase().endsWith('.pdf')) {
-			throw error(400, 'Only PDF files are accepted.');
-		}
-		filename = file.name;
-		packId = (formData.get('packId') as string) || '';
-		pdfBytes = new Uint8Array(await file.arrayBuffer());
-	} else {
-		const arrayBuffer = await request.arrayBuffer();
-		if (arrayBuffer.byteLength > MAX_PDF_SIZE) {
-			throw error(400, 'PDF file exceeds 10 MB limit.');
-		}
-		pdfBytes = new Uint8Array(arrayBuffer);
+	const formData = await request.formData();
+	const file = formData.get('file');
+	if (!file || !(file instanceof File)) {
+		throw error(400, 'No file provided.');
 	}
+	if (file.size > MAX_FILE_SIZE) {
+		throw error(400, 'File exceeds 15 MB limit.');
+	}
+	const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
+	if (!ACCEPTED_EXTENSIONS.includes(ext)) {
+		throw error(400, 'Only PDF and Word (.docx) files are accepted.');
+	}
+	filename = file.name;
+	packId = (formData.get('packId') as string) || '';
+	fileBytes = new Uint8Array(await file.arrayBuffer());
 
 	try {
-		const parser = new PDFParse({ data: pdfBytes });
-		const result = await parser.getText();
-		parser.destroy();
+		let rawText = '';
 
-		const text = (result.text ?? '').replace(/\s+/g, ' ').trim();
-
-		if (!text || text.length < 20) {
-			throw error(422, 'Could not extract readable text from this PDF. It may be scanned or image-based.');
+		if (ext === '.docx') {
+			const result = await mammoth.extractRawText({ buffer: Buffer.from(fileBytes) });
+			rawText = result.value ?? '';
+		} else {
+			const parser = new PDFParse({ data: fileBytes });
+			const result = await parser.getText();
+			parser.destroy();
+			rawText = result.text ?? '';
 		}
 
-		const title = filename.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' ').trim();
+		// Normalize whitespace but PRESERVE newlines (they carry legal structure for chunking)
+		const text = rawText
+			.replace(/[^\S\n]+/g, ' ')      // collapse horizontal whitespace only
+			.replace(/\n{3,}/g, '\n\n')     // cap consecutive newlines at 2
+			.trim();
+
+		if (!text || text.length < 20) {
+			throw error(422, 'Could not extract readable text from this file. It may be scanned, image-based, or empty.');
+		}
+
+		const title = filename.replace(/\.(pdf|docx)$/i, '').replace(/[_-]+/g, ' ').trim();
 		const excerpt = text.slice(0, 320);
 		const jurisdiction = detectJurisdiction(filename, text);
 		const docType = detectDocType(text);
-		const sourceId = `pdf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+		const sourceId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 		// Store chunks (text only, no embeddings) in Supabase
 		let totalChunks = 0;
@@ -119,7 +126,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			}
 		}
 
-		return json({
+			const fileType = ext === '.docx' ? 'Word document' : 'PDF';
+			return json({
 			document: {
 				id: sourceId,
 				title,
@@ -131,14 +139,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				docType,
 				trustLevel: 'unverified' as const,
 				isCustom: true,
-				note: 'Uploaded PDF. Review extracted text for accuracy.'
+				note: `Uploaded ${fileType}. Review extracted text for accuracy.`
 			},
 			totalChunks
 		});
 	} catch (err) {
 		if (err instanceof Response) throw err;
 		const msg = err instanceof Error ? err.message : String(err);
-		console.error('PDF parse failed:', msg);
-		throw error(500, `Failed to parse PDF: ${msg}`);
+		console.error('Document parse failed:', msg);
+		throw error(500, `Failed to parse document: ${msg}`);
 	}
 };
