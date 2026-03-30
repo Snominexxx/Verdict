@@ -11,6 +11,8 @@
 	let loading = false;
 	let error: string | null = null;
 	let readerOpen = false;
+	const READER_STEP_CHARS = 120_000;
+	let readerVisibleChars = READER_STEP_CHARS;
 
 	let packModalOpen = false;
 	let editingPackId = '';
@@ -19,15 +21,12 @@
 	let packDomain = '';
 	let packDescription = '';
 
-	let sourceModalOpen = false;
 	let helpModalOpen = false;
 	let ingesting = false;
-	let sourceTitle = '';
-	let sourceDescription = '';
 	let sourceFile: File | null = null;
 	let sourceError: string | null = null;
-	let previewDoc: LibraryDocument | null = null;
 	let parseProgress = '';
+	let fileInputEl: HTMLInputElement;
 
 	onMount(() => {
 		legalPacksStore.hydrate();
@@ -111,47 +110,56 @@
 		legalPacksStore.deletePack(pack.id);
 	};
 
-	const openSourceModal = () => {
+	const triggerFileUpload = () => {
 		ingesting = false;
-		sourceTitle = '';
-		sourceDescription = '';
 		sourceFile = null;
 		sourceError = null;
-		previewDoc = null;
-		sourceModalOpen = true;
-	};
-
-	const closeSourceModal = () => {
-		sourceModalOpen = false;
-	};
-
-	const prepareUploadSource = async () => {
-		sourceError = null;
-		previewDoc = null;
 		parseProgress = '';
-		if (!sourceFile) {
-			sourceError = t('library.fileRequired', $language);
-			return;
-		}
+		fileInputEl?.click();
+	};
+
+	const handleFileInputChange = (e: Event) => {
+		const file = (e.currentTarget as HTMLInputElement).files?.[0] ?? null;
+		if (file) onFileSelected(file);
+		// Reset so the same file can be re-selected
+		if (fileInputEl) fileInputEl.value = '';
+	};
+
+	/** File pick triggers the full pipeline: extract → chunk → store → save → embed */
+	const onFileSelected = async (file: File) => {
+		sourceFile = file;
+		sourceError = null;
+		parseProgress = '';
+
 		if (!selectedPack) {
 			sourceError = t('library.noPackSelected', $language);
 			return;
 		}
 
-		const ext = sourceFile.name.toLowerCase().slice(sourceFile.name.lastIndexOf('.'));
+		const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
 		if (ext !== '.pdf' && ext !== '.docx') {
 			sourceError = t('library.unsupportedFormat', $language);
 			return;
 		}
 
+		// Auto-fill title from filename
+		const autoTitle = file.name.replace(/\.(pdf|docx)$/i, '').replace(/[_-]+/g, ' ').trim();
+
 		ingesting = true;
 		try {
+			const sourceId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+			let originalFileMeta: {
+				storagePath?: string;
+				mimeType?: string;
+				originalFileName?: string;
+				fileSize?: number;
+			} = {};
+
 			let extractedText = '';
 
 			if (ext === '.pdf') {
-				// Client-side PDF parsing — no server timeout
 				parseProgress = t('library.extractingPages', $language);
-				const arrayBuffer = await sourceFile.arrayBuffer();
+				const arrayBuffer = await file.arrayBuffer();
 				const pdfjsLib = await import('pdfjs-dist');
 				pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 					'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -168,7 +176,6 @@
 					}
 					const page = await pdf.getPage(i);
 					const content = await page.getTextContent();
-					// Reconstruct lines using Y-coordinate changes between text items
 					let pageText = '';
 					let lastY: number | null = null;
 					for (const item of content.items) {
@@ -186,49 +193,116 @@
 				}
 				extractedText = pageTexts.join('\n');
 			} else {
-				// Client-side DOCX parsing
 				parseProgress = t('library.extractingWord', $language);
-				const arrayBuffer = await sourceFile.arrayBuffer();
+				const arrayBuffer = await file.arrayBuffer();
 				const mammoth = await import('mammoth');
 				const result = await mammoth.extractRawText({ arrayBuffer });
 				extractedText = result.value ?? '';
 			}
 
-			// Normalize whitespace but PRESERVE newlines (they carry legal structure)
 			const text = extractedText
-				.replace(/[^\S\n]+/g, ' ')      // collapse horizontal whitespace (spaces/tabs) only
-				.replace(/\n{3,}/g, '\n\n')     // cap consecutive newlines at 2
+				.replace(/[^\S\n]+/g, ' ')
+				.replace(/\n{3,}/g, '\n\n')
 				.trim();
 			if (!text || text.length < 20) {
 				throw new Error(t('library.noTextExtracted', $language));
 			}
 
-			// Send extracted text to server for chunking + storage
-			parseProgress = t('library.storingChunks', $language);
-			const response = await fetch('/api/library/ingest-text', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					text,
-					filename: sourceFile.name,
-					packId: selectedPack.id
-				})
-			});
-			const payload = await response.json().catch(() => null);
-			if (!response.ok || !payload?.document) {
-				throw new Error(payload?.message ?? t('library.pdfParseFailed', $language));
+			// Store original file so users can open PDF/DOCX directly later
+			parseProgress = t('library.uploadingOriginal', $language);
+			try {
+				const uploadForm = new FormData();
+				uploadForm.set('file', file);
+				uploadForm.set('sourceId', sourceId);
+				const uploadRes = await fetch('/api/library/upload-file', {
+					method: 'POST',
+					body: uploadForm
+				});
+				const uploadPayload = await uploadRes.json().catch(() => null);
+				if (uploadRes.ok && uploadPayload) {
+					originalFileMeta = {
+						storagePath: uploadPayload.storagePath,
+						mimeType: uploadPayload.mimeType,
+						originalFileName: uploadPayload.originalFileName,
+						fileSize: uploadPayload.fileSize
+					};
+				}
+			} catch (uploadErr) {
+				console.warn('Original file upload failed, continuing with text indexing only:', uploadErr);
 			}
-			const ingested = payload.document as LibraryDocument;
-			sourceTitle = sourceTitle.trim() || ingested.title;
-			sourceDescription = sourceDescription.trim() || ingested.description;
-			previewDoc = {
+
+			// Split large texts into segments for Netlify body limit
+			const SEGMENT_LIMIT = 3_000_000;
+			const segments: string[] = [];
+			if (text.length <= SEGMENT_LIMIT) {
+				segments.push(text);
+			} else {
+				let remaining = text;
+				while (remaining.length > 0) {
+					if (remaining.length <= SEGMENT_LIMIT) {
+						segments.push(remaining);
+						break;
+					}
+					let splitAt = remaining.lastIndexOf('\n\n', SEGMENT_LIMIT);
+					if (splitAt < SEGMENT_LIMIT * 0.5) splitAt = remaining.lastIndexOf('\n', SEGMENT_LIMIT);
+					if (splitAt < SEGMENT_LIMIT * 0.5) splitAt = SEGMENT_LIMIT;
+					segments.push(remaining.slice(0, splitAt));
+					remaining = remaining.slice(splitAt).replace(/^\n+/, '');
+				}
+			}
+
+			let totalChunksAll = 0;
+			let linkedSourceId = sourceId;
+			let ingested: LibraryDocument | null = null;
+
+			for (let i = 0; i < segments.length; i++) {
+				parseProgress = segments.length > 1
+					? `${t('library.storingChunks', $language)} (${i + 1}/${segments.length})`
+					: t('library.storingChunks', $language);
+
+				const response = await fetch('/api/library/ingest-text', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						text: segments[i],
+						filename: file.name,
+						packId: selectedPack.id,
+						sourceId: linkedSourceId,
+						...originalFileMeta
+					})
+				});
+				const payload = await response.json().catch(() => null);
+				if (!response.ok || !payload?.document) {
+					throw new Error(payload?.message ?? t('library.pdfParseFailed', $language));
+				}
+				if (i === 0) {
+					ingested = payload.document as LibraryDocument;
+					linkedSourceId = ingested.id;
+				}
+				totalChunksAll += payload.totalChunks ?? 0;
+			}
+
+			if (!ingested) throw new Error(t('library.pdfParseFailed', $language));
+
+			// Auto-save to pack immediately
+			const doc: LibraryDocument = {
 				...ingested,
-				title: sourceTitle.trim() || ingested.title,
-				description: sourceDescription.trim() || ingested.description
+				title: autoTitle || ingested.title,
+				description: ingested.description,
+				storagePath: originalFileMeta.storagePath ?? ingested.storagePath,
+				mimeType: originalFileMeta.mimeType ?? ingested.mimeType,
+				originalFileName: originalFileMeta.originalFileName ?? ingested.originalFileName,
+				fileSize: originalFileMeta.fileSize ?? ingested.fileSize,
+				content: text.slice(0, 1000)
 			};
-			pendingChunks = payload.totalChunks ?? 0;
-			pendingSourceId = ingested.id;
-			parseProgress = '';
+			legalPacksStore.addSourceToPack(selectedPack.id, doc);
+
+			// Start embedding
+			parseProgress = t('library.indexing', $language);
+			if (totalChunksAll > 0 && linkedSourceId) {
+				markIndexing(linkedSourceId);
+				runBatchEmbedding(linkedSourceId, totalChunksAll);
+			}
 		} catch (err) {
 			sourceError = err instanceof Error ? err.message : t('library.pdfParseFailed', $language);
 			parseProgress = '';
@@ -238,25 +312,6 @@
 	};
 
 	let indexingStatus: string | null = null;
-	let pendingChunks = 0;
-	let pendingSourceId = '';
-
-	const saveSourceToPack = () => {
-		if (!selectedPack || !previewDoc) return;
-		const doc = {
-			...previewDoc,
-			title: sourceTitle.trim() || previewDoc.title,
-			description: sourceDescription.trim() || previewDoc.description
-		};
-		legalPacksStore.addSourceToPack(selectedPack.id, doc);
-		closeSourceModal();
-
-		// Start batch embedding if chunks were stored
-		if (pendingChunks > 0 && pendingSourceId) {
-			markIndexing(pendingSourceId);
-			runBatchEmbedding(pendingSourceId, pendingChunks);
-		}
-	};
 
 	const runBatchEmbedding = async (sourceId: string, totalChunks: number) => {
 		let embedded = 0;
@@ -306,10 +361,48 @@
 		fetch(`/api/library/index?sourceId=${encodeURIComponent(sourceId)}`, { method: 'DELETE' }).catch(() => {});
 	};
 
+	const openOriginalDocument = async (doc: LibraryDocument) => {
+		// Built-in local markdown docs
+		if (doc.filePath) {
+			window.open(doc.filePath, '_blank', 'noopener,noreferrer');
+			return;
+		}
+
+		// Uploaded custom docs: open stored original PDF/DOCX when available
+		if (doc.isCustom) {
+			try {
+				const res = await fetch(`/api/library/source-file-url?sourceId=${encodeURIComponent(doc.id)}`);
+				const payload = await res.json().catch(() => null);
+				if (res.ok && payload?.url) {
+					window.open(payload.url, '_blank', 'noopener,noreferrer');
+					return;
+				}
+			} catch {
+				// Fallback below
+			}
+		}
+
+		// Fallback to extracted text reader if original file cannot be opened
+		await openReader(doc);
+	};
+
 	const loadDocument = async (doc: LibraryDocument) => {
 		loading = true;
 		error = null;
+		readerVisibleChars = READER_STEP_CHARS;
 		try {
+			const isUploadedDoc = !!doc.isCustom || doc.sourceUrl?.startsWith('uploaded://');
+			if (isUploadedDoc) {
+				const response = await fetch(`/api/library/source-text?sourceId=${encodeURIComponent(doc.id)}`);
+				if (response.ok) {
+					const payload = await response.json().catch(() => null);
+					if (payload?.text && typeof payload.text === 'string') {
+						content = payload.text;
+						return;
+					}
+				}
+			}
+
 			if (doc.content?.trim()) {
 				content = doc.content;
 				return;
@@ -335,12 +428,21 @@
 	const openReader = async (doc: LibraryDocument) => {
 		selectedDoc = doc;
 		readerOpen = true;
+		content = '';
 		await loadDocument(doc);
 	};
 
 	const closeReader = () => {
 		readerOpen = false;
+		readerVisibleChars = READER_STEP_CHARS;
 	};
+
+	const loadMoreReaderContent = () => {
+		readerVisibleChars = Math.min(content.length, readerVisibleChars + READER_STEP_CHARS);
+	};
+
+	$: visibleContent = content.slice(0, readerVisibleChars);
+	$: hasMoreContent = content.length > readerVisibleChars;
 
 	const onOverlayClick = (event: MouseEvent) => {
 		if (event.target === event.currentTarget) closeReader();
@@ -413,8 +515,23 @@
 								<p class="text-sm text-white/60 mt-1">{selectedPack.description}</p>
 							{/if}
 						</div>
-						<button type="button" on:click={() => openSourceModal()} class="px-4 py-2 border border-white/25 rounded text-sm font-bold uppercase tracking-widest text-white/80 hover:bg-white/10">{t('library.uploadDoc', $language)}</button>
+						<input type="file" accept=".pdf,.docx" class="hidden" bind:this={fileInputEl} on:change={handleFileInputChange} />
+						<button type="button" on:click={triggerFileUpload} disabled={ingesting} class="px-4 py-2 border border-white/25 rounded text-sm font-bold uppercase tracking-widest text-white/80 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed">{t('library.uploadDoc', $language)}</button>
 					</div>
+
+					{#if ingesting || sourceError}
+						<div class="border border-white/15 rounded-lg p-3 bg-white/[0.04] space-y-1">
+							{#if ingesting}
+								<div class="flex items-center gap-2">
+									<span class="inline-block w-3 h-3 border-2 border-flare/30 border-t-flare rounded-full animate-spin"></span>
+									<p class="text-sm text-white/80">{parseProgress || t('library.parsingPdf', $language)}</p>
+								</div>
+							{/if}
+							{#if sourceError}
+								<p class="text-sm text-red-300">{sourceError}</p>
+							{/if}
+						</div>
+					{/if}
 
 					{#if selectedPack.sources.length === 0}
 						<div class="border border-dashed border-white/20 rounded-xl p-8 text-center">
@@ -426,7 +543,7 @@
 						{#each selectedPack.sources as doc}
 						<div class="border border-white/15 rounded-lg p-4 bg-white/[0.04] space-y-2 {$indexingSourceIds.has(doc.id) ? 'opacity-60' : ''}">
 							<div class="flex items-start justify-between gap-2">
-								<button type="button" class="text-left flex-1 min-w-0" on:click={() => openReader(doc)}>
+								<button type="button" class="text-left flex-1 min-w-0" on:click={() => openOriginalDocument(doc)}>
 									<p class="text-sm font-semibold text-white leading-snug truncate">{doc.title}</p>
 								</button>
 								{#if $indexingSourceIds.has(doc.id)}
@@ -444,12 +561,15 @@
 									</div>
 								{/if}
 								<p class="text-sm text-white/70 leading-relaxed line-clamp-2">{doc.description}</p>
-								{#if doc.content && doc.content.length > 0}
-									<details class="mt-1">
-										<summary class="text-xs text-flare/70 hover:text-flare cursor-pointer select-none">View extracted text</summary>
-										<pre class="mt-1.5 max-h-40 overflow-y-auto whitespace-pre-wrap text-xs text-white/50 leading-relaxed bg-black/30 rounded p-2.5">{doc.content.slice(0, 2000)}{doc.content.length > 2000 ? '\n\n… (click title to view full text)' : ''}</pre>
-									</details>
-								{/if}
+								<div class="pt-1">
+									<button
+										type="button"
+										on:click={() => openOriginalDocument(doc)}
+										class="text-xs px-2.5 py-1 border border-flare/40 rounded text-flare hover:bg-flare/10"
+									>
+										{t('library.openDocument', $language)}
+									</button>
+								</div>
 								{#if doc.sourceUrl}
 									<a href={doc.sourceUrl.startsWith('http') ? doc.sourceUrl : undefined} target="_blank" rel="noreferrer" class="text-xs text-flare hover:underline break-all line-clamp-1">{doc.sourceUrl}</a>
 								{/if}
@@ -460,7 +580,7 @@
 									{#if doc.trustLevel}
 										<span class={`text-xs px-2 py-0.5 border rounded-full uppercase ${doc.trustLevel === 'official' ? 'border-emerald-400/40 text-emerald-300' : doc.trustLevel === 'recognized' ? 'border-amber-400/40 text-amber-300' : 'border-red-400/40 text-red-300'}`}>{doc.trustLevel}</span>
 									{/if}
-									{#if doc.content}
+									{#if doc.content && !doc.isCustom}
 										<span class="text-xs px-2 py-0.5 border border-sky-400/30 rounded-full text-sky-300" title="{Math.round(doc.content.length / 1000)}k chars extracted">{Math.round(doc.content.length / 1000)}k chars</span>
 									{/if}
 								</div>
@@ -588,60 +708,6 @@
 	</div>
 {/if}
 
-{#if sourceModalOpen && selectedPack}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
-		role="dialog"
-		aria-modal="true"
-		tabindex="0"
-		on:click={(event) => {
-			if (event.target === event.currentTarget) closeSourceModal();
-		}}
-		on:keydown={(event) => {
-			if (event.key === 'Escape') closeSourceModal();
-		}}
-	>
-		<div class="w-full max-w-2xl bg-ink border border-white/15 rounded-xl p-5 space-y-3">
-			<div class="flex items-center justify-between">
-				<h3 class="text-base font-bold uppercase tracking-widest text-white">{t('library.addSourceToPack', $language)} — {selectedPack.name}</h3>
-				<button type="button" class="text-white/60 hover:text-white text-lg" on:click={closeSourceModal}>×</button>
-			</div>
-
-			<input bind:value={sourceTitle} placeholder={t('library.sourceTitle', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-base text-white" />
-			<input bind:value={sourceDescription} placeholder={t('library.sourceDescription', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-base text-white" />
-			<input type="file" accept=".pdf,.docx" on:change={(e) => (sourceFile = (e.currentTarget as HTMLInputElement).files?.[0] ?? null)} class="w-full text-sm text-white/70" />
-			<p class="text-sm text-white/40">{t('library.pdfSupported', $language)}</p>
-			{#if sourceFile && sourceFile.size > 5 * 1024 * 1024}
-				<p class="text-sm text-amber-300/80">⚠ {t('library.largeFileWarning', $language)}</p>
-			{/if}
-			<button type="button" on:click={prepareUploadSource} disabled={ingesting} class="px-4 py-2 border border-white/20 rounded text-sm font-bold uppercase tracking-widest text-white hover:bg-white/10 disabled:opacity-50">{ingesting ? (parseProgress || t('library.parsingPdf', $language)) : t('library.preview', $language)}</button>
-
-			{#if sourceError}
-				<p class="text-sm text-red-300">{sourceError}</p>
-			{/if}
-
-			{#if previewDoc}
-				<div class="border border-white/15 rounded-xl p-4 space-y-2 bg-white/5">
-					<p class="text-base font-semibold text-white">{previewDoc.title}</p>
-					{#if previewDoc.sourceUrl}<p class="text-sm text-white/70 break-all">{previewDoc.sourceUrl}</p>{/if}
-					<p class="text-sm text-white/80 line-clamp-3">{previewDoc.description}</p>
-					{#if previewDoc.content}
-						<div class="flex gap-3 text-xs text-white/50 mt-1 pt-1 border-t border-white/10">
-							<span>{Math.round(previewDoc.content.length / 1000)}k {t('library.statsChars', $language)}</span>
-							<span>~{Math.ceil(previewDoc.content.length / 3000)} {t('library.statsPages', $language)}</span>
-							<span>~{Math.ceil(previewDoc.content.length / 3200)} {t('library.statsChunks', $language)}</span>
-						</div>
-					{/if}
-				</div>
-				<div class="flex justify-end gap-2">
-					<button type="button" on:click={closeSourceModal} class="px-4 py-2 border border-white/20 rounded text-sm font-bold uppercase tracking-widest text-white/70">{t('library.cancel', $language)}</button>
-					<button type="button" on:click={saveSourceToPack} class="px-4 py-2 bg-white text-ink rounded text-sm font-bold uppercase tracking-widest">{t('library.saveSource', $language)}</button>
-				</div>
-			{/if}
-		</div>
-	</div>
-{/if}
-
 {#if readerOpen && selectedDoc}
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md px-4 py-8"
@@ -669,7 +735,25 @@
 				{:else if error}
 					<p class="text-red-300 text-sm">{error}</p>
 				{:else}
-					<pre class="whitespace-pre-wrap text-white/80 text-sm leading-7 font-sans">{content}</pre>
+					<pre class="whitespace-pre-wrap text-white/80 text-sm leading-7 font-sans">{visibleContent}</pre>
+					{#if content.length > 0}
+						<p class="mt-3 text-xs text-white/50">
+							{t('library.readerShowing', $language)
+								.replace('{shown}', String(Math.min(readerVisibleChars, content.length)))
+								.replace('{total}', String(content.length))}
+						</p>
+					{/if}
+					{#if hasMoreContent}
+						<div class="mt-3">
+							<button
+								type="button"
+								on:click={loadMoreReaderContent}
+								class="px-3 py-1.5 border border-white/20 rounded text-xs font-bold uppercase tracking-widest text-white/70 hover:text-white hover:bg-white/10"
+							>
+								{t('library.readerLoadMore', $language)}
+							</button>
+						</div>
+					{/if}
 				{/if}
 			</section>
 		</div>

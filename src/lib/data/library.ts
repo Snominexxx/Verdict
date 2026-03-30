@@ -4,6 +4,10 @@ export type LibraryDocument = {
 	jurisdiction: string;
 	description: string;
 	filePath?: string;
+	storagePath?: string;
+	originalFileName?: string;
+	mimeType?: string;
+	fileSize?: number;
 	lastUpdated: string;
 	sourceUrl?: string;
 	content?: string;

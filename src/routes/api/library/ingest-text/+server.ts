@@ -4,7 +4,7 @@ import { storeChunksOnly } from '$lib/server/rag';
 import { assertSupabaseAdmin } from '$lib/server/supabaseAdmin';
 import { rateLimit } from '$lib/server/rateLimit';
 
-const MAX_TEXT_LENGTH = 5_000_000; // ~5 MB of text
+const MAX_TEXT_LENGTH = 4_000_000; // ~4 MB per request (stays under Netlify 6 MB body limit with JSON overhead)
 
 const detectJurisdiction = (filename: string, text: string) => {
 	const haystack = `${filename} ${text.slice(0, 2000)}`.toLowerCase();
@@ -44,7 +44,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(401, 'Authentication required.');
 	}
 
-	const rl = rateLimit(session.user.id, 'ingest_text', 10, 60_000);
+	const rl = rateLimit(session.user.id, 'ingest_text', 30, 60_000);
 	if (!rl.allowed) {
 		throw error(429, 'Too many uploads. Please wait a moment.');
 	}
@@ -57,8 +57,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'Filename is required.');
 	}
 	if (payload.text.length > MAX_TEXT_LENGTH) {
-		throw error(400, 'Text content exceeds 5 MB limit.');
+		throw error(400, 'Text segment exceeds 4 MB limit. The client should split large documents.');
 	}
+
+	// Support continuation: append chunks to an existing sourceId
+	const continueSourceId = typeof payload.sourceId === 'string' ? payload.sourceId : '';
 
 	// Normalize whitespace but PRESERVE newlines (they carry legal structure for chunking)
 	const text = payload.text
@@ -76,7 +79,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const excerpt = text.slice(0, 320);
 	const jurisdiction = detectJurisdiction(filename, text);
 	const docType = detectDocType(text);
-	const sourceId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+	const sourceId = continueSourceId || `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+	const storagePath = typeof payload.storagePath === 'string' ? payload.storagePath : undefined;
+	const mimeType = typeof payload.mimeType === 'string' ? payload.mimeType : undefined;
+	const originalFileName = typeof payload.originalFileName === 'string' ? payload.originalFileName : undefined;
+	const fileSize = typeof payload.fileSize === 'number' ? payload.fileSize : undefined;
 
 	let totalChunks = 0;
 	try {
@@ -92,11 +99,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				jurisdiction,
 				docType,
 				trustLevel: 'unverified',
-				sourceUrl: `uploaded://${filename}`
+					sourceUrl: `uploaded://${filename}`,
+					storagePath,
+					mimeType,
+					originalFileName,
+					fileSize
 			}
 		});
 	} catch (storeErr) {
 		console.error('Failed to store chunks:', storeErr);
+		throw error(500, 'Document text was extracted but chunk storage failed. Please try uploading again.');
 	}
 
 	return json({
@@ -107,7 +119,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			description: excerpt,
 			lastUpdated: new Date().toISOString().slice(0, 10),
 			sourceUrl: `uploaded://${filename}`,
-			content: text,
+				storagePath,
+				mimeType,
+				originalFileName,
+				fileSize,
+			content: '', // Don't echo full text back — save bandwidth
 			docType,
 			trustLevel: 'unverified' as const,
 			isCustom: true,

@@ -6,7 +6,7 @@ import type { LibraryDocument } from '$lib/data/library';
 import { libraryDocuments } from '$lib/data/library';
 import { generateDebateAnalysis, generateBenchTrialAnalysis } from '$lib/server/llm';
 import { searchChunks, formatChunksForPrompt } from '$lib/server/rag';
-import { checkCredits, recordUsage, isCaseCharged } from '$lib/server/credits';
+import { checkCredits, recordUsage, isCaseCharged, refundUsage } from '$lib/server/credits';
 import { rateLimit } from '$lib/server/rateLimit';
 import type { StagedCase } from '$lib/types';
 
@@ -70,13 +70,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'Case ID is required.');
 	}
 	const alreadyCharged = await isCaseCharged(session.user.id, caseId);
+	let chargedThisRequest = false;
 	if (!alreadyCharged) {
 		const credits = await checkCredits(session.user.id);
 		if (!credits.allowed) {
 			throw error(403, `Monthly debate limit reached (${credits.used}/${credits.limit}). Upgrade your plan for more.`);
 		}
 		// Charge now (upsert ignores duplicates from concurrent requests)
-		try { await recordUsage(session.user.id, caseId); } catch (e) {
+		try { await recordUsage(session.user.id, caseId); chargedThisRequest = true; } catch (e) {
 			console.error('Failed to record usage:', e);
 		}
 	}
@@ -86,6 +87,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	// RAG: try semantic search for relevant chunks from the user's indexed documents
 	let ragContext: string | undefined;
+	let sourcesUsed = 0;
 	try {
 		const ragQuery = `${stagedCase.synopsis} ${stagedCase.issues || ''} ${prompt}`;
 		const chunks = await searchChunks({
@@ -96,6 +98,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			maxChunks: 10,
 			maxTokens: 8000
 		});
+		sourcesUsed = chunks.length;
 		if (chunks.length > 0) {
 			ragContext = formatChunksForPrompt(chunks);
 		}
@@ -133,7 +136,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 						}
 					: null,
 				judgeMind,
-				courtType: 'bench'
+				courtType: 'bench',
+				sourcesUsed
 			});
 		}
 
@@ -162,26 +166,34 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				timestamp: new Date().toISOString()
 			},
 			jurorScores,
-			courtType: 'jury'
+			courtType: 'jury',
+			sourcesUsed
 		});
 	} catch (err) {
 		const errorMessage = err instanceof Error ? err.message : String(err);
 		console.error('Debate endpoint failed', err);
 
-		// Provide clearer messages for common errors
-		if (errorMessage.includes('invalid_api_key') || errorMessage.includes('Incorrect API key')) {
-			throw error(401, 'Invalid OpenAI API key. Please check your LLM_API_KEY in .env');
-		}
-		if (errorMessage.includes('LLM_API_KEY is not configured')) {
-			throw error(500, 'LLM_API_KEY is not configured in .env');
-		}
-		if (errorMessage.includes('rate_limit') || errorMessage.includes('429')) {
-			throw error(429, 'OpenAI rate limit reached. Please wait a moment and try again.');
-		}
-		if (errorMessage.includes('insufficient_quota')) {
-			throw error(402, 'OpenAI quota exceeded. Please check your billing at platform.openai.com');
+		// Refund credit if this was the first charge and LLM failed
+		if (chargedThisRequest) {
+			try { await refundUsage(session.user.id, caseId); } catch (refundErr) {
+				console.error('Failed to refund credit:', refundErr);
+			}
 		}
 
-		throw error(500, 'Debate service is currently unavailable. Check server logs for details.');
+		// Provide clearer messages for common errors
+		if (errorMessage.includes('invalid_api_key') || errorMessage.includes('Incorrect API key')) {
+			throw error(503, 'AI service configuration error. Please contact support.');
+		}
+		if (errorMessage.includes('LLM_API_KEY is not configured')) {
+			throw error(503, 'AI service is not configured. Please contact support.');
+		}
+		if (errorMessage.includes('rate_limit') || errorMessage.includes('429')) {
+			throw error(429, 'AI service is temporarily busy. Please wait a moment and try again.');
+		}
+		if (errorMessage.includes('insufficient_quota')) {
+			throw error(402, 'AI service quota reached. Please contact support.');
+		}
+
+		throw error(500, 'Debate service is temporarily unavailable. Please try again shortly.');
 	}
 };

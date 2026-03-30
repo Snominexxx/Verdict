@@ -26,6 +26,7 @@
 	let stagedCase: StagedCase | null = null;
 	let allowedSources: LibraryDocument[] = [];
 	let focusArmed = false;
+	let tipsOpen = false;
 	let scoreModalOpen = false;
 	let scoring = false;
 	let scoreError = '';
@@ -149,6 +150,18 @@
 				throw new Error(msg);
 			}
 			const result = await response.json();
+
+			// Warn if no source chunks were matched (documents may not be indexed)
+			if (result.sourcesUsed === 0) {
+				const warnTurn: DebateTurn = {
+					role: isBenchTrial ? 'judge' : 'ai',
+					speaker: '⚠ System',
+					message: t('debate.noSources', $language),
+					timestamp: new Date().toISOString()
+				};
+				appendTurn(warnTurn);
+				newTurns.push(warnTurn);
+			}
 
 			// Handle judge interjection (bench trial only)
 			if (result.judgeInterjection) {
@@ -527,6 +540,22 @@
 						<p class="text-sm text-white/50">{t('debate.roundLimitDesc', $language)}</p>
 					</div>
 				{:else}
+					<!-- Collapsible argument tips -->
+					<button
+						type="button"
+						on:click={() => (tipsOpen = !tipsOpen)}
+						class="text-xs text-amber-300/70 hover:text-amber-300 mb-2 flex items-center gap-1 transition"
+					>
+						<svg class="w-3.5 h-3.5" class:rotate-90={tipsOpen} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+						{t('debate.tipTitle', $language)}
+					</button>
+					{#if tipsOpen}
+						<div class="mb-3 p-3 rounded-lg bg-amber-900/15 border border-amber-500/15 text-xs text-amber-100/70 space-y-1.5" transition:fly={{ y: -8, duration: 150 }}>
+							<p>• {t('debate.tipCite', $language)}</p>
+							<p>• {t('debate.tipStructure', $language)}</p>
+							<p>• {t('debate.tipCounter', $language)}</p>
+						</div>
+					{/if}
 					<div class="flex items-center justify-between mb-2">
 						<span class="text-xs text-white/50 font-mono">{t('debate.roundCounter', $language)}: {litigantTurnCount}/{maxRounds}</span>
 					</div>

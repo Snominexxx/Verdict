@@ -13,6 +13,12 @@ const translations = {
 		fr: 'Verdict — débattez contre un avocat IA devant cinq jurés autonomes.'
 	},
 
+	// ===== DISCLAIMER =====
+	'disclaimer.banner': {
+		en: '⚠️ Educational simulation — AI-generated citations may be inaccurate. Always verify legal references against official sources.',
+		fr: '⚠️ Simulation éducative — les citations générées par l\'IA peuvent être inexactes. Vérifiez toujours les références juridiques auprès des sources officielles.'
+	},
+
 	// ===== MOBILE GATE =====
 	'mobile.title': { en: 'Desktop Only', fr: 'Bureau uniquement' },
 	'mobile.description': {
@@ -144,6 +150,19 @@ const translations = {
 	'debate.reviewingBench': { en: 'Reviewing submission…', fr: 'Analyse de la soumission…' },
 	'debate.formulatingJury': { en: 'Formulating counter-argument…', fr: 'Formulation du contre-argument…' },
 	'debate.inputPlaceholder': { en: 'Enter your argument...', fr: 'Entrez votre argument...' },
+	'debate.tipTitle': { en: 'How to write a strong argument', fr: 'Comment rédiger un argument solide' },
+	'debate.tipCite': {
+		en: 'Cite specific articles: "Under Art. 1457 C.c.Q., negligence requires duty, breach, causation, and damage."',
+		fr: 'Citez des articles précis : « En vertu de l\'art. 1457 C.c.Q., la faute exige un devoir, un manquement, un lien causal et un préjudice. »'
+	},
+	'debate.tipStructure': {
+		en: 'Structure your reasoning: state the rule, apply it to the facts, then conclude.',
+		fr: 'Structurez votre raisonnement : énoncez la règle, appliquez-la aux faits, puis concluez.'
+	},
+	'debate.tipCounter': {
+		en: 'Address the opponent\'s arguments directly before presenting your own.',
+		fr: 'Répondez directement aux arguments de l\'adversaire avant de présenter les vôtres.'
+	},
 	'debate.panel': { en: 'Panel', fr: 'Panel' },
 	'debate.juryLabel': { en: 'Jury', fr: 'Jury' },
 	'debate.judgeLabel': { en: 'Judge', fr: 'Juge' },
@@ -168,6 +187,8 @@ const translations = {
 	'debate.stanceUndecided': { en: 'Undecided', fr: 'Indécis' },
 	'debate.jurorListening': { en: 'Listening...', fr: 'À l\'écoute...' },
 	'debate.errorFallback': { en: 'Unable to process your argument.', fr: 'Impossible de traiter votre argument.' },
+	'debate.sourcesUsed': { en: 'sources matched', fr: 'sources trouvées' },
+	'debate.noSources': { en: 'No matching content found in your uploaded documents. Make sure your sources are indexed.', fr: 'Aucun contenu correspondant trouvé dans vos documents. Assurez-vous que vos sources sont indexées.' },
 	'debate.roundCounter': { en: 'Rounds', fr: 'Tours' },
 	'debate.roundLimitReached': { en: 'Round limit reached', fr: 'Limite de tours atteinte' },
 	'debate.roundLimitDesc': { en: 'You\'ve used all rounds for this debate. End the case to receive your score.', fr: 'Vous avez utilisé tous vos tours pour ce débat. Terminez la cause pour obtenir votre note.' },
@@ -294,9 +315,11 @@ const translations = {
 	'library.extractingPages': { en: 'Loading PDF...', fr: 'Chargement du PDF...' },
 	'library.extractingPageN': { en: 'Extracting page {current} of {total}...', fr: 'Extraction de la page {current} sur {total}...' },
 	'library.extractingWord': { en: 'Extracting Word document...', fr: 'Extraction du document Word...' },
+	'library.uploadingOriginal': { en: 'Uploading original file...', fr: 'Téléversement du fichier original...' },
 	'library.storingChunks': { en: 'Storing chunks...', fr: 'Stockage des fragments...' },
 	'library.noTextExtracted': { en: 'No text could be extracted from this document.', fr: 'Aucun texte n\'a pu être extrait de ce document.' },
 	'library.unsupportedFormat': { en: 'Unsupported file format. Please upload a PDF or Word document (.docx).', fr: 'Format de fichier non supporté. Veuillez téléverser un PDF ou un document Word (.docx).' },
+	'library.openDocument': { en: 'Open document', fr: 'Ouvrir le document' },
 	'library.emptyPack': {
 		en: 'No sources yet — click "Upload Document" to add your first law or jurisprudence.',
 		fr: 'Aucune source — cliquez sur « Téléverser un document » pour ajouter votre première loi ou jurisprudence.'
@@ -344,6 +367,8 @@ const translations = {
 		fr: 'Téléversez les PDF de lois et les décisions de justice — l\'IA les consultera tous simultanément durant vos débats.'
 	},
 	'library.helpGotIt': { en: 'Got it!', fr: 'Compris !' },
+	'library.readerShowing': { en: 'Showing {shown} of {total} characters', fr: 'Affichage de {shown} caractères sur {total}' },
+	'library.readerLoadMore': { en: 'Load more text', fr: 'Charger plus de texte' },
 
 	// ===== ABOUT =====
 	'about.title': { en: 'About Verdict', fr: 'À propos de Verdict' },

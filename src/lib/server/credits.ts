@@ -108,3 +108,16 @@ export async function recordUsage(userId: string, caseId: string): Promise<boole
 	// If data has a row, it was newly inserted; if empty array, it was a duplicate
 	return (data?.length ?? 0) > 0;
 }
+
+/**
+ * Refund a credit if the AI call failed on first use of a case.
+ * Only deletes if the row exists — safe to call unconditionally.
+ */
+export async function refundUsage(userId: string, caseId: string): Promise<void> {
+	const admin = assertSupabaseAdmin();
+	await admin
+		.from('usage_log')
+		.delete()
+		.eq('user_id', userId)
+		.eq('case_id', caseId);
+}

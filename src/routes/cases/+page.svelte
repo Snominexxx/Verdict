@@ -236,7 +236,7 @@
 					{/if}
 				</div>
 			{/if}
-			<form class="space-y-5" on:submit|preventDefault={handleSubmit}>
+			<form class="space-y-5" onsubmit={(event) => { event.preventDefault(); handleSubmit(); }}>
 
 				<!-- Step 1: Legal Pack + Sources -->
 				<div class="space-y-3">
@@ -255,7 +255,7 @@
 						{#each $legalPacksStore as pack}
 							<button
 								type="button"
-								on:click={() => setPack(pack.id)}
+								onclick={() => setPack(pack.id)}
 								class={`text-left px-3 py-2 border rounded transition text-sm ${$selectedLegalPackId === pack.id ? 'border-white/40 bg-white/15 text-white' : 'border-white/20 bg-white/5 text-white/70 hover:bg-white/10'}`}
 							>
 								<span class="font-bold">{pack.name}</span>
@@ -282,7 +282,7 @@
 									<input
 										type="checkbox"
 										checked={formData.sources.includes(doc.id)}
-										on:change={() => toggleSource(doc.id)}
+										onchange={() => toggleSource(doc.id)}
 										class="w-3 h-3"
 									/>
 									<span class="truncate max-w-[180px]">{doc.title}</span>
@@ -335,7 +335,7 @@
 					<div class="flex items-end">
 						<button
 							type="button"
-							on:click={autoFill}
+							onclick={autoFill}
 							disabled={generating}
 							class="px-5 py-2.5 border border-flare/50 text-flare text-sm font-bold uppercase rounded hover:bg-flare/10 transition-all disabled:opacity-50 disabled:cursor-wait whitespace-nowrap"
 						>
@@ -386,14 +386,14 @@
 					</div>
 					<button
 						type="button"
-						on:click={() => (formData = { ...formData, role: 'plaintiff' })}
+						onclick={() => (formData = { ...formData, role: 'plaintiff' })}
 						class={`text-left space-y-1.5 border rounded p-3 transition ${formData.role === 'plaintiff' ? 'border-white/40 bg-white/10' : formSubmitAttempted && !formData.remedy.trim() ? 'border-red-500 bg-red-500/5' : 'border-white/15 bg-white/5 hover:bg-white/10'}`}
 					>
 						<p class="text-sm font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.whatYouWant', $language)}</p>
 						<textarea
 							class="w-full bg-white/10 border border-white/20 rounded px-3 py-2 text-sm text-white min-h-[80px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none placeholder-white/40"
 							bind:value={formData.remedy}
-							on:focus={() => (formData = { ...formData, role: 'plaintiff' })}
+							onfocus={() => (formData = { ...formData, role: 'plaintiff' })}
 							placeholder={formData.role === 'plaintiff' ? t('cases.plaintiffPlaceholderYou', $language) : t('cases.plaintiffPlaceholderOther', $language)}
 						></textarea>
 						{#if formSubmitAttempted && !formData.remedy.trim()}
@@ -402,14 +402,14 @@
 					</button>
 					<button
 						type="button"
-						on:click={() => (formData = { ...formData, role: 'defendant' })}
+						onclick={() => (formData = { ...formData, role: 'defendant' })}
 						class={`text-left space-y-1.5 border rounded p-3 transition ${formData.role === 'defendant' ? 'border-white/40 bg-white/10' : formSubmitAttempted && !formData.defendantPosition.trim() ? 'border-red-500 bg-red-500/5' : 'border-white/15 bg-white/5 hover:bg-white/10'}`}
 					>
 						<p class="text-sm font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.whatDefendantWants', $language)}</p>
 						<textarea
 							class="w-full bg-white/10 border border-white/20 rounded px-3 py-2 text-sm text-white min-h-[80px] focus:outline-none focus:border-white focus:ring-1 focus:ring-white resize-none placeholder-white/40"
 							bind:value={formData.defendantPosition}
-							on:focus={() => (formData = { ...formData, role: 'defendant' })}
+							onfocus={() => (formData = { ...formData, role: 'defendant' })}
 							placeholder={formData.role === 'defendant' ? t('cases.defendantPlaceholderYou', $language) : t('cases.defendantPlaceholderOther', $language)}
 						></textarea>
 						{#if formSubmitAttempted && !formData.defendantPosition.trim()}
@@ -439,6 +439,7 @@
 					</button>
 				</div>
 			</form>
+			<p class="mt-4 text-center text-xs text-white/30">{t('disclaimer.banner', $language)}</p>
 		</div>
 	</div>
 </div>
