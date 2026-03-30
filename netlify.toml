@@ -6,8 +6,6 @@ functions = ".netlify/functions"
 [functions]
 node_bundler = "esbuild"
 external_node_modules = ["@supabase/supabase-js", "pdf-parse", "mammoth"]
-# Max timeout for Netlify Pro (default 10s free / 30s pro is too tight for RAG + LLM)
-timeout = 55
 
 [dev]
 command = "npm run dev"
