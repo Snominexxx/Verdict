@@ -42,7 +42,11 @@ type LLMStructuredResponse = {
 	}>;
 };
 
-const temperature = Number(env.LLM_TEMPERATURE ?? 0.4);
+// Per-mode temperatures: jury is persuasive/emotional, bench is precise/legal,
+// evaluation needs consistent scoring, fallback for other calls.
+const TEMP_JURY = 0.75;
+const TEMP_BENCH = 0.6;
+const TEMP_EVALUATION = 0.4;
 
 export const generateDebateAnalysis = async (args: {
 	prompt: string;
@@ -61,7 +65,7 @@ export const generateDebateAnalysis = async (args: {
 	const systemPrompt = buildSystemPrompt(jurors, language);
 	const userPrompt = buildUserPrompt({ prompt, stagedCase, sources, jurors, ragContext });
 	const schema = buildJsonSchema(jurors);
-	const raw = await dispatchToProvider(systemPrompt, userPrompt, schema);
+	const raw = await dispatchToProvider(systemPrompt, userPrompt, schema, TEMP_JURY);
 	const parsed = parseModelResponse(raw);
 
 	const reply = {
@@ -332,24 +336,26 @@ const buildJsonSchema = (jurors: JurorPersona[]) => ({
 const dispatchToProvider = async (
 	systemPrompt: string,
 	userPrompt: string,
-	schema: Record<string, unknown>
+	schema: Record<string, unknown>,
+	temp: number = TEMP_JURY
 ) => {
 	const provider = (env.LLM_PROVIDER ?? 'openai').toLowerCase();
 
 	switch (provider) {
 		case 'anthropic':
-			return callAnthropic(systemPrompt, userPrompt);
+			return callAnthropic(systemPrompt, userPrompt, temp);
 		case 'azure-openai':
-			return callAzureOpenAI(systemPrompt, userPrompt, schema);
+			return callAzureOpenAI(systemPrompt, userPrompt, schema, temp);
 		default:
-			return callOpenAI(systemPrompt, userPrompt, schema);
+			return callOpenAI(systemPrompt, userPrompt, schema, temp);
 	}
 };
 
 const callOpenAI = async (
 	systemPrompt: string,
 	userPrompt: string,
-	schema: Record<string, unknown>
+	schema: Record<string, unknown>,
+	temp: number
 ) => {
 	const model = env.OPENAI_MODEL ?? 'gpt-4o-mini';
 	const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -360,7 +366,7 @@ const callOpenAI = async (
 		},
 		body: JSON.stringify({
 			model,
-			temperature,
+			temperature: temp,
 			response_format: { type: 'json_schema', json_schema: { name: 'verdict_debate', schema } },
 			messages: [
 				{ role: 'system', content: systemPrompt },
@@ -383,7 +389,8 @@ const callOpenAI = async (
 const callAzureOpenAI = async (
 	systemPrompt: string,
 	userPrompt: string,
-	schema: Record<string, unknown>
+	schema: Record<string, unknown>,
+	temp: number
 ) => {
 	const endpoint = env.AZURE_OPENAI_ENDPOINT;
 	const deployment = env.AZURE_OPENAI_DEPLOYMENT;
@@ -401,7 +408,7 @@ const callAzureOpenAI = async (
 			'Content-Type': 'application/json'
 		},
 		body: JSON.stringify({
-			temperature,
+			temperature: temp,
 			response_format: { type: 'json_schema', json_schema: { name: 'verdict_debate', schema } },
 			messages: [
 				{ role: 'system', content: systemPrompt },
@@ -421,7 +428,7 @@ const callAzureOpenAI = async (
 	return Array.isArray(content) ? content.map((chunk: any) => chunk.text ?? '').join('\n') : content ?? '';
 };
 
-const callAnthropic = async (systemPrompt: string, userPrompt: string) => {
+const callAnthropic = async (systemPrompt: string, userPrompt: string, temp: number) => {
 	const model = env.ANTHROPIC_MODEL ?? 'claude-3-5-sonnet-20241022';
 	const response = await fetch('https://api.anthropic.com/v1/messages', {
 		method: 'POST',
@@ -432,7 +439,7 @@ const callAnthropic = async (systemPrompt: string, userPrompt: string) => {
 		},
 		body: JSON.stringify({
 			model,
-			temperature,
+			temperature: temp,
 			max_tokens: 900,
 			system: systemPrompt,
 			messages: [{ role: 'user', content: userPrompt }]
@@ -639,7 +646,7 @@ export const generateBenchTrialAnalysis = async (args: {
 	const systemPrompt = buildBenchSystemPrompt(language);
 	const userPrompt = buildBenchUserPrompt({ prompt, stagedCase, sources, ragContext });
 	const schema = buildBenchJsonSchema();
-	const raw = await dispatchToProvider(systemPrompt, userPrompt, schema);
+	const raw = await dispatchToProvider(systemPrompt, userPrompt, schema, TEMP_BENCH);
 	const parsed = parseBenchResponse(raw);
 
 	const reply = {
@@ -970,7 +977,7 @@ Return strict JSON only.`;
 	} as const;
 
 	try {
-		const raw = await dispatchToProvider(systemPrompt, userPrompt, schema as unknown as Record<string, unknown>);
+		const raw = await dispatchToProvider(systemPrompt, userPrompt, schema as unknown as Record<string, unknown>, TEMP_EVALUATION);
 		const parsed = JSON.parse(extractJson(raw)) as PerformanceEvaluationResponse;
 		return {
 			summary: parsed.summary?.trim() || (language === 'fr' ? 'Résumé indisponible.' : 'Summary unavailable.'),

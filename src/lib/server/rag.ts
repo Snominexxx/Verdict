@@ -29,6 +29,10 @@ export type ChunkMetadata = {
 	docType?: string;
 	trustLevel?: string;
 	sourceUrl?: string;
+	storagePath?: string;
+	mimeType?: string;
+	originalFileName?: string;
+	fileSize?: number;
 };
 
 export type MatchedChunk = {

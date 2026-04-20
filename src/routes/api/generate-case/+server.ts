@@ -178,7 +178,7 @@ Return JSON with these exact keys:
 			},
 			body: JSON.stringify({
 				model,
-				temperature: 0.7,
+				temperature: 0.4,
 				messages: [
 					{ role: 'system', content: langInstruction },
 					{ role: 'user', content: userPrompt }
