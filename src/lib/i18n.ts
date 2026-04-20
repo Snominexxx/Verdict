@@ -122,6 +122,8 @@ const translations = {
 	'cases.next': { en: 'NEXT', fr: 'SUIVANT' },
 	'cases.startDebate': { en: 'START DEBATE', fr: 'LANCER LE DÉBAT' },
 	'cases.editSources': { en: 'Edit sources', fr: 'Modifier les sources' },
+	'cases.chooseSide': { en: 'Choose Your Side', fr: 'Choisissez votre camp' },
+	'cases.chooseSideDesc': { en: 'Now that you\'ve seen the case, which side do you want to argue?', fr: 'Maintenant que vous avez vu la cause, quel camp voulez-vous défendre?' },
 	'cases.noPacksYet': { en: 'No legal packs yet. Upload sources in the Library first.', fr: 'Aucun pack juridique. Téléversez des sources dans la Bibliothèque d\'abord.' },
 	'cases.goToLibrary': { en: 'Go to Library', fr: 'Aller à la Bibliothèque' },
 	'cases.uploadEvidence': { en: 'Upload Evidence / Packet', fr: 'Téléverser des preuves' },

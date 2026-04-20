@@ -44,6 +44,7 @@
 	let step = $state(1);
 	let step1Attempted = $state(false);
 	let step2Attempted = $state(false);
+	let step3Attempted = $state(false);
 	let showSourceEditor = $state(false);
 
 	onMount(() => {
@@ -67,7 +68,7 @@
 	});
 
 	// Step validation
-	const step1Valid = $derived(!!$selectedLegalPackId && !!formData.role);
+	const step1Valid = $derived(!!$selectedLegalPackId);
 	const step2Valid = $derived(
 		!!formData.title.trim() &&
 		!!formData.synopsis.trim() &&
@@ -92,11 +93,6 @@
 			step1Attempted = true;
 			packMissing = true;
 			errorMessage = t('cases.selectPackFirst', $language);
-			return;
-		}
-		if (!formData.role) {
-			step1Attempted = true;
-			errorMessage = t('cases.selectSideRequired', $language);
 			return;
 		}
 		packMissing = false;
@@ -184,6 +180,7 @@
 		step = 1;
 		step1Attempted = false;
 		step2Attempted = false;
+		step3Attempted = false;
 		formSubmitAttempted = false;
 		errorMessage = '';
 		showSourceEditor = false;
@@ -356,30 +353,6 @@
 						</div>
 					</div>
 
-					<!-- Side -->
-					<div class="space-y-3">
-						<p class="text-sm font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.yourSide', $language)}</p>
-						<div class="grid gap-3 sm:grid-cols-2">
-							<button
-								type="button"
-								onclick={() => (formData = { ...formData, role: 'plaintiff' })}
-								class={`text-center py-3 border rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${formData.role === 'plaintiff' ? 'bg-white text-black border-white' : 'border-white/25 text-white/80 bg-white/5 hover:bg-white/10'}`}
-							>
-								{t('cases.plaintiff', $language)}
-							</button>
-							<button
-								type="button"
-								onclick={() => (formData = { ...formData, role: 'defendant' })}
-								class={`text-center py-3 border rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${formData.role === 'defendant' ? 'bg-white text-black border-white' : 'border-white/25 text-white/80 bg-white/5 hover:bg-white/10'}`}
-							>
-								{t('cases.defendant', $language)}
-							</button>
-						</div>
-						{#if step1Attempted && !formData.role}
-							<p class="text-sm font-semibold text-red-400">{t('cases.selectSideRequired', $language)}</p>
-						{/if}
-					</div>
-
 					<!-- Hero CTAs -->
 					<div class="pt-6 space-y-4 border-t border-white/15">
 						<button
@@ -493,14 +466,37 @@
 						<p class="text-sm text-white/40">{t('cases.reviewDesc', $language)}</p>
 					</div>
 
+					<!-- Pick Your Side -->
+					<div class="space-y-3">
+						<p class="text-sm font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.chooseSide', $language)}</p>
+						<p class="text-sm text-white/40">{t('cases.chooseSideDesc', $language)}</p>
+						<div class="grid gap-3 sm:grid-cols-2">
+							<button
+								type="button"
+								onclick={() => (formData = { ...formData, role: 'plaintiff' })}
+								class={`text-center py-3 border rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${formData.role === 'plaintiff' ? 'bg-white text-black border-white' : 'border-white/25 text-white/80 bg-white/5 hover:bg-white/10'}`}
+							>
+								{t('cases.plaintiff', $language)}
+							</button>
+							<button
+								type="button"
+								onclick={() => (formData = { ...formData, role: 'defendant' })}
+								class={`text-center py-3 border rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${formData.role === 'defendant' ? 'bg-white text-black border-white' : 'border-white/25 text-white/80 bg-white/5 hover:bg-white/10'}`}
+							>
+								{t('cases.defendant', $language)}
+							</button>
+						</div>
+						{#if step3Attempted && !formData.role}
+							<p class="text-sm font-semibold text-red-400">{t('cases.selectSideRequired', $language)}</p>
+						{/if}
+					</div>
+
 					<!-- Summary Card -->
 					<div class="border border-white/20 rounded-xl bg-white/5 divide-y divide-white/10 overflow-hidden">
 						<div class="p-5">
 							<h3 class="text-xl font-bold text-white font-display">{formData.title}</h3>
 							<p class="text-sm text-white/50 mt-1.5 flex flex-wrap gap-x-2">
 								<span>{formData.courtType === 'jury' ? t('cases.jury', $language) : t('cases.judge', $language)}</span>
-								<span class="text-white/25">·</span>
-								<span>{formData.role === 'plaintiff' ? t('cases.plaintiff', $language) : t('cases.defendant', $language)}</span>
 								{#if selectedPack}
 									<span class="text-white/25">·</span>
 									<span>{selectedPack.name}</span>
@@ -562,7 +558,7 @@
 						</button>
 						<button
 							type="button"
-							onclick={handleSubmit}
+							onclick={() => { step3Attempted = true; if (!formData.role) return; handleSubmit(); }}
 							disabled={submitting || limitReached}
 							class="px-8 py-3 bg-white hover:bg-white/90 text-black text-sm font-bold uppercase tracking-widest rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 						>
