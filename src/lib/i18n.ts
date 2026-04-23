@@ -149,6 +149,11 @@ const translations = {
 
 	// ===== DEBATE =====
 	'debate.noCase': { en: 'No Active Case', fr: 'Aucune cause active' },
+	'debate.interjection.relevance': { en: 'RELEVANCE', fr: 'PERTINENCE' },
+	'debate.interjection.authority': { en: 'AUTHORITY', fr: 'AUTORITÉ' },
+	'debate.interjection.procedure': { en: 'PROCEDURE', fr: 'PROCÉDURE' },
+	'debate.interjection.decorum': { en: 'DECORUM', fr: 'TENUE' },
+	'debate.interjection.clarification': { en: 'CLARIFICATION', fr: 'PRÉCISION' },
 	'debate.noCaseDesc': { en: 'Initialize a case to enter the arena.', fr: 'Créez une cause pour entrer dans l\'arène.' },
 	'debate.launchBuilder': { en: 'Launch Case Builder', fr: 'Créer une cause' },
 	'debate.activeCase': { en: 'Active Case', fr: 'Cause active' },

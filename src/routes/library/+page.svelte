@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { marked } from 'marked';
 	import type { LibraryDocument } from '$lib/data/library';
 	import { legalPacksStore, selectedLegalPackId, type LegalPack } from '$lib/stores/legalPacks';
 	import { language } from '$lib/stores/language';
@@ -8,11 +9,15 @@
 
 	let selectedDoc: LibraryDocument | null = null;
 	let content = '';
+	let contentIsMarkdown = false;
 	let loading = false;
 	let error: string | null = null;
 	let readerOpen = false;
 	const READER_STEP_CHARS = 120_000;
 	let readerVisibleChars = READER_STEP_CHARS;
+
+	// Configure marked for safe, clean rendering of legal markdown
+	marked.setOptions({ gfm: true, breaks: false });
 
 	let packModalOpen = false;
 	let editingPackId = '';
@@ -362,13 +367,7 @@
 	};
 
 	const openOriginalDocument = async (doc: LibraryDocument) => {
-		// Built-in local markdown docs
-		if (doc.filePath) {
-			window.open(doc.filePath, '_blank', 'noopener,noreferrer');
-			return;
-		}
-
-		// Uploaded custom docs: open stored original PDF/DOCX when available
+		// Uploaded custom docs: open stored original PDF/DOCX in new tab when available
 		if (doc.isCustom) {
 			try {
 				const res = await fetch(`/api/library/source-file-url?sourceId=${encodeURIComponent(doc.id)}`);
@@ -382,7 +381,7 @@
 			}
 		}
 
-		// Fallback to extracted text reader if original file cannot be opened
+		// Built-in docs and fallbacks: open the styled reader modal
 		await openReader(doc);
 	};
 
@@ -390,6 +389,7 @@
 		loading = true;
 		error = null;
 		readerVisibleChars = READER_STEP_CHARS;
+		contentIsMarkdown = false;
 		try {
 			const isUploadedDoc = !!doc.isCustom || doc.sourceUrl?.startsWith('uploaded://');
 			if (isUploadedDoc) {
@@ -411,6 +411,7 @@
 				const response = await fetch(doc.filePath);
 				if (!response.ok) throw new Error();
 				content = await response.text();
+				contentIsMarkdown = doc.filePath.toLowerCase().endsWith('.md');
 				return;
 			}
 			if (doc.sourceUrl) {
@@ -443,6 +444,19 @@
 
 	$: visibleContent = content.slice(0, readerVisibleChars);
 	$: hasMoreContent = content.length > readerVisibleChars;
+	$: renderedMarkdown = contentIsMarkdown ? (marked.parse(visibleContent) as string) : '';
+
+	const openUploadedOriginal = async (doc: LibraryDocument) => {
+		try {
+			const res = await fetch(`/api/library/source-file-url?sourceId=${encodeURIComponent(doc.id)}`);
+			const payload = await res.json().catch(() => null);
+			if (res.ok && payload?.url) {
+				window.open(payload.url, '_blank', 'noopener,noreferrer');
+			}
+		} catch {
+			/* silent */
+		}
+	};
 
 	const onOverlayClick = (event: MouseEvent) => {
 		if (event.target === event.currentTarget) closeReader();
@@ -721,30 +735,61 @@
 	>
 		<div class="relative w-full max-w-5xl bg-ink border border-white/15 rounded-2xl flex flex-col max-h-[90vh]">
 			<button type="button" on:click={closeReader} class="absolute top-3 right-3 text-white/60 hover:text-white rounded-full border border-white/20 w-8 h-8 flex items-center justify-center text-sm" aria-label="Close reader">×</button>
-			<header class="p-6 pb-0">
+			<header class="p-6 pb-4 border-b border-white/10">
 				<p class="text-[10px] uppercase tracking-[0.3em] text-white/40">{selectedDoc.jurisdiction}</p>
 				<h3 class="text-lg font-bold text-white mt-1">{selectedDoc.title}</h3>
 				<p class="text-white/50 text-xs mt-1">{selectedDoc.description}</p>
-				{#if selectedDoc.sourceUrl}
+				{#if selectedDoc.storagePath && selectedDoc.isCustom}
+					<button
+						type="button"
+						on:click={() => selectedDoc && openUploadedOriginal(selectedDoc)}
+						class="mt-3 inline-flex items-center gap-2 px-3 py-1.5 border border-flare/40 rounded text-xs font-bold uppercase tracking-widest text-flare hover:bg-flare/10"
+					>
+						{t('library.openDocument', $language)}
+					</button>
+				{/if}
+				{#if selectedDoc.sourceUrl && !selectedDoc.sourceUrl.startsWith('uploaded://')}
 					<p class="text-xs text-flare mt-2 break-all">{selectedDoc.sourceUrl}</p>
 				{/if}
 			</header>
-			<section class="flex-1 overflow-y-auto px-6 py-4">
+			<section class="flex-1 overflow-y-auto px-8 py-6">
 				{#if loading}
 					<p class="text-white/60 text-sm">{t('library.loading', $language)}</p>
 				{:else if error}
 					<p class="text-red-300 text-sm">{error}</p>
-				{:else}
-					<pre class="whitespace-pre-wrap text-white/80 text-sm leading-7 font-sans">{visibleContent}</pre>
+				{:else if contentIsMarkdown}
+					<article class="reader-prose text-white/85 max-w-3xl mx-auto">
+						{@html renderedMarkdown}
+					</article>
 					{#if content.length > 0}
-						<p class="mt-3 text-xs text-white/50">
+						<p class="mt-6 text-xs text-white/50 max-w-3xl mx-auto">
 							{t('library.readerShowing', $language)
 								.replace('{shown}', String(Math.min(readerVisibleChars, content.length)))
 								.replace('{total}', String(content.length))}
 						</p>
 					{/if}
 					{#if hasMoreContent}
-						<div class="mt-3">
+						<div class="mt-3 max-w-3xl mx-auto">
+							<button
+								type="button"
+								on:click={loadMoreReaderContent}
+								class="px-3 py-1.5 border border-white/20 rounded text-xs font-bold uppercase tracking-widest text-white/70 hover:text-white hover:bg-white/10"
+							>
+								{t('library.readerLoadMore', $language)}
+							</button>
+						</div>
+					{/if}
+				{:else}
+					<pre class="whitespace-pre-wrap text-white/85 text-[15px] leading-[1.9] font-sans max-w-3xl mx-auto">{visibleContent}</pre>
+					{#if content.length > 0}
+						<p class="mt-6 text-xs text-white/50 max-w-3xl mx-auto">
+							{t('library.readerShowing', $language)
+								.replace('{shown}', String(Math.min(readerVisibleChars, content.length)))
+								.replace('{total}', String(content.length))}
+						</p>
+					{/if}
+					{#if hasMoreContent}
+						<div class="mt-3 max-w-3xl mx-auto">
 							<button
 								type="button"
 								on:click={loadMoreReaderContent}
@@ -771,3 +816,116 @@
 		{indexingStatus}
 	</div>
 {/if}
+
+<style>
+	/* Typography for rendered markdown in the document reader */
+	.reader-prose :global(h1) {
+		font-size: 1.75rem;
+		font-weight: 700;
+		color: #fff;
+		margin: 2rem 0 1rem;
+		line-height: 1.2;
+		letter-spacing: -0.01em;
+	}
+	.reader-prose :global(h2) {
+		font-size: 1.35rem;
+		font-weight: 700;
+		color: #fff;
+		margin: 1.75rem 0 0.75rem;
+		line-height: 1.3;
+	}
+	.reader-prose :global(h3) {
+		font-size: 1.1rem;
+		font-weight: 600;
+		color: rgba(255, 255, 255, 0.92);
+		margin: 1.5rem 0 0.5rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+	.reader-prose :global(h4),
+	.reader-prose :global(h5),
+	.reader-prose :global(h6) {
+		font-size: 0.95rem;
+		font-weight: 600;
+		color: rgba(255, 255, 255, 0.85);
+		margin: 1.25rem 0 0.5rem;
+	}
+	.reader-prose :global(p) {
+		font-size: 0.95rem;
+		line-height: 1.85;
+		margin: 0 0 1rem;
+	}
+	.reader-prose :global(ul),
+	.reader-prose :global(ol) {
+		padding-left: 1.5rem;
+		margin: 0 0 1rem;
+	}
+	.reader-prose :global(ul) { list-style: disc; }
+	.reader-prose :global(ol) { list-style: decimal; }
+	.reader-prose :global(li) {
+		font-size: 0.95rem;
+		line-height: 1.75;
+		margin-bottom: 0.35rem;
+	}
+	.reader-prose :global(strong) {
+		color: #fff;
+		font-weight: 600;
+	}
+	.reader-prose :global(em) { font-style: italic; }
+	.reader-prose :global(blockquote) {
+		border-left: 3px solid rgba(255, 255, 255, 0.25);
+		padding: 0.25rem 0 0.25rem 1rem;
+		margin: 1rem 0;
+		color: rgba(255, 255, 255, 0.7);
+		font-style: italic;
+	}
+	.reader-prose :global(code) {
+		background: rgba(255, 255, 255, 0.08);
+		padding: 0.1rem 0.35rem;
+		border-radius: 3px;
+		font-size: 0.85em;
+		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	}
+	.reader-prose :global(pre) {
+		background: rgba(0, 0, 0, 0.35);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		padding: 0.85rem 1rem;
+		border-radius: 6px;
+		overflow-x: auto;
+		margin: 1rem 0;
+	}
+	.reader-prose :global(pre code) {
+		background: transparent;
+		padding: 0;
+	}
+	.reader-prose :global(hr) {
+		border: 0;
+		border-top: 1px solid rgba(255, 255, 255, 0.12);
+		margin: 2rem 0;
+	}
+	.reader-prose :global(a) {
+		color: #ffb347;
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+	.reader-prose :global(a:hover) {
+		color: #ffc876;
+	}
+	.reader-prose :global(table) {
+		width: 100%;
+		border-collapse: collapse;
+		margin: 1rem 0;
+		font-size: 0.9rem;
+	}
+	.reader-prose :global(th),
+	.reader-prose :global(td) {
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		padding: 0.5rem 0.75rem;
+		text-align: left;
+	}
+	.reader-prose :global(th) {
+		background: rgba(255, 255, 255, 0.05);
+		font-weight: 600;
+		color: #fff;
+	}
+</style>

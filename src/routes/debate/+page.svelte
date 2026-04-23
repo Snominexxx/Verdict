@@ -165,9 +165,11 @@
 
 			// Handle judge interjection (bench trial only)
 			if (result.judgeInterjection) {
-				const prefix = result.judgeInterjection.type
-					? `[${result.judgeInterjection.type.toUpperCase()}] `
-					: '';
+				const allowedTypes = ['relevance', 'authority', 'procedure', 'decorum', 'clarification'] as const;
+				const rawType = result.judgeInterjection.type as string | undefined;
+				const safeType = allowedTypes.find((x) => x === rawType);
+				const label = safeType ? t(`debate.interjection.${safeType}` as const, $language) : '';
+				const prefix = label ? `[${label}] ` : '';
 				const interjectionTurn: DebateTurn = {
 					role: 'judge',
 					speaker: result.judgeInterjection.speaker,
