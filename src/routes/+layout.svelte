@@ -11,6 +11,10 @@
 	import { t } from '$lib/i18n';
 	import { setActiveUser, clearAllUserData } from '$lib/stores/userSession';
 	import { caseDraftStore } from '$lib/stores/caseDraft';
+	import { maybeSeedDemo } from '$lib/utils/seedDemo';
+	import { stageCase } from '$lib/stores/stagedCase';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 
 	let { data, children } = $props();
 
@@ -28,6 +32,12 @@
 			legalPacksStore.loadFromRemote();
 			caseHistoryStore.loadFromRemote();
 			subscriptionStore.loadFromRemote();
+
+			// First-run demo seed (idempotent — runs at most once per user)
+			// Wait briefly for remote data to arrive so we don't seed over real content
+			setTimeout(() => {
+				maybeSeedDemo($language);
+			}, 1500);
 		}
 
 		const { data: { subscription } } = data.supabase.auth.onAuthStateChange((_event: string, _session: unknown) => {
@@ -47,6 +57,22 @@
 	let session = $derived(data.session);
 	let userEmail = $derived(session?.user?.email ?? '');
 	let userInitial = $derived((session?.user?.user_metadata?.full_name?.[0] ?? userEmail?.[0] ?? '?').toUpperCase());
+
+	// Resume banner: show when there's an ongoing case AND we're not already in /debate
+	let mostRecentOngoing = $derived(
+		$caseHistoryStore.find((c) => c.status === 'ongoing') ?? null
+	);
+	let showResumeBanner = $derived(
+		!!session && !!mostRecentOngoing && !$page.url.pathname.startsWith('/debate') && !$focusMode
+	);
+
+	const resumeMostRecent = () => {
+		if (!mostRecentOngoing) return;
+		const { status: _s, startedAt: _sa, updatedAt: _u, performance: _p, ...record } = mostRecentOngoing;
+		stageCase(record);
+		caseHistoryStore.markCaseOngoing(mostRecentOngoing.id);
+		goto('/debate');
+	};
 
 	// Contact modal state
 	let contactOpen = $state(false);
@@ -184,6 +210,24 @@
 					<button type="button" onclick={() => (contactOpen = true)} class="text-sm font-bold uppercase tracking-[0.12em] text-white border border-white/30 bg-white/10 px-4 py-1.5 rounded hover:bg-white/20 transition-all cursor-pointer">{t('nav.contact', $language)}</button>
 				</div>
 			</header>
+			{#if showResumeBanner && mostRecentOngoing}
+				<div class="border-b border-accent/30 bg-accent/[0.08] px-6 py-2 flex items-center justify-between gap-3">
+					<div class="flex items-center gap-3 min-w-0">
+						<span class="inline-flex w-2 h-2 rounded-full bg-accent animate-pulse"></span>
+						<p class="text-sm text-white/85 truncate">
+							<span class="text-white/55">{t('layout.resumePrefix', $language)}</span>
+							<span class="font-semibold text-white">"{mostRecentOngoing.title}"</span>
+						</p>
+					</div>
+					<button
+						type="button"
+						onclick={resumeMostRecent}
+						class="shrink-0 px-3 py-1 text-xs font-bold uppercase tracking-widest text-ink bg-accent hover:bg-accent-hover rounded transition"
+					>
+						{t('layout.resumeButton', $language)}
+					</button>
+				</div>
+			{/if}
 		{/if}
 		
 		<!-- Workspace -->

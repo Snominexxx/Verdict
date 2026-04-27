@@ -491,6 +491,37 @@
 
 		<!-- Middle: Transcript & Input -->
 		<main class="flex flex-col relative bg-transparent min-h-0">
+			<!-- Sticky action bar — always visible (replaces lg-only sidebar buttons) -->
+			<div class="border-b border-white/10 bg-black/30 backdrop-blur-md px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap">
+				<div class="flex items-center gap-3 min-w-0 flex-1">
+					<p class="text-sm font-display text-white truncate lg:hidden" title={stagedCase.title}>{stagedCase.title}</p>
+					<div class="flex items-center gap-2 text-xs font-mono">
+						<span class="text-white/50 uppercase tracking-wider">{t('debate.roundCounter', $language)}</span>
+						<span class="text-white font-bold">{litigantTurnCount}<span class="text-white/40">/{maxRounds}</span></span>
+						<div class="hidden sm:block w-20 h-1 bg-white/10 rounded-full overflow-hidden">
+							<div class="h-full bg-flare/70 transition-all duration-300" style="width: {Math.min(100, (litigantTurnCount / maxRounds) * 100)}%"></div>
+						</div>
+					</div>
+				</div>
+				<div class="flex items-center gap-2">
+					<button
+						type="button"
+						on:click={exitCourt}
+						class="px-3 py-1.5 text-xs uppercase tracking-widest text-white/70 hover:text-white border border-white/15 hover:border-white/30 rounded transition"
+						title={t('debate.exitCourt', $language)}
+					>
+						{t('debate.exitCourt', $language)}
+					</button>
+					<button
+						type="button"
+						on:click={endCase}
+						class="px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-flare border border-flare/40 hover:bg-flare/10 hover:border-flare rounded transition"
+					>
+						{t('debate.endCase', $language)}
+					</button>
+				</div>
+			</div>
+
 			<div class="flex-1 overflow-y-auto px-6 py-6 space-y-6 scrollbar-thin min-h-0">
 				{#each $debateStore as turn}
 					<div class={`flex flex-col max-w-2xl ${turn.role === 'litigant' ? 'ml-auto items-end' : 'mr-auto items-start'}`}
@@ -558,9 +589,6 @@
 							<p>• {t('debate.tipCounter', $language)}</p>
 						</div>
 					{/if}
-					<div class="flex items-center justify-between mb-2">
-						<span class="text-xs text-white/50 font-mono">{t('debate.roundCounter', $language)}: {litigantTurnCount}/{maxRounds}</span>
-					</div>
 				{/if}
 				<form class="relative" on:submit|preventDefault={submitPrompt}>
 					<textarea

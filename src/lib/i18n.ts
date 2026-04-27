@@ -8,6 +8,8 @@ const translations = {
 	'nav.about': { en: 'About Verdict', fr: 'À propos' },
 	'nav.howItWorks': { en: 'How it Works', fr: 'Comment ça marche' },
 	'nav.contact': { en: 'Contact', fr: 'Contact' },
+	'layout.resumePrefix': { en: 'Ongoing case:', fr: 'Cause en cours :' },
+	'layout.resumeButton': { en: 'Resume', fr: 'Reprendre' },
 	'meta.description': {
 		en: 'Verdict — debate against AI counsel and five autonomous jurors.',
 		fr: 'Verdict — débattez contre un avocat IA devant cinq jurés autonomes.'
@@ -124,6 +126,7 @@ const translations = {
 	'cases.editSources': { en: 'Edit sources', fr: 'Modifier les sources' },
 	'cases.chooseSide': { en: 'Choose Your Side', fr: 'Choisissez votre camp' },
 	'cases.chooseSideDesc': { en: 'Now that you\'ve seen the case, which side do you want to argue?', fr: 'Maintenant que vous avez vu la cause, quel camp voulez-vous défendre?' },
+	'cases.youArgue': { en: 'You\'ll argue:', fr: 'Vous plaiderez :' },
 	'cases.noPacksYet': { en: 'No legal packs yet. Upload sources in the Library first.', fr: 'Aucun pack juridique. Téléversez des sources dans la Bibliothèque d\'abord.' },
 	'cases.goToLibrary': { en: 'Go to Library', fr: 'Aller à la Bibliothèque' },
 	'cases.uploadEvidence': { en: 'Upload Evidence / Packet', fr: 'Téléverser des preuves' },
@@ -273,6 +276,14 @@ const translations = {
 	},
 	'court.footer': { en: 'SYSTEM // Ready for first filing', fr: 'SYSTÈME // Prêt pour le premier dépôt' },
 	'court.momentsAgo': { en: 'moments ago', fr: 'à l\'instant' },
+	'court.welcomeKicker': { en: 'Welcome to Verdict', fr: 'Bienvenue sur Verdict' },
+	'court.welcomeTitle': { en: 'Stage your first case in 90 seconds', fr: 'Créez votre première cause en 90 secondes' },
+	'court.welcomeDesc': {
+		en: 'Pick a legal pack, describe a dispute, debate it before an AI judge or jury. We\'ll cite the law for you.',
+		fr: 'Choisissez un pack juridique, décrivez un litige, plaidez devant un juge ou jury IA. Nous citons le droit pour vous.'
+	},
+	'court.welcomeStart': { en: 'Stage a Case', fr: 'Créer une cause' },
+	'court.welcomeHow': { en: 'How it works', fr: 'Comment ça marche' },
 
 	// ===== LIBRARY =====
 	'library.title': { en: 'Library', fr: 'Bibliothèque' },
@@ -341,6 +352,12 @@ const translations = {
 	'library.noTextExtracted': { en: 'No text could be extracted from this document.', fr: 'Aucun texte n\'a pu être extrait de ce document.' },
 	'library.unsupportedFormat': { en: 'Unsupported file format. Please upload a PDF or Word document (.docx).', fr: 'Format de fichier non supporté. Veuillez téléverser un PDF ou un document Word (.docx).' },
 	'library.openDocument': { en: 'Open document', fr: 'Ouvrir le document' },
+	'library.downloadOriginal': { en: 'Download original', fr: 'Télécharger l\'original' },
+	'library.openInNewTab': { en: 'Open in new tab', fr: 'Ouvrir dans un nouvel onglet' },
+	'library.preparingPreview': { en: 'Preparing document...', fr: 'Préparation du document...' },
+	'library.previewFailed': { en: 'Could not load original file. Showing extracted text instead.', fr: 'Impossible de charger le fichier original. Affichage du texte extrait à la place.' },
+	'library.legacyNoOriginal': { en: 'Original file not stored. This document was uploaded before file preview was available — re-upload to see the original layout.', fr: 'Fichier original non disponible. Ce document a été téléversé avant l\'activation de l\'aperçu — re-téléversez-le pour voir la mise en page d\'origine.' },
+	'library.docxRendered': { en: 'Word document rendered for preview. Click Download for the original .docx file.', fr: 'Document Word rendu pour l\'aperçu. Cliquez sur Télécharger pour le fichier .docx original.' },
 	'library.emptyPack': {
 		en: 'No sources yet — click "Upload Document" to add your first law or jurisprudence.',
 		fr: 'Aucune source — cliquez sur « Téléverser un document » pour ajouter votre première loi ou jurisprudence.'

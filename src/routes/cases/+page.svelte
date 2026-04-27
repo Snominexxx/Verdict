@@ -50,6 +50,12 @@
 	onMount(() => {
 		legalPacksStore.hydrate();
 		selectedLegalPackId.hydrate();
+		// Auto-select if only one pack exists and none selected
+		const packs = $legalPacksStore;
+		if (!$selectedLegalPackId && packs.length === 1) {
+			selectedLegalPackId.select(packs[0].id);
+			formData = { ...formData, sources: packs[0].sources.map((doc) => doc.id) };
+		}
 		// Auto-advance if returning with saved draft
 		if (formData.title.trim()) step = 2;
 	});
@@ -474,16 +480,32 @@
 							<button
 								type="button"
 								onclick={() => (formData = { ...formData, role: 'plaintiff' })}
-								class={`text-center py-3 border rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${formData.role === 'plaintiff' ? 'bg-white text-black border-white' : 'border-white/25 text-white/80 bg-white/5 hover:bg-white/10'}`}
+								class={`text-left p-4 border rounded-lg transition-all ${formData.role === 'plaintiff' ? 'border-accent bg-accent/15 ring-1 ring-accent/40' : 'border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/35'}`}
 							>
-								{t('cases.plaintiff', $language)}
+								<p class={`text-sm font-bold uppercase tracking-wider ${formData.role === 'plaintiff' ? 'text-accent' : 'text-white'}`}>
+									{t('cases.plaintiff', $language)}
+								</p>
+								{#if formData.remedy.trim()}
+									<p class="text-xs text-white/45 mt-2 leading-relaxed">
+										<span class="text-white/35">{t('cases.youArgue', $language)}</span>
+										<span class="text-white/75 line-clamp-3">{formData.remedy}</span>
+									</p>
+								{/if}
 							</button>
 							<button
 								type="button"
 								onclick={() => (formData = { ...formData, role: 'defendant' })}
-								class={`text-center py-3 border rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${formData.role === 'defendant' ? 'bg-white text-black border-white' : 'border-white/25 text-white/80 bg-white/5 hover:bg-white/10'}`}
+								class={`text-left p-4 border rounded-lg transition-all ${formData.role === 'defendant' ? 'border-accent bg-accent/15 ring-1 ring-accent/40' : 'border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/35'}`}
 							>
-								{t('cases.defendant', $language)}
+								<p class={`text-sm font-bold uppercase tracking-wider ${formData.role === 'defendant' ? 'text-accent' : 'text-white'}`}>
+									{t('cases.defendant', $language)}
+								</p>
+								{#if formData.defendantPosition.trim()}
+									<p class="text-xs text-white/45 mt-2 leading-relaxed">
+										<span class="text-white/35">{t('cases.youArgue', $language)}</span>
+										<span class="text-white/75 line-clamp-3">{formData.defendantPosition}</span>
+									</p>
+								{/if}
 							</button>
 						</div>
 						{#if step3Attempted && !formData.role}
@@ -560,7 +582,7 @@
 							type="button"
 							onclick={() => { step3Attempted = true; if (!formData.role) return; handleSubmit(); }}
 							disabled={submitting || limitReached}
-							class="px-8 py-3 bg-white hover:bg-white/90 text-black text-sm font-bold uppercase tracking-widest rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+							class="px-8 py-3 bg-accent hover:bg-accent-hover text-ink text-sm font-bold uppercase tracking-widest rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-accent"
 						>
 							{submitting ? t('cases.processing', $language) : t('cases.startDebate', $language)}
 						</button>

@@ -91,8 +91,25 @@
 	</header>
 
 	<section class="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+		{#if !hasHistory}
+			<!-- First-run welcome state -->
+			<div class="border border-white/15 rounded-2xl bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-10 text-center max-w-2xl mx-auto">
+				<p class="text-xs uppercase tracking-[0.3em] text-flare/80 font-mono mb-3">{t('court.welcomeKicker', $language)}</p>
+				<h3 class="text-3xl font-display font-bold text-white mb-3">{t('court.welcomeTitle', $language)}</h3>
+				<p class="text-base text-white/70 leading-relaxed mb-7 max-w-md mx-auto">{t('court.welcomeDesc', $language)}</p>
+				<div class="flex flex-col sm:flex-row gap-3 justify-center items-center">
+					<a href="/cases" class="px-7 py-3 bg-white text-black text-sm font-bold uppercase tracking-widest rounded hover:bg-white/90 transition">
+						{t('court.welcomeStart', $language)}
+					</a>
+					<a href="/how-it-works" class="px-5 py-3 text-sm font-semibold text-white/70 hover:text-white underline underline-offset-4 transition">
+						{t('court.welcomeHow', $language)}
+					</a>
+				</div>
+			</div>
+		{/if}
+
 		<!-- Ongoing -->
-		<div class="space-y-3">
+		<div class="space-y-3" class:hidden={!hasHistory && ongoingCases.length === 0}>
 			<div class="flex items-center justify-between">
 				<div class="flex items-baseline gap-3">
 					<h3 class="text-sm font-bold uppercase tracking-widest text-white/70">{t('court.ongoingCases', $language)}</h3>
@@ -103,9 +120,11 @@
 			</div>
 
 			{#if ongoingCases.length === 0}
-				<div class="border border-dashed border-white/20 rounded-lg p-5 text-center text-white/50">
-					<p class="text-sm">{t('court.emptyOngoing', $language)}</p>
-				</div>
+				{#if hasHistory}
+					<div class="border border-dashed border-white/20 rounded-lg p-5 text-center text-white/50">
+						<p class="text-sm">{t('court.emptyOngoing', $language)}</p>
+					</div>
+				{/if}
 			{:else}
 				<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
 					{#each ongoingCases as entry (entry.id)}
@@ -137,7 +156,7 @@
 		</div>
 
 		<!-- Finished -->
-		<div class="space-y-3">
+		<div class="space-y-3" class:hidden={!hasHistory && finishedCases.length === 0}>
 			<div class="flex items-center justify-between">
 				<div class="flex items-baseline gap-3">
 					<h3 class="text-sm font-bold uppercase tracking-widest text-white/70">{t('court.finishedCases', $language)}</h3>
@@ -148,9 +167,11 @@
 			</div>
 
 			{#if finishedCases.length === 0}
-				<div class="border border-dashed border-white/20 rounded-lg p-5 text-center text-white/50">
-					<p class="text-sm">{t('court.emptyFinished', $language)}</p>
-				</div>
+				{#if hasHistory}
+					<div class="border border-dashed border-white/20 rounded-lg p-5 text-center text-white/50">
+						<p class="text-sm">{t('court.emptyFinished', $language)}</p>
+					</div>
+				{/if}
 			{:else}
 				<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
 					{#each finishedCases as entry (entry.id)}

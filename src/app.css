@@ -13,15 +13,82 @@
 	body {
 		min-height: 100vh;
 		background-color: #020617;
-		background-image: 
-			linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-			linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-		background-size: 40px 40px;
-		background-position: center top;
+		/* Subtle radial vignette — replaces the noisy grid for a calmer, more institutional feel */
+		background-image:
+			radial-gradient(ellipse at top, rgba(201, 169, 110, 0.04) 0%, transparent 55%),
+			radial-gradient(ellipse at bottom, rgba(15, 23, 42, 0.5) 0%, transparent 60%);
+		background-attachment: fixed;
+	}
+
+	/* Better default heading rendering */
+	h1, h2, h3, h4, h5, h6 {
+		font-family: 'Space Grotesk', 'Gill Sans', 'Segoe UI', sans-serif;
+		letter-spacing: -0.01em;
 	}
 }
 
 @layer components {
+	/* ─────────────────────────────────────────────────
+	   TYPOGRAPHY — semantic scale
+	   Use these instead of inventing text-sm/text-xl etc.
+	   ───────────────────────────────────────────────── */
+	.text-display {
+		@apply font-display font-bold text-[2rem] leading-[1.15] tracking-tight text-white;
+	}
+	.text-h2 {
+		@apply font-display font-semibold text-xl leading-tight text-white;
+	}
+	.text-h3 {
+		@apply font-display font-semibold text-base leading-snug text-white;
+	}
+	.text-body {
+		@apply text-[15px] leading-[1.65] text-secondary;
+	}
+	.text-meta {
+		@apply text-[13px] leading-normal text-muted;
+	}
+	.text-eyebrow {
+		@apply text-[11px] font-semibold uppercase tracking-[0.18em] text-muted;
+	}
+
+	/* ─────────────────────────────────────────────────
+	   BUTTONS — three clear variants
+	   ───────────────────────────────────────────────── */
+	.btn-primary {
+		@apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-md
+		       bg-accent text-ink font-semibold text-sm
+		       hover:bg-accent-hover hover:shadow-accent
+		       active:scale-[0.98]
+		       disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-accent
+		       transition-all duration-150;
+	}
+	.btn-secondary {
+		@apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-md
+		       bg-white/[0.06] border border-strong text-white font-medium text-sm
+		       hover:bg-white/[0.1] hover:border-white/30
+		       disabled:opacity-50 disabled:cursor-not-allowed
+		       transition-all duration-150;
+	}
+	.btn-ghost {
+		@apply inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md
+		       text-secondary font-medium text-sm
+		       hover:text-white hover:bg-white/[0.05]
+		       transition-all duration-150;
+	}
+
+	/* ─────────────────────────────────────────────────
+	   CARDS — unified surface
+	   ───────────────────────────────────────────────── */
+	.card-surface {
+		@apply bg-card border border-subtle rounded-xl;
+	}
+	.card-hoverable {
+		@apply card-surface hover:bg-card-hover hover:border-strong transition-colors duration-150;
+	}
+
+	/* ─────────────────────────────────────────────────
+	   LEGACY — preserved for backward compatibility
+	   ───────────────────────────────────────────────── */
 	.glass-panel {
 		background: rgba(30, 41, 59, 0.65);
 		border: 1px solid rgba(255, 255, 255, 0.15);
@@ -31,9 +98,9 @@
 	.tech-border {
 		border: 1px solid rgba(255, 255, 255, 0.18);
 	}
-	
+
 	.tech-input {
-		@apply w-full bg-ink border border-white/10 text-sm focus:outline-none focus:border-flare/50 focus:ring-1 focus:ring-flare/50 transition-all font-mono;
+		@apply w-full bg-ink border border-white/10 text-sm focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/40 transition-all;
 	}
 
 	.flare-border {
@@ -46,7 +113,7 @@
 		position: absolute;
 		inset: -2px;
 		z-index: -1;
-		background: linear-gradient(130deg, #525252, #a3a3a3, #737373);
+		background: linear-gradient(130deg, #b8954d, #c9a96e, #8a6f3d);
 		filter: blur(10px);
 		opacity: 0.45;
 		border-radius: inherit;
@@ -56,7 +123,7 @@
 		content: '';
 		position: absolute;
 		inset: 0;
-		background: radial-gradient(circle at center, rgba(255, 255, 255, 0.5), transparent 60%);
+		background: radial-gradient(circle at center, rgba(201, 169, 110, 0.5), transparent 60%);
 		animation: pulse 2.8s ease-in-out infinite;
 		border-radius: inherit;
 		z-index: -1;

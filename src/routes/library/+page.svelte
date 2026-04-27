@@ -16,6 +16,16 @@
 	const READER_STEP_CHARS = 120_000;
 	let readerVisibleChars = READER_STEP_CHARS;
 
+	// Inline preview modal for uploaded original PDF / DOCX
+	let previewOpen = false;
+	let previewKind: 'pdf' | 'docx' | null = null;
+	let previewUrl = ''; // signed URL to original file (used by iframe + download)
+	let previewObjectUrl = ''; // blob: URL for PDF (avoids cross-origin iframe issues)
+	let previewHtml = ''; // rendered DOCX HTML
+	let previewName = '';
+	let previewLoading = false;
+	let previewError: string | null = null;
+
 	// Configure marked for safe, clean rendering of legal markdown
 	marked.setOptions({ gfm: true, breaks: false });
 
@@ -367,22 +377,114 @@
 	};
 
 	const openOriginalDocument = async (doc: LibraryDocument) => {
-		// Uploaded custom docs: open stored original PDF/DOCX in new tab when available
+		// Uploaded custom docs: try inline preview of original PDF/DOCX
 		if (doc.isCustom) {
-			try {
-				const res = await fetch(`/api/library/source-file-url?sourceId=${encodeURIComponent(doc.id)}`);
-				const payload = await res.json().catch(() => null);
-				if (res.ok && payload?.url) {
-					window.open(payload.url, '_blank', 'noopener,noreferrer');
-					return;
-				}
-			} catch {
-				// Fallback below
-			}
+			const ok = await openInlinePreview(doc);
+			if (ok) return;
+			// Fallback: open the styled reader modal with extracted text + warning
+			selectedDoc = doc;
+			readerOpen = true;
+			content = '';
+			error = doc.storagePath ? t('library.previewFailed', $language) : t('library.legacyNoOriginal', $language);
+			await loadDocument(doc);
+			return;
 		}
 
-		// Built-in docs and fallbacks: open the styled reader modal
+		// Built-in docs: keep current reader (markdown placeholders)
 		await openReader(doc);
+	};
+
+	/**
+	 * Inline preview of an uploaded PDF or DOCX inside a styled modal.
+	 * - PDF → fetched as blob, displayed via blob: URL in an <iframe> (native browser viewer).
+	 * - DOCX → fetched as ArrayBuffer, rendered to HTML via mammoth.
+	 * Returns false if no original file is available so the caller can fall back.
+	 */
+	const openInlinePreview = async (doc: LibraryDocument): Promise<boolean> => {
+		// Reset previous preview
+		closePreview();
+		selectedDoc = doc;
+		previewName = doc.originalFileName || doc.title;
+		previewLoading = true;
+		previewError = null;
+		previewOpen = true;
+
+		try {
+			const res = await fetch(`/api/library/source-file-url?sourceId=${encodeURIComponent(doc.id)}`);
+			if (!res.ok) {
+				previewOpen = false;
+				return false;
+			}
+			const payload = await res.json().catch(() => null);
+			const signedUrl: string | undefined = payload?.url;
+			if (!signedUrl) {
+				previewOpen = false;
+				return false;
+			}
+			previewUrl = signedUrl;
+
+			const mime: string = payload?.mimeType || '';
+			const name: string = payload?.originalFileName || doc.originalFileName || doc.title;
+			const isDocx = mime.includes('wordprocessingml') || /\.docx$/i.test(name);
+			const isPdf = mime.includes('pdf') || /\.pdf$/i.test(name);
+
+			if (isPdf) {
+				previewKind = 'pdf';
+				// Fetch as blob to allow blob: URL → avoids any cross-origin iframe oddities
+				try {
+					const fileRes = await fetch(signedUrl);
+					if (fileRes.ok) {
+						const blob = await fileRes.blob();
+						previewObjectUrl = URL.createObjectURL(blob);
+					}
+				} catch {
+					// If fetch fails, iframe will try the signed URL directly
+				}
+				previewLoading = false;
+				return true;
+			}
+
+			if (isDocx) {
+				previewKind = 'docx';
+				const fileRes = await fetch(signedUrl);
+				if (!fileRes.ok) throw new Error('docx fetch failed');
+				const arrayBuffer = await fileRes.arrayBuffer();
+				const mammoth = await import('mammoth');
+				const result = await mammoth.convertToHtml({ arrayBuffer });
+				previewHtml = result.value || '';
+				previewLoading = false;
+				return true;
+			}
+
+			// Unknown type: just expose the signed URL with a download button
+			previewKind = 'pdf';
+			previewLoading = false;
+			return true;
+		} catch (err) {
+			console.warn('Inline preview failed:', err);
+			previewError = t('library.previewFailed', $language);
+			previewLoading = false;
+			previewOpen = false;
+			return false;
+		}
+	};
+
+	const closePreview = () => {
+		previewOpen = false;
+		previewKind = null;
+		previewHtml = '';
+		previewName = '';
+		previewError = null;
+		previewLoading = false;
+		if (previewObjectUrl) {
+			URL.revokeObjectURL(previewObjectUrl);
+			previewObjectUrl = '';
+		}
+		previewUrl = '';
+	};
+
+	const onPreviewOverlayClick = (event: MouseEvent) => {
+		if (event.target === event.currentTarget) closePreview();
 	};
 
 	const loadDocument = async (doc: LibraryDocument) => {
@@ -445,18 +547,6 @@
 	$: visibleContent = content.slice(0, readerVisibleChars);
 	$: hasMoreContent = content.length > readerVisibleChars;
 	$: renderedMarkdown = contentIsMarkdown ? (marked.parse(visibleContent) as string) : '';
-
-	const openUploadedOriginal = async (doc: LibraryDocument) => {
-		try {
-			const res = await fetch(`/api/library/source-file-url?sourceId=${encodeURIComponent(doc.id)}`);
-			const payload = await res.json().catch(() => null);
-			if (res.ok && payload?.url) {
-				window.open(payload.url, '_blank', 'noopener,noreferrer');
-			}
-		} catch {
-			/* silent */
-		}
-	};
 
 	const onOverlayClick = (event: MouseEvent) => {
 		if (event.target === event.currentTarget) closeReader();
@@ -742,7 +832,12 @@
 				{#if selectedDoc.storagePath && selectedDoc.isCustom}
 					<button
 						type="button"
-						on:click={() => selectedDoc && openUploadedOriginal(selectedDoc)}
+						on:click={() => {
+							if (selectedDoc) {
+								closeReader();
+								openInlinePreview(selectedDoc);
+							}
+						}}
 						class="mt-3 inline-flex items-center gap-2 px-3 py-1.5 border border-flare/40 rounded text-xs font-bold uppercase tracking-widest text-flare hover:bg-flare/10"
 					>
 						{t('library.openDocument', $language)}
@@ -805,6 +900,66 @@
 	</div>
 {/if}
 
+<!-- Inline original-file preview (PDF iframe / DOCX rendered HTML) -->
+{#if previewOpen && selectedDoc}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md px-4 py-6"
+		role="dialog"
+		aria-modal="true"
+		tabindex="0"
+		on:click={onPreviewOverlayClick}
+		on:keydown={(event) => {
+			if (event.key === 'Escape') closePreview();
+		}}
+	>
+		<div class="relative w-full max-w-6xl bg-ink border border-white/15 rounded-2xl flex flex-col h-[92vh]">
+			<header class="px-5 py-3 border-b border-white/10 flex items-center justify-between gap-3 shrink-0">
+				<div class="min-w-0 flex-1">
+					<p class="text-[10px] uppercase tracking-[0.3em] text-white/40">{selectedDoc.jurisdiction}</p>
+					<h3 class="text-sm font-bold text-white truncate" title={previewName || selectedDoc.title}>{previewName || selectedDoc.title}</h3>
+				</div>
+				<div class="flex items-center gap-2 shrink-0">
+					{#if previewUrl}
+						<a
+							href={previewUrl}
+							download={previewName}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="px-3 py-1.5 border border-flare/40 rounded text-xs font-bold uppercase tracking-widest text-flare hover:bg-flare/10"
+						>
+							{t('library.downloadOriginal', $language)}
+						</a>
+					{/if}
+					<button type="button" on:click={closePreview} class="text-white/60 hover:text-white rounded-full border border-white/20 w-8 h-8 flex items-center justify-center text-sm" aria-label="Close preview">×</button>
+				</div>
+			</header>
+
+			<section class="flex-1 min-h-0 overflow-hidden">
+				{#if previewLoading}
+					<div class="h-full flex items-center justify-center text-white/60 text-sm">
+						<span class="inline-block w-3 h-3 border-2 border-white/30 border-t-white/80 rounded-full animate-spin mr-2"></span>
+						{t('library.preparingPreview', $language)}
+					</div>
+				{:else if previewError}
+					<p class="p-6 text-red-300 text-sm">{previewError}</p>
+				{:else if previewKind === 'pdf'}
+					<iframe
+						src={previewObjectUrl || previewUrl}
+						title={previewName}
+						class="w-full h-full bg-white"
+					></iframe>
+				{:else if previewKind === 'docx'}
+					<div class="h-full overflow-y-auto bg-white">
+						<article class="docx-preview max-w-3xl mx-auto px-10 py-10 text-[#1f2933]">
+							{@html previewHtml}
+						</article>
+					</div>
+				{/if}
+			</section>
+		</div>
+	</div>
+{/if}
+
 <!-- Indexing status toast -->
 {#if indexingStatus}
 	<div class="fixed bottom-6 right-6 z-50 bg-black/90 border border-white/15 rounded-lg px-4 py-3 text-sm text-white/80 shadow-xl backdrop-blur-sm flex items-center gap-2">
@@ -818,6 +973,29 @@
 {/if}
 
 <style>
+	/* DOCX preview — Word-like document rendering */
+	.docx-preview :global(h1) { font-size: 1.8rem; font-weight: 700; margin: 1.5rem 0 1rem; line-height: 1.25; }
+	.docx-preview :global(h2) { font-size: 1.4rem; font-weight: 700; margin: 1.25rem 0 0.75rem; line-height: 1.3; }
+	.docx-preview :global(h3) { font-size: 1.15rem; font-weight: 600; margin: 1rem 0 0.5rem; }
+	.docx-preview :global(h4),
+	.docx-preview :global(h5),
+	.docx-preview :global(h6) { font-size: 1rem; font-weight: 600; margin: 0.75rem 0 0.5rem; }
+	.docx-preview :global(p) { font-size: 1rem; line-height: 1.7; margin: 0.6rem 0; }
+	.docx-preview :global(ul),
+	.docx-preview :global(ol) { margin: 0.6rem 0 0.6rem 1.5rem; }
+	.docx-preview :global(ul) { list-style: disc; }
+	.docx-preview :global(ol) { list-style: decimal; }
+	.docx-preview :global(li) { margin: 0.25rem 0; line-height: 1.6; }
+	.docx-preview :global(strong) { font-weight: 700; }
+	.docx-preview :global(em) { font-style: italic; }
+	.docx-preview :global(table) { border-collapse: collapse; margin: 1rem 0; width: 100%; }
+	.docx-preview :global(td),
+	.docx-preview :global(th) { border: 1px solid #d1d5db; padding: 0.4rem 0.6rem; vertical-align: top; }
+	.docx-preview :global(th) { background: #f3f4f6; font-weight: 600; }
+	.docx-preview :global(a) { color: #1d4ed8; text-decoration: underline; }
+	.docx-preview :global(img) { max-width: 100%; height: auto; }
+	.docx-preview :global(blockquote) { border-left: 3px solid #cbd5e1; margin: 0.75rem 0; padding: 0.25rem 0 0.25rem 1rem; color: #475569; }
+
 	/* Typography for rendered markdown in the document reader */
 	.reader-prose :global(h1) {
 		font-size: 1.75rem;
