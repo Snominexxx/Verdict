@@ -93,9 +93,16 @@ export const generateDebateAnalysis = async (args: {
 	return { reply, jurorScores };
 };
 
-const buildSystemPrompt = (jurors: JurorPersona[], language: string = 'en') => `You are Advocate AI — opposing counsel in a trial. You argue AGAINST the litigant.
+const buildSystemPrompt = (jurors: JurorPersona[], language: string = 'en') => {
+	const langLabel = language === 'fr' ? 'French (Canadian French / Français québécois)' : 'English';
+	const langStrict = language === 'fr'
+		? `RÈGLE LINGUISTIQUE ABSOLUE — VOUS DEVEZ RÉPONDRE EXCLUSIVEMENT EN FRANÇAIS (français canadien). Tout le contenu — reply.message, jurorScores[*].rationale, jurorScores[*].stance, et chaque champ texte — doit être en français. N'utilisez AUCUN mot anglais sauf les noms propres et les termes juridiques latins (ex. "ratio decidendi"). Toute réponse partiellement ou entièrement en anglais est invalide.`
+		: `ABSOLUTE LANGUAGE RULE — YOU MUST RESPOND EXCLUSIVELY IN ENGLISH. All output — reply.message, jurorScores[*].rationale, jurorScores[*].stance, and every text field — must be in English. Any French content is invalid.`;
+	return `${langStrict}
 
-LANGUAGE INSTRUCTION: You MUST respond entirely in ${language === 'fr' ? 'French (Canadian French)' : 'English'}. All text in reply.message, juror rationales, and every other text field must be in ${language === 'fr' ? 'French' : 'English'}.
+You are Advocate AI — opposing counsel in a trial. You argue AGAINST the litigant.
+
+LANGUAGE INSTRUCTION: You MUST respond entirely in ${langLabel}. All text in reply.message, juror rationales, and every other text field must be in ${langLabel}.
 
 YOUR TWO ROLES IN ONE RESPONSE:
 1. ADVOCATE (reply.message): You speak as opposing counsel — sharp, adaptive, human. One voice.
@@ -223,7 +230,10 @@ Make them sound like themselves. If they all sound the same, you've failed.
 
 REMINDER: Every juror score and rationale is about the LITIGANT's performance. Reference what the litigant said, how they argued, and whether they convinced the juror. Do NOT evaluate the Advocate.
 
+FINAL LANGUAGE REMINDER: ${langStrict}
+
 Output: JSON only → reply {message, citations[]} and jurorScores [{jurorId, stance, score, rationale, metrics{logic, sources, tone}}]`;
+};
 
 const buildUserPrompt = (args: {
 	prompt: string;
@@ -678,9 +688,16 @@ export const generateBenchTrialAnalysis = async (args: {
 	};
 };
 
-const buildBenchSystemPrompt = (language: string = 'en') => `You are simulating a BENCH TRIAL (Judge Only—NO JURY).
+const buildBenchSystemPrompt = (language: string = 'en') => {
+	const langLabel = language === 'fr' ? 'French (Canadian French / Français québécois)' : 'English';
+	const langStrict = language === 'fr'
+		? `RÈGLE LINGUISTIQUE ABSOLUE — VOUS DEVEZ RÉPONDRE EXCLUSIVEMENT EN FRANÇAIS (français canadien). Tout — reply.message, judgeMind.assessment, judgeMind.concerns, judgeMind.leaning, et judgeInterjection.message — doit être en français. N'utilisez AUCUN mot anglais sauf les noms propres et les termes juridiques latins.`
+		: `ABSOLUTE LANGUAGE RULE — YOU MUST RESPOND EXCLUSIVELY IN ENGLISH. All output — reply.message, judgeMind fields, and judgeInterjection.message — must be in English.`;
+	return `${langStrict}
 
-LANGUAGE INSTRUCTION: You MUST respond entirely in ${language === 'fr' ? 'French (Canadian French)' : 'English'}. All text in reply.message, judgeMind fields, and judgeInterjection must be in ${language === 'fr' ? 'French' : 'English'}.
+You are simulating a BENCH TRIAL (Judge Only—NO JURY).
+
+LANGUAGE INSTRUCTION: You MUST respond entirely in ${langLabel}. All text in reply.message, judgeMind fields, and judgeInterjection must be in ${langLabel}.
 
 CRITICAL DISTINCTION FROM JURY TRIALS:
 - In a JURY trial, you persuade ordinary citizens with stories, emotions, and relatability.
@@ -801,7 +818,10 @@ METRICS:
 - evidence: Are facts supported? Are authorities relevant and correctly applied?
 - procedure: Does counsel follow proper form? Professional demeanor?
 
-OUTPUT: JSON only with keys: reply {message, citations[]}, judgeInterjection? {message, type}, judgeMind {assessment, concerns, leaning}`;
+OUTPUT: JSON only with keys: reply {message, citations[]}, judgeInterjection? {message, type}, judgeMind {assessment, concerns, leaning}
+
+FINAL LANGUAGE REMINDER: ${langStrict}`;
+};
 
 const buildBenchUserPrompt = (args: {
 	prompt: string;

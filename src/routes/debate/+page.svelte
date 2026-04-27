@@ -602,7 +602,7 @@
 						<span class="text-sm text-white/50 font-mono hidden sm:inline-block">CTRL+ENTER</span>
 						<button
 							type="submit"
-							aria-label="Send Message"
+							aria-label={t('debate.sendMessage', $language)}
 							class="p-2 rounded-md bg-white text-ink hover:bg-white/90 hover:text-black transition disabled:opacity-50 disabled:cursor-not-allowed"
 							disabled={sending || !prompt.trim() || roundCapReached}
 						>

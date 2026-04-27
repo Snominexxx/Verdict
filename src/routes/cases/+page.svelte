@@ -336,29 +336,6 @@
 						{/if}
 					</div>
 
-					<!-- Mode -->
-					<div class="space-y-3">
-						<p class="text-sm font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.mode', $language)}</p>
-						<div class="grid gap-3 sm:grid-cols-2">
-							<button
-								type="button"
-								onclick={() => (formData = { ...formData, courtType: 'jury' })}
-								class={`text-left p-4 border rounded-lg transition-all ${formData.courtType === 'jury' ? 'border-white/50 bg-white/15 ring-1 ring-white/20' : 'border-white/15 bg-white/5 hover:bg-white/10 hover:border-white/25'}`}
-							>
-								<p class="font-bold text-white">{t('cases.jury', $language)}</p>
-								<p class="text-sm text-white/50 mt-2 leading-relaxed">{t('cases.juryDesc', $language)}</p>
-							</button>
-							<button
-								type="button"
-								onclick={() => (formData = { ...formData, courtType: 'bench' })}
-								class={`text-left p-4 border rounded-lg transition-all ${formData.courtType === 'bench' ? 'border-white/50 bg-white/15 ring-1 ring-white/20' : 'border-white/15 bg-white/5 hover:bg-white/10 hover:border-white/25'}`}
-							>
-								<p class="font-bold text-white">{t('cases.judge', $language)}</p>
-								<p class="text-sm text-white/50 mt-2 leading-relaxed">{t('cases.judgeDesc', $language)}</p>
-							</button>
-						</div>
-					</div>
-
 					<!-- Hero CTAs -->
 					<div class="pt-6 space-y-4 border-t border-white/15">
 						<button
@@ -472,6 +449,29 @@
 						<p class="text-sm text-white/40">{t('cases.reviewDesc', $language)}</p>
 					</div>
 
+					<!-- Mode -->
+					<div class="space-y-3">
+						<p class="text-sm font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.mode', $language)}</p>
+						<div class="grid gap-3 sm:grid-cols-2">
+							<button
+								type="button"
+								onclick={() => (formData = { ...formData, courtType: 'jury' })}
+								class={`text-left p-4 border rounded-lg transition-all ${formData.courtType === 'jury' ? 'border-white/50 bg-white/15 ring-1 ring-white/20' : 'border-white/15 bg-white/5 hover:bg-white/10 hover:border-white/25'}`}
+							>
+								<p class="font-bold text-white">{t('cases.jury', $language)}</p>
+								<p class="text-sm text-white/50 mt-2 leading-relaxed">{t('cases.juryDesc', $language)}</p>
+							</button>
+							<button
+								type="button"
+								onclick={() => (formData = { ...formData, courtType: 'bench' })}
+								class={`text-left p-4 border rounded-lg transition-all ${formData.courtType === 'bench' ? 'border-white/50 bg-white/15 ring-1 ring-white/20' : 'border-white/15 bg-white/5 hover:bg-white/10 hover:border-white/25'}`}
+							>
+								<p class="font-bold text-white">{t('cases.judge', $language)}</p>
+								<p class="text-sm text-white/50 mt-2 leading-relaxed">{t('cases.judgeDesc', $language)}</p>
+							</button>
+						</div>
+					</div>
+
 					<!-- Pick Your Side -->
 					<div class="space-y-3">
 						<p class="text-sm font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.chooseSide', $language)}</p>
@@ -480,9 +480,9 @@
 							<button
 								type="button"
 								onclick={() => (formData = { ...formData, role: 'plaintiff' })}
-								class={`text-left p-4 border rounded-lg transition-all ${formData.role === 'plaintiff' ? 'border-accent bg-accent/15 ring-1 ring-accent/40' : 'border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/35'}`}
+								class={`text-left p-4 border rounded-lg transition-all ${formData.role === 'plaintiff' ? 'border-white/50 bg-white/15 ring-1 ring-white/20' : 'border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/35'}`}
 							>
-								<p class={`text-sm font-bold uppercase tracking-wider ${formData.role === 'plaintiff' ? 'text-accent' : 'text-white'}`}>
+								<p class="text-sm font-bold uppercase tracking-wider text-white">
 									{t('cases.plaintiff', $language)}
 								</p>
 								{#if formData.remedy.trim()}
@@ -495,9 +495,9 @@
 							<button
 								type="button"
 								onclick={() => (formData = { ...formData, role: 'defendant' })}
-								class={`text-left p-4 border rounded-lg transition-all ${formData.role === 'defendant' ? 'border-accent bg-accent/15 ring-1 ring-accent/40' : 'border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/35'}`}
+								class={`text-left p-4 border rounded-lg transition-all ${formData.role === 'defendant' ? 'border-white/50 bg-white/15 ring-1 ring-white/20' : 'border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/35'}`}
 							>
-								<p class={`text-sm font-bold uppercase tracking-wider ${formData.role === 'defendant' ? 'text-accent' : 'text-white'}`}>
+								<p class="text-sm font-bold uppercase tracking-wider text-white">
 									{t('cases.defendant', $language)}
 								</p>
 								{#if formData.defendantPosition.trim()}
@@ -582,7 +582,7 @@
 							type="button"
 							onclick={() => { step3Attempted = true; if (!formData.role) return; handleSubmit(); }}
 							disabled={submitting || limitReached}
-							class="px-8 py-3 bg-accent hover:bg-accent-hover text-ink text-sm font-bold uppercase tracking-widest rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-accent"
+							class="px-8 py-3 bg-white hover:bg-white/90 text-black text-sm font-bold uppercase tracking-widest rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 						>
 							{submitting ? t('cases.processing', $language) : t('cases.startDebate', $language)}
 						</button>

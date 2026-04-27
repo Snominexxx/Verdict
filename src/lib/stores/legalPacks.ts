@@ -173,6 +173,23 @@ const createLegalPacksStore = () => {
 		});
 	};
 
+	const renameSource = (packId: string, sourceId: string, newTitle: string) => {
+		const trimmed = newTitle.trim();
+		if (!trimmed) return;
+		update((packs) => {
+			const next = packs.map((pack) => {
+				if (pack.id !== packId) return pack;
+				return {
+					...pack,
+					sources: pack.sources.map((s) => (s.id === sourceId ? { ...s, title: trimmed } : s))
+				};
+			});
+			persist(next);
+			scheduleSync(next);
+			return next;
+		});
+	};
+
 	return {
 		subscribe,
 		hydrate,
@@ -181,7 +198,8 @@ const createLegalPacksStore = () => {
 		updatePack,
 		deletePack,
 		addSourceToPack,
-		removeSourceFromPack
+		removeSourceFromPack,
+		renameSource
 	};
 };
 

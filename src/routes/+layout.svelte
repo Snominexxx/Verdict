@@ -211,9 +211,9 @@
 				</div>
 			</header>
 			{#if showResumeBanner && mostRecentOngoing}
-				<div class="border-b border-accent/30 bg-accent/[0.08] px-6 py-2 flex items-center justify-between gap-3">
+				<div class="border-b border-white/15 bg-white/[0.05] px-6 py-2 flex items-center justify-between gap-3">
 					<div class="flex items-center gap-3 min-w-0">
-						<span class="inline-flex w-2 h-2 rounded-full bg-accent animate-pulse"></span>
+						<span class="inline-flex w-2 h-2 rounded-full bg-flare animate-pulse"></span>
 						<p class="text-sm text-white/85 truncate">
 							<span class="text-white/55">{t('layout.resumePrefix', $language)}</span>
 							<span class="font-semibold text-white">"{mostRecentOngoing.title}"</span>
@@ -222,7 +222,7 @@
 					<button
 						type="button"
 						onclick={resumeMostRecent}
-						class="shrink-0 px-3 py-1 text-xs font-bold uppercase tracking-widest text-ink bg-accent hover:bg-accent-hover rounded transition"
+						class="shrink-0 px-3 py-1 text-xs font-bold uppercase tracking-widest text-white border border-flare/40 bg-flare/10 hover:bg-flare/20 rounded transition"
 					>
 						{t('layout.resumeButton', $language)}
 					</button>

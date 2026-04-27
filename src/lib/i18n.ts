@@ -174,6 +174,7 @@ const translations = {
 	'debate.reviewingBench': { en: 'Reviewing submission…', fr: 'Analyse de la soumission…' },
 	'debate.formulatingJury': { en: 'Formulating counter-argument…', fr: 'Formulation du contre-argument…' },
 	'debate.inputPlaceholder': { en: 'Enter your argument...', fr: 'Entrez votre argument...' },
+	'debate.sendMessage': { en: 'Send Message', fr: 'Envoyer le message' },
 	'debate.tipTitle': { en: 'How to write a strong argument', fr: 'Comment rédiger un argument solide' },
 	'debate.tipCite': {
 		en: 'Cite specific articles: "Under Art. 1457 C.c.Q., negligence requires duty, breach, causation, and damage."',
@@ -352,6 +353,8 @@ const translations = {
 	'library.noTextExtracted': { en: 'No text could be extracted from this document.', fr: 'Aucun texte n\'a pu être extrait de ce document.' },
 	'library.unsupportedFormat': { en: 'Unsupported file format. Please upload a PDF or Word document (.docx).', fr: 'Format de fichier non supporté. Veuillez téléverser un PDF ou un document Word (.docx).' },
 	'library.openDocument': { en: 'Open document', fr: 'Ouvrir le document' },
+	'library.rename': { en: 'Rename', fr: 'Renommer' },
+	'library.renameTitle': { en: 'Rename document', fr: 'Renommer le document' },
 	'library.downloadOriginal': { en: 'Download original', fr: 'Télécharger l\'original' },
 	'library.openInNewTab': { en: 'Open in new tab', fr: 'Ouvrir dans un nouvel onglet' },
 	'library.preparingPreview': { en: 'Preparing document...', fr: 'Préparation du document...' },

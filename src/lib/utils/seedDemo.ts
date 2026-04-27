@@ -102,7 +102,7 @@ export const maybeSeedDemo = async (lang: 'en' | 'fr' = 'en') => {
 		},
 		{
 			role: 'litigant',
-			speaker: 'You',
+			speaker: lang === 'fr' ? 'Vous' : 'You',
 			message:
 				lang === 'fr'
 					? "Votre Honneur, ma cliente a été congédiée après 4 ans de service exemplaire sous prétexte de restructuration. Or, deux semaines plus tard, son poste a été comblé. Il s'agit d'un congédiement sans cause juste et suffisante au sens de l'article 124 de la Loi sur les normes du travail."

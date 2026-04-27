@@ -43,6 +43,75 @@
 	let parseProgress = '';
 	let fileInputEl: HTMLInputElement;
 
+	// Inline rename state
+	let renamingId = '';
+	let renameValue = '';
+	let renameInputEl: HTMLInputElement | null = null;
+
+	/** Strip junk suffixes from filenames and apply Title Case for display. */
+	const prettifyFilename = (filename: string): string => {
+		let name = filename.replace(/\.(pdf|docx)$/i, '');
+		// Replace separators with spaces
+		name = name.replace(/[_\-.]+/g, ' ');
+		// Strip parenthetical / bracketed numbers and version markers
+		name = name.replace(/\(\s*\d+\s*\)/g, '');
+		name = name.replace(/\[\s*\d+\s*\]/g, '');
+		// Strip common junk tokens (case-insensitive, whole words only)
+		const junk = /\b(final|finale|cleaned|clean|copy|copie|draft|brouillon|v\d+|version\s*\d+|rev\d+|revision\s*\d+|\d{8}|\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4})\b/gi;
+		name = name.replace(junk, '');
+		// Collapse whitespace
+		name = name.replace(/\s+/g, ' ').trim();
+		if (!name) return filename;
+		// Title Case (preserve all-caps acronyms of 2+ chars)
+		return name
+			.split(' ')
+			.map((word) => {
+				if (/^[A-Z]{2,}$/.test(word)) return word;
+				return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+			})
+			.join(' ');
+	};
+
+	const formatFileSize = (bytes?: number): string => {
+		if (!bytes || bytes <= 0) return '';
+		if (bytes < 1024) return `${bytes} B`;
+		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+	};
+
+	const fileExtensionOf = (doc: LibraryDocument): 'pdf' | 'docx' | 'url' | 'doc' => {
+		const name = (doc.originalFileName || doc.sourceUrl || '').toLowerCase();
+		if (name.endsWith('.pdf') || doc.mimeType?.includes('pdf')) return 'pdf';
+		if (name.endsWith('.docx') || doc.mimeType?.includes('wordprocessingml')) return 'docx';
+		if (doc.sourceUrl?.startsWith('http')) return 'url';
+		return 'doc';
+	};
+
+	const startRename = (doc: LibraryDocument) => {
+		renamingId = doc.id;
+		renameValue = doc.title;
+		setTimeout(() => {
+			renameInputEl?.focus();
+			renameInputEl?.select();
+		}, 0);
+	};
+
+	const commitRename = () => {
+		if (!renamingId || !selectedPack) {
+			renamingId = '';
+			return;
+		}
+		const next = renameValue.trim();
+		if (next) legalPacksStore.renameSource(selectedPack.id, renamingId, next);
+		renamingId = '';
+		renameValue = '';
+	};
+
+	const cancelRename = () => {
+		renamingId = '';
+		renameValue = '';
+	};
+
 	onMount(() => {
 		legalPacksStore.hydrate();
 		selectedLegalPackId.hydrate();
@@ -157,8 +226,8 @@
 			return;
 		}
 
-		// Auto-fill title from filename
-		const autoTitle = file.name.replace(/\.(pdf|docx)$/i, '').replace(/[_-]+/g, ' ').trim();
+		// Auto-fill title from filename — strip common junk suffixes and apply Title Case
+		const autoTitle = prettifyFilename(file.name);
 
 		ingesting = true;
 		try {
@@ -643,52 +712,118 @@
 						</div>
 					{/if}
 
-					<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+					<div class="grid gap-3 sm:grid-cols-2">
 						{#each selectedPack.sources as doc}
-						<div class="border border-white/15 rounded-lg p-4 bg-white/[0.04] space-y-2 {$indexingSourceIds.has(doc.id) ? 'opacity-60' : ''}">
-							<div class="flex items-start justify-between gap-2">
-								<button type="button" class="text-left flex-1 min-w-0" on:click={() => openOriginalDocument(doc)}>
-									<p class="text-sm font-semibold text-white leading-snug truncate">{doc.title}</p>
-								</button>
-								{#if $indexingSourceIds.has(doc.id)}
-									<span class="inline-flex items-center gap-1 text-xs text-flare/80 font-mono shrink-0">
-										<span class="inline-block w-2.5 h-2.5 border-2 border-flare/30 border-t-flare rounded-full animate-spin"></span>
-										{t('library.indexingBadge', $language)}
-									</span>
-								{:else if doc.isCustom}
-										<button type="button" class="text-sm px-2 py-0.5 border border-white/20 rounded text-white/70 hover:text-white" on:click={() => removeSourceFromPack(doc.id)}>{t('library.remove', $language)}</button>
+						{@const ext = fileExtensionOf(doc)}
+						<div class="group border border-white/15 rounded-lg p-4 bg-white/[0.04] hover:bg-white/[0.07] hover:border-white/25 transition flex gap-3 {$indexingSourceIds.has(doc.id) ? 'opacity-60' : ''}">
+							<!-- File-type icon -->
+							<div class="shrink-0">
+								{#if ext === 'pdf'}
+									<div class="w-10 h-12 rounded bg-red-500/15 border border-red-400/30 flex items-center justify-center text-red-300 text-[10px] font-bold tracking-tight">PDF</div>
+								{:else if ext === 'docx'}
+									<div class="w-10 h-12 rounded bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-300 text-[10px] font-bold tracking-tight">DOCX</div>
+								{:else if ext === 'url'}
+									<div class="w-10 h-12 rounded bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-300 text-[10px] font-bold tracking-tight">URL</div>
+								{:else}
+									<div class="w-10 h-12 rounded bg-white/10 border border-white/20 flex items-center justify-center text-white/60 text-[10px] font-bold tracking-tight">DOC</div>
+								{/if}
+							</div>
+
+							<!-- Body -->
+							<div class="flex-1 min-w-0 flex flex-col gap-1.5">
+								<!-- Title row (rename-on-click) -->
+								<div class="flex items-start justify-between gap-2">
+									{#if renamingId === doc.id}
+										<input
+											bind:this={renameInputEl}
+											bind:value={renameValue}
+											on:blur={commitRename}
+											on:keydown={(e) => {
+												if (e.key === 'Enter') { e.preventDefault(); commitRename(); }
+												else if (e.key === 'Escape') { e.preventDefault(); cancelRename(); }
+											}}
+											class="flex-1 min-w-0 text-sm font-semibold text-white bg-black/30 border border-flare/40 rounded px-2 py-1 outline-none"
+										/>
+									{:else}
+										<button
+											type="button"
+											class="text-left flex-1 min-w-0 group/title"
+											on:click={() => openOriginalDocument(doc)}
+											title={t('library.openDocument', $language)}
+										>
+											<p class="text-sm font-semibold text-white leading-snug line-clamp-2 group-hover/title:text-flare transition">{doc.title}</p>
+										</button>
+									{/if}
+
+									{#if $indexingSourceIds.has(doc.id)}
+										<span class="inline-flex items-center gap-1 text-xs text-flare/80 font-mono shrink-0">
+											<span class="inline-block w-2.5 h-2.5 border-2 border-flare/30 border-t-flare rounded-full animate-spin"></span>
+											{t('library.indexingBadge', $language)}
+										</span>
 									{/if}
 								</div>
+
+								<!-- Filename + size meta line -->
+								{#if doc.originalFileName || doc.fileSize}
+									<p class="text-[11px] text-white/45 font-mono truncate" title={doc.originalFileName ?? ''}>
+										{#if doc.originalFileName}{doc.originalFileName}{/if}{#if doc.originalFileName && doc.fileSize} · {/if}{#if doc.fileSize}{formatFileSize(doc.fileSize)}{/if}
+									</p>
+								{:else if doc.sourceUrl && doc.sourceUrl.startsWith('http')}
+									<a href={doc.sourceUrl} target="_blank" rel="noreferrer" class="text-[11px] text-white/45 hover:text-flare hover:underline truncate font-mono" title={doc.sourceUrl}>{doc.sourceUrl}</a>
+								{/if}
+
+								<!-- Indexing progress -->
 								{#if $indexingSourceIds.has(doc.id)}
-									<div class="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+									<div class="w-full h-1 bg-white/10 rounded-full overflow-hidden mt-0.5">
 										<div class="h-full bg-flare/70 rounded-full transition-all duration-500 ease-out" style="width: {$indexingProgress[doc.id] ?? 0}%"></div>
 									</div>
 								{/if}
-								<p class="text-sm text-white/70 leading-relaxed line-clamp-2">{doc.description}</p>
-								<div class="pt-1">
-									<button
-										type="button"
-										on:click={() => openOriginalDocument(doc)}
-										class="text-xs px-2.5 py-1 border border-flare/40 rounded text-flare hover:bg-flare/10"
-									>
-										{t('library.openDocument', $language)}
-									</button>
-								</div>
-								{#if doc.sourceUrl}
-									<a href={doc.sourceUrl.startsWith('http') ? doc.sourceUrl : undefined} target="_blank" rel="noreferrer" class="text-xs text-flare hover:underline break-all line-clamp-1">{doc.sourceUrl}</a>
-								{/if}
-								<div class="flex gap-2 flex-wrap">
+
+								<!-- Badges -->
+								<div class="flex gap-1.5 flex-wrap mt-0.5">
+									{#if doc.jurisdiction && doc.jurisdiction !== 'Other'}
+										<span class="text-[10px] px-2 py-0.5 border border-white/20 rounded-full text-white/65 uppercase tracking-wide">{doc.jurisdiction}</span>
+									{/if}
 									{#if doc.docType}
-										<span class="text-xs px-2 py-0.5 border border-white/20 rounded-full text-white/70 uppercase">{doc.docType}</span>
+										<span class="text-[10px] px-2 py-0.5 border border-white/20 rounded-full text-white/65 uppercase tracking-wide">{doc.docType}</span>
 									{/if}
 									{#if doc.trustLevel}
-										<span class={`text-xs px-2 py-0.5 border rounded-full uppercase ${doc.trustLevel === 'official' ? 'border-emerald-400/40 text-emerald-300' : doc.trustLevel === 'recognized' ? 'border-amber-400/40 text-amber-300' : 'border-red-400/40 text-red-300'}`}>{doc.trustLevel}</span>
-									{/if}
-									{#if doc.content && !doc.isCustom}
-										<span class="text-xs px-2 py-0.5 border border-sky-400/30 rounded-full text-sky-300" title="{Math.round(doc.content.length / 1000)}k chars extracted">{Math.round(doc.content.length / 1000)}k chars</span>
+										<span class={`text-[10px] px-2 py-0.5 border rounded-full uppercase tracking-wide ${doc.trustLevel === 'official' ? 'border-emerald-400/40 text-emerald-300' : doc.trustLevel === 'recognized' ? 'border-amber-400/40 text-amber-300' : 'border-white/20 text-white/55'}`}>{doc.trustLevel}</span>
 									{/if}
 								</div>
+
+								<!-- Actions -->
+								{#if !$indexingSourceIds.has(doc.id) && renamingId !== doc.id}
+									<div class="flex items-center gap-1.5 pt-1.5 mt-auto opacity-70 group-hover:opacity-100 transition">
+										<button
+											type="button"
+											on:click={() => openOriginalDocument(doc)}
+											class="text-[11px] px-2.5 py-1 border border-flare/40 rounded text-flare hover:bg-flare/10 font-bold uppercase tracking-wider"
+										>
+											{t('library.openDocument', $language)}
+										</button>
+										<button
+											type="button"
+											on:click={() => startRename(doc)}
+											class="text-[11px] px-2 py-1 border border-white/20 rounded text-white/65 hover:text-white hover:bg-white/10"
+											title={t('library.renameTitle', $language)}
+											aria-label={t('library.renameTitle', $language)}
+										>
+											{t('library.rename', $language)}
+										</button>
+										{#if doc.isCustom}
+											<button
+												type="button"
+												on:click={() => removeSourceFromPack(doc.id)}
+												class="text-[11px] px-2 py-1 border border-white/20 rounded text-white/65 hover:text-red-300 hover:border-red-400/40 ml-auto"
+											>
+												{t('library.remove', $language)}
+											</button>
+										{/if}
+									</div>
+								{/if}
 							</div>
+						</div>
 						{/each}
 					</div>
 				{:else}
