@@ -4,8 +4,8 @@
 	import { stagedCaseStore, hydrateStagedCase, clearStagedCase } from '$lib/stores/stagedCase';
 	import { legalPacksStore } from '$lib/stores/legalPacks';
 	import type { LibraryDocument } from '$lib/data/library';
-	import { jurorPersonas } from '$lib/data/jurors';
-	import { judgePersona } from '$lib/data/judge';
+	import { getJurorPersonas } from '$lib/data/jurors';
+	import { getJudgePersona } from '$lib/data/judge';
 	import type { DebateTurn, VerdictScore, StagedCase } from '$lib/types';
 	import { fly } from 'svelte/transition';
 	import { focusMode } from '$lib/stores/ui';
@@ -43,7 +43,9 @@
 		average: 50
 	};
 
-	const allJurorIds = jurorPersonas.map((juror) => juror.id);
+	const allJurorIds = getJurorPersonas('en').map((juror) => juror.id);
+	$: jurorPersonas = getJurorPersonas($language);
+	$: judgePersona = getJudgePersona($language);
 	const scoreLabels = [
 		{ key: 'persuasion', label: 'debate.metricPersuasion' },
 		{ key: 'lawCited', label: 'debate.metricLawCited' },
@@ -119,7 +121,7 @@
 		const now = new Date().toISOString();
 		const litigatorTurn: DebateTurn = {
 			role: 'litigant',
-			speaker: 'You',
+			speaker: t('debate.litigantSpeaker', $language),
 			message: currentPrompt,
 			timestamp: now
 		};
@@ -158,29 +160,12 @@
 			if (result.sourcesUsed === 0) {
 				const warnTurn: DebateTurn = {
 					role: isBenchTrial ? 'judge' : 'ai',
-					speaker: '⚠ System',
+					speaker: t('debate.systemSpeaker', $language),
 					message: t('debate.noSources', $language),
 					timestamp: new Date().toISOString()
 				};
 				appendTurn(warnTurn);
 				newTurns.push(warnTurn);
-			}
-
-			// Handle judge interjection (bench trial only)
-			if (result.judgeInterjection) {
-				const allowedTypes = ['relevance', 'authority', 'procedure', 'decorum', 'clarification'] as const;
-				const rawType = result.judgeInterjection.type as string | undefined;
-				const safeType = allowedTypes.find((x) => x === rawType);
-				const label = safeType ? t(`debate.interjection.${safeType}` as const, $language) : '';
-				const prefix = label ? `[${label}] ` : '';
-				const interjectionTurn: DebateTurn = {
-					role: 'judge',
-					speaker: result.judgeInterjection.speaker,
-					message: `${prefix}${result.judgeInterjection.message}`,
-					timestamp: result.judgeInterjection.timestamp
-				};
-				appendTurn(interjectionTurn);
-				newTurns.push(interjectionTurn);
 			}
 
 			const replyTurn: DebateTurn = {
@@ -206,7 +191,7 @@
 		} catch (err) {
 			console.error('Debate endpoint failed', err);
 			const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-			const fallbackSpeaker = isBenchTrial ? judgePersona.name : 'Advocate AI';
+			const fallbackSpeaker = isBenchTrial ? judgePersona.name : t('debate.advocateAI', $language);
 			appendTurn({
 				role: isBenchTrial ? 'judge' : 'ai',
 				speaker: fallbackSpeaker,
@@ -561,7 +546,7 @@
 				{#if sending}
 					<div class="flex flex-col max-w-2xl mr-auto items-start" in:fly={{ y: 10, duration: 200 }}>
 					<p class="text-sm uppercase tracking-widest text-white/50 mb-1 px-1">
-							{isBenchTrial ? judgePersona.name : 'Advocate AI'}
+							{isBenchTrial ? judgePersona.name : t('debate.advocateAI', $language)}
 							<span class="opacity-50 mx-1">/</span>
 							<span class="font-mono opacity-40">{t('debate.thinking', $language)}</span>
 						</p>

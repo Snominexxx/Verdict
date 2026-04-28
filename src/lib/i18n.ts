@@ -156,11 +156,6 @@ const translations = {
 
 	// ===== DEBATE =====
 	'debate.noCase': { en: 'No Active Case', fr: 'Aucune cause active' },
-	'debate.interjection.relevance': { en: 'RELEVANCE', fr: 'PERTINENCE' },
-	'debate.interjection.authority': { en: 'AUTHORITY', fr: 'AUTORITÉ' },
-	'debate.interjection.procedure': { en: 'PROCEDURE', fr: 'PROCÉDURE' },
-	'debate.interjection.decorum': { en: 'DECORUM', fr: 'TENUE' },
-	'debate.interjection.clarification': { en: 'CLARIFICATION', fr: 'PRÉCISION' },
 	'debate.noCaseDesc': { en: 'Initialize a case to enter the arena.', fr: 'Créez une cause pour entrer dans l\'arène.' },
 	'debate.launchBuilder': { en: 'Launch Case Builder', fr: 'Créer une cause' },
 	'debate.activeCase': { en: 'Active Case', fr: 'Cause active' },
@@ -179,6 +174,9 @@ const translations = {
 	'debate.formulatingJury': { en: 'Formulating counter-argument…', fr: 'Formulation du contre-argument…' },
 	'debate.inputPlaceholder': { en: 'Enter your argument...', fr: 'Entrez votre argument...' },
 	'debate.sendMessage': { en: 'Send Message', fr: 'Envoyer le message' },
+	'debate.litigantSpeaker': { en: 'You', fr: 'Vous' },
+	'debate.advocateAI': { en: 'Advocate AI', fr: 'Avocat IA' },
+	'debate.systemSpeaker': { en: '⚠ System', fr: '⚠ Système' },
 	'debate.tipTitle': { en: 'How to write a strong argument', fr: 'Comment rédiger un argument solide' },
 	'debate.tipCite': {
 		en: 'Cite specific articles: "Under Art. 1457 C.c.Q., negligence requires duty, breach, causation, and damage."',
@@ -284,6 +282,11 @@ const translations = {
 	},
 	'court.footer': { en: 'SYSTEM // Ready for first filing', fr: 'SYSTÈME // Prêt pour le premier dépôt' },
 	'court.momentsAgo': { en: 'moments ago', fr: 'à l\'instant' },
+	'court.minAgo': { en: 'min ago', fr: 'min' },
+	'court.hourAgo': { en: 'hr ago', fr: 'h' },
+	'court.hoursAgo': { en: 'hrs ago', fr: 'h' },
+	'court.dayAgo': { en: 'day ago', fr: 'jour' },
+	'court.daysAgo': { en: 'days ago', fr: 'jours' },
 	'court.welcomeKicker': { en: 'Welcome to Verdict', fr: 'Bienvenue sur Verdict' },
 	'court.welcomeTitle': { en: 'Stage your first case in 90 seconds', fr: 'Créez votre première cause en 90 secondes' },
 	'court.welcomeDesc': {

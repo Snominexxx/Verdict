@@ -41,11 +41,11 @@
 		const diff = Date.now() - new Date(timestamp).getTime();
 		const minutes = Math.max(Math.round(diff / 60000), 0);
 		if (minutes < 1) return t('court.momentsAgo', $language);
-		if (minutes < 60) return `${minutes} min ago`;
+		if (minutes < 60) return `${minutes} ${t('court.minAgo', $language)}`;
 		const hours = Math.round(minutes / 60);
-		if (hours < 24) return `${hours} hr${hours === 1 ? '' : 's'} ago`;
+		if (hours < 24) return `${hours} ${t(hours === 1 ? 'court.hourAgo' : 'court.hoursAgo', $language)}`;
 		const days = Math.round(hours / 24);
-		return `${days} day${days === 1 ? '' : 's'} ago`;
+		return `${days} ${t(days === 1 ? 'court.dayAgo' : 'court.daysAgo', $language)}`;
 	};
 
 	const formatDate = (timestamp?: string) => {

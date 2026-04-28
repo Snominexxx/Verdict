@@ -37,17 +37,10 @@ export type StagedCase = {
 	createdAt: string;
 };
 
-export type JurorTemperament = 
-	| 'Skeptical Pragmatist'
-	| 'Analytical Thinker'
-	| 'Empathetic Listener'
-	| 'Gut-Instinct'
-	| 'Fair-Minded Moderator';
-
 export type JurorPersona = {
 	id: string;
 	name: string;
-	temperament: JurorTemperament;
+	temperament: string;
 	biasVector: string;
 	description: string;
 	signatureMove: string;

@@ -1,7 +1,9 @@
 <script lang="ts">
-	import { jurorPersonas } from '$lib/data/jurors';
+	import { getJurorPersonas } from '$lib/data/jurors';
 	import { language } from '$lib/stores/language';
 	import { t } from '$lib/i18n';
+
+	$: jurorPersonas = getJurorPersonas($language);
 </script>
 
 <section class="space-y-10">

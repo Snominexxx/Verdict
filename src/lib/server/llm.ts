@@ -1,7 +1,7 @@
 import { env } from '$env/dynamic/private';
 import type { JurorPersona, StagedCase, VerdictScore } from '$lib/types';
 import type { LibraryDocument } from '$lib/data/library';
-import { judgePersona, type JudgePersona } from '$lib/data/judge';
+import { getJudgePersona, type JudgePersona } from '$lib/data/judge';
 
 type PerformanceTurn = {
 	role: string;
@@ -72,7 +72,7 @@ export const generateDebateAnalysis = async (args: {
 	const parsed = parseModelResponse(raw);
 
 	const reply = {
-		message: parsed.reply?.message?.trim() || 'No response generated.',
+		message: parsed.reply?.message?.trim() || (language === 'fr' ? 'Aucune réponse générée.' : 'No response generated.'),
 		citations: (parsed.reply?.citations ?? []).filter(Boolean)
 	};
 
@@ -84,7 +84,7 @@ export const generateDebateAnalysis = async (args: {
 			score: clamp(candidate?.score ?? 50, 0, 100),
 			rationale:
 				candidate?.rationale?.trim() ||
-				`No rationale returned for ${juror.name}.`,
+				(language === 'fr' ? `Aucune justification renvoyée pour ${juror.name}.` : `No rationale returned for ${juror.name}.`),
 			metrics: {
 				logic: clamp(candidate?.metrics?.logic ?? 50, 0, 100),
 				sources: clamp(candidate?.metrics?.sources ?? 50, 0, 100),
@@ -641,10 +641,6 @@ type BenchTrialResponse = {
 		message: string;
 		citations?: string[];
 	};
-	judgeInterjection?: {
-		message: string;
-		type: 'relevance' | 'authority' | 'procedure' | 'decorum' | 'clarification';
-	};
 	judgeMind: {
 		assessment: string;
 		concerns: string;
@@ -660,7 +656,6 @@ export const generateBenchTrialAnalysis = async (args: {
 	ragContext?: string;
 }): Promise<{
 	reply: { message: string; citations: string[] };
-	judgeInterjection?: { message: string; type: string };
 	judgeMind: { assessment: string; concerns: string; leaning: string };
 }> => {
 	const { prompt, stagedCase, sources, language = 'en', ragContext } = args;
@@ -673,34 +668,53 @@ export const generateBenchTrialAnalysis = async (args: {
 	const userPrompt = buildBenchUserPrompt({ prompt, stagedCase, sources, ragContext });
 	const schema = buildBenchJsonSchema();
 	const raw = await dispatchToProvider(systemPrompt, userPrompt, schema, TEMP_BENCH);
-	const parsed = parseBenchResponse(raw);
+	const parsed = parseBenchResponse(raw, language);
 
+	const fb = benchFallbacks(language);
 	const reply = {
-		message: parsed.reply?.message?.trim() || 'No response generated.',
+		message: parsed.reply?.message?.trim() || fb.noResponse,
 		citations: (parsed.reply?.citations ?? []).filter(Boolean)
 	};
 
 	return {
 		reply,
-		judgeInterjection: parsed.judgeInterjection,
 		judgeMind: {
-			assessment: parsed.judgeMind?.assessment?.trim() || 'We are still at the intake stage.',
-			concerns: parsed.judgeMind?.concerns?.trim() || 'Need clearer facts and legal authority.',
-			leaning: parsed.judgeMind?.leaning?.trim() || 'Undecided.'
+			assessment: parsed.judgeMind?.assessment?.trim() || fb.assessment,
+			concerns: parsed.judgeMind?.concerns?.trim() || fb.concerns,
+			leaning: parsed.judgeMind?.leaning?.trim() || fb.leaning
 		}
 	};
 };
 
+const benchFallbacks = (language: string) => language === 'fr'
+	? {
+		noResponse: 'Aucune réponse générée.',
+		assessment: 'Nous en sommes encore à la phase préliminaire.',
+		concerns: 'Les faits et les autorités juridiques doivent être précisés.',
+		leaning: 'Indécis.',
+		parseError: 'Réponse impossible à analyser.',
+		parseConcerns: 'Aucune sortie structurée renvoyée.'
+	}
+	: {
+		noResponse: 'No response generated.',
+		assessment: 'We are still at the intake stage.',
+		concerns: 'Need clearer facts and legal authority.',
+		leaning: 'Undecided.',
+		parseError: 'Unable to parse response.',
+		parseConcerns: 'No structured output returned.'
+	};
+
 const buildBenchSystemPrompt = (language: string = 'en') => {
+	const judgePersona = getJudgePersona(language);
 	const langLabel = language === 'fr' ? 'French (Canadian French / Français québécois)' : 'English';
 	const langStrict = language === 'fr'
-		? `RÈGLE LINGUISTIQUE ABSOLUE — VOUS DEVEZ RÉPONDRE EXCLUSIVEMENT EN FRANÇAIS (français canadien). Tout — reply.message, judgeMind.assessment, judgeMind.concerns, judgeMind.leaning, et judgeInterjection.message — doit être en français. N'utilisez AUCUN mot anglais sauf les noms propres et les termes juridiques latins.`
-		: `ABSOLUTE LANGUAGE RULE — YOU MUST RESPOND EXCLUSIVELY IN ENGLISH. All output — reply.message, judgeMind fields, and judgeInterjection.message — must be in English.`;
+		? `RÈGLE LINGUISTIQUE ABSOLUE — VOUS DEVEZ RÉPONDRE EXCLUSIVEMENT EN FRANÇAIS (français canadien). Tout — reply.message, judgeMind.assessment, judgeMind.concerns, judgeMind.leaning — doit être en français. N'utilisez AUCUN mot anglais sauf les noms propres et les termes juridiques latins.`
+		: `ABSOLUTE LANGUAGE RULE — YOU MUST RESPOND EXCLUSIVELY IN ENGLISH. All output — reply.message and judgeMind fields — must be in English.`;
 	return `${langStrict}
 
 You are simulating a BENCH TRIAL (Judge Only—NO JURY).
 
-LANGUAGE INSTRUCTION: You MUST respond entirely in ${langLabel}. All text in reply.message, judgeMind fields, and judgeInterjection must be in ${langLabel}.
+LANGUAGE INSTRUCTION: You MUST respond entirely in ${langLabel}. All text in reply.message and judgeMind fields must be in ${langLabel}.
 
 CRITICAL DISTINCTION FROM JURY TRIALS:
 - In a JURY trial, you persuade ordinary citizens with stories, emotions, and relatability.
@@ -776,33 +790,26 @@ JUDGE PERSONALITY:
 - Has zero patience for emotional manipulation or theatrics.
 - Values: Clarity, precision, preparation, intellectual honesty.
 
-INTERJECTION DISCIPLINE (CRITICAL — avoid annoying the litigant):
-- Interjections are OPTIONAL and should be RARE. Most turns should have NO judgeInterjection at all — just reply.message and judgeMind.
-- Only interject when something genuinely warrants it (a real relevance problem, a bare unsupported conclusion on a material point, a decorum breach, a serious ambiguity).
-- Do NOT interject "AUTHORITY" every turn. If the litigant is already citing sources or making a reasonable argument, you do not need to demand more authority.
-- Do NOT interject on minor phrasing, stylistic choices, or points the litigant has already supported.
-- NEVER repeat the same interjection type two turns in a row unless the litigant ignored it.
-- When in doubt, skip the interjection. Put the concern in judgeMind.concerns instead.
+INTEGRATED QUESTIONING (CRITICAL — no interruptions, just a focused ruling):
+- Do NOT issue separate "interjections" or theatrical interruptions. The judge speaks ONCE per turn, in a single ruling.
+- When the litigant lacks authority, is off-topic, repeats themselves, leaves a logical gap, or relies on rhetoric, the judge addresses it DIRECTLY INSIDE reply.message — by asking a pointed question or stating the deficiency calmly.
+- The tone is pragmatic and posed, not dramatic. A real bench judge does not bark "AUTHORITY!" — they say "Counsel, on what authority do you rest that proposition?" inside their reasoning.
+- Examples of integrated questioning (do this style):
+  • "Even accepting your premise, you have not identified the statutory provision that grounds the duty. To which article do you refer?"
+  • "That is the third time you have framed the point that way. Move the analysis forward — what is your response on damages?"
+  • "Your argument leaps from breach to remedy without addressing causation. Walk the court through the missing link."
+  • "I am not following the relevance. Connect this to the issue of solidary liability."
+- DO NOT prefix anything with [AUTHORITY], [RELEVANCE], [PROCEDURE], [DECORUM], [CLARIFICATION] — those tags are forbidden.
+- DO NOT produce a separate judgeInterjection field — only reply.message and judgeMind.
 
-Interject or ask questions when (and only when):
+JUDGE TRIGGERS — situations that warrant a pointed in-ruling question (handle them inside reply.message, not as separate interjections):
 ${judgePersona.interjectionTriggers.map((t) => `- ${t}`).join('\n')}
 
-Interjection Types (the "type" field — keep as English enum value; the UI localizes the label):
-- "relevance": When argument strays from the issue
-- "authority": When a material assertion is bare and unsupported AND the litigant has had a chance to support it
-- "procedure": When courtroom protocol is violated
-- "decorum": When language/tone is inappropriate
-- "clarification": When the judge genuinely cannot follow the argument
-
-LANGUAGE FOR INTERJECTION MESSAGE:
-- The judgeInterjection.message MUST be written in ${language === 'fr' ? 'French (Canadian French)' : 'English'} — matching the rest of the response.
-- The judgeInterjection.type MUST stay as the English enum value (relevance / authority / procedure / decorum / clarification) — it is a machine field, not user-visible text. The UI translates the label.
-
-Judge questions are SHORT and pointed and usually end with a question:
-- "Counsel, relevance?"
-- "I'm going to stop you there. What's your authority for that proposition?"
+Judge questions are SHORT and pointed and usually end with a question — but they live INSIDE the ruling, not as interruptions:
+- "Counsel, on what authority?"
+- "What's your authority for that proposition?"
 - "Move on. You've made that point."
-- "This is a court of law. Mind your language."
+- "Mind your language — this is a court of law."
 - "Name the statute or case you're relying on."
 
 ---
@@ -821,7 +828,7 @@ METRICS:
 - evidence: Are facts supported? Are authorities relevant and correctly applied?
 - procedure: Does counsel follow proper form? Professional demeanor?
 
-OUTPUT: JSON only with keys: reply {message, citations[]}, judgeInterjection? {message, type}, judgeMind {assessment, concerns, leaning}
+OUTPUT: JSON only with keys: reply {message, citations[]}, judgeMind {assessment, concerns, leaning}
 
 FINAL LANGUAGE REMINDER: ${langStrict}`;
 };
@@ -901,13 +908,6 @@ const buildBenchJsonSchema = () => ({
 				citations: { type: 'array', items: { type: 'string' } }
 			}
 		},
-		judgeInterjection: {
-			type: 'object',
-			properties: {
-				message: { type: 'string' },
-				type: { enum: ['relevance', 'authority', 'procedure', 'decorum', 'clarification'] }
-			}
-		},
 		judgeMind: {
 			type: 'object',
 			required: ['assessment', 'concerns', 'leaning'],
@@ -920,17 +920,18 @@ const buildBenchJsonSchema = () => ({
 	}
 });
 
-const parseBenchResponse = (raw: string): BenchTrialResponse => {
+const parseBenchResponse = (raw: string, language: string = 'en'): BenchTrialResponse => {
 	try {
 		return JSON.parse(extractJson(raw));
 	} catch (err) {
 		console.error('Failed to parse Bench Trial JSON', err, raw);
+		const fb = benchFallbacks(language);
 		return {
 			reply: { message: raw },
 			judgeMind: {
-				assessment: 'Unable to parse response.',
-				concerns: 'No structured output returned.',
-				leaning: 'Undecided.'
+				assessment: fb.parseError,
+				concerns: fb.parseConcerns,
+				leaning: fb.leaning
 			}
 		};
 	}

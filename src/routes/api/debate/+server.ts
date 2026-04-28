@@ -1,7 +1,7 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { error, json } from '@sveltejs/kit';
-import { jurorPersonas } from '$lib/data/jurors';
-import { judgePersona } from '$lib/data/judge';
+import { getJurorPersonas } from '$lib/data/jurors';
+import { getJudgePersona } from '$lib/data/judge';
 import type { LibraryDocument } from '$lib/data/library';
 import { libraryDocuments } from '$lib/data/library';
 import { generateDebateAnalysis, generateBenchTrialAnalysis } from '$lib/server/llm';
@@ -109,14 +109,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	try {
 		if (isBenchTrial) {
-			// Bench Trial: 1 Judge who scores + may interject
-			const { reply, judgeInterjection, judgeMind } = await generateBenchTrialAnalysis({
+			// Bench Trial: 1 Judge who scores
+			const { reply, judgeMind } = await generateBenchTrialAnalysis({
 				prompt,
 				stagedCase,
 				sources,
 				language,
 				ragContext
 			});
+
+			const judgePersona = getJudgePersona(language);
 
 			return json({
 				reply: {
@@ -126,15 +128,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					citations: reply.citations,
 					timestamp: new Date().toISOString()
 				},
-				judgeInterjection: judgeInterjection
-					? {
-							role: 'judge',
-							speaker: judgePersona.name,
-							message: judgeInterjection.message,
-							type: judgeInterjection.type,
-							timestamp: new Date().toISOString()
-						}
-					: null,
 				judgeMind,
 				courtType: 'bench',
 				sourcesUsed
@@ -142,6 +135,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 
 		// Jury Trial: 5 Jurors score
+		const jurorPersonas = getJurorPersonas(language);
 		const selected = Array.isArray(payload.selectedJurors) && payload.selectedJurors.length
 			? payload.selectedJurors
 			: jurorPersonas.map((juror) => juror.id);
