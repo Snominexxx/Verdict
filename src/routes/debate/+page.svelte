@@ -31,6 +31,9 @@
 	let scoring = false;
 	let scoreError = '';
 	let scoreSummary = '';
+	let scoreStrengths: string[] = [];
+	let scoreWeaknesses: string[] = [];
+	let scoreNextTime: string[] = [];
 	let endScores = {
 		persuasion: 50,
 		lawCited: 50,
@@ -233,6 +236,9 @@
 		if (finalize) {
 			caseHistoryStore.markCaseFinished(stagedCase.id, {
 				summary: scoreSummary || t('debate.scoreFallbackSummary', $language),
+				strengths: scoreStrengths,
+				weaknesses: scoreWeaknesses,
+				nextTime: scoreNextTime,
 				scores: { ...endScores }
 			});
 		} else {
@@ -375,6 +381,9 @@
 
 			const payload = await response.json();
 			scoreSummary = payload.summary || t('debate.scoreFallbackSummary', $language);
+			scoreStrengths = Array.isArray(payload.strengths) ? payload.strengths : [];
+			scoreWeaknesses = Array.isArray(payload.weaknesses) ? payload.weaknesses : [];
+			scoreNextTime = Array.isArray(payload.nextTime) ? payload.nextTime : [];
 			endScores = {
 				persuasion: clampScore(payload.scores?.persuasion ?? deterministic.persuasion),
 				lawCited: clampScore(payload.scores?.lawCited ?? deterministic.lawCited),
@@ -387,6 +396,9 @@
 			console.error('Performance scoring failed', err);
 			scoreError = err instanceof Error ? err.message : 'Scoring failed.';
 			scoreSummary = t('debate.scoreFallbackSummary', $language);
+			scoreStrengths = [];
+			scoreWeaknesses = [];
+			scoreNextTime = [];
 			endScores = {
 				...deterministic,
 				average: clampScore((deterministic.persuasion + deterministic.lawCited + deterministic.structure + deterministic.responsiveness + deterministic.factFidelity) / 5)
@@ -791,6 +803,41 @@
 						</div>
 					{/each}
 				</div>
+
+				{#if scoreStrengths.length > 0 || scoreWeaknesses.length > 0 || scoreNextTime.length > 0}
+					<div class="grid gap-3 md:grid-cols-3">
+						{#if scoreStrengths.length > 0}
+							<div class="border border-emerald-400/25 rounded-xl p-4 bg-emerald-400/[0.04]">
+								<p class="text-[10px] uppercase tracking-widest text-emerald-300/80 font-bold mb-2">✓ {t('debate.coachStrengths', $language)}</p>
+								<ul class="space-y-1.5">
+									{#each scoreStrengths as item}
+										<li class="text-xs text-white/85 leading-relaxed flex gap-2"><span class="text-emerald-300/70 shrink-0">•</span><span>{item}</span></li>
+									{/each}
+								</ul>
+							</div>
+						{/if}
+						{#if scoreWeaknesses.length > 0}
+							<div class="border border-amber-400/25 rounded-xl p-4 bg-amber-400/[0.04]">
+								<p class="text-[10px] uppercase tracking-widest text-amber-300/80 font-bold mb-2">△ {t('debate.coachWeaknesses', $language)}</p>
+								<ul class="space-y-1.5">
+									{#each scoreWeaknesses as item}
+										<li class="text-xs text-white/85 leading-relaxed flex gap-2"><span class="text-amber-300/70 shrink-0">•</span><span>{item}</span></li>
+									{/each}
+								</ul>
+							</div>
+						{/if}
+						{#if scoreNextTime.length > 0}
+							<div class="border border-sky-400/25 rounded-xl p-4 bg-sky-400/[0.04]">
+								<p class="text-[10px] uppercase tracking-widest text-sky-300/80 font-bold mb-2">→ {t('debate.coachNextTime', $language)}</p>
+								<ul class="space-y-1.5">
+									{#each scoreNextTime as item}
+										<li class="text-xs text-white/85 leading-relaxed flex gap-2"><span class="text-sky-300/70 shrink-0">•</span><span>{item}</span></li>
+									{/each}
+								</ul>
+							</div>
+						{/if}
+					</div>
+				{/if}
 
 				{#if scoreError}
 					<p class="text-xs text-flare">{scoreError}</p>

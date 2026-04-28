@@ -124,6 +124,10 @@ const translations = {
 	'cases.next': { en: 'NEXT', fr: 'SUIVANT' },
 	'cases.startDebate': { en: 'START DEBATE', fr: 'LANCER LE DÉBAT' },
 	'cases.editSources': { en: 'Edit sources', fr: 'Modifier les sources' },
+	'cases.includeSources': { en: 'Include sources', fr: 'Sources à inclure' },
+	'cases.includeSourcesDesc': { en: 'Uncheck any source you want excluded from the AI generation.', fr: 'Décochez les sources que vous voulez exclure de la génération IA.' },
+	'cases.allOn': { en: 'Select all', fr: 'Tout cocher' },
+	'cases.allOff': { en: 'Deselect all', fr: 'Tout décocher' },
 	'cases.chooseSide': { en: 'Choose Your Side', fr: 'Choisissez votre camp' },
 	'cases.chooseSideDesc': { en: 'Now that you\'ve seen the case, which side do you want to argue?', fr: 'Maintenant que vous avez vu la cause, quel camp voulez-vous défendre?' },
 	'cases.youArgue': { en: 'You\'ll argue:', fr: 'Vous plaiderez :' },
@@ -231,6 +235,9 @@ const translations = {
 		en: 'You showed useful advocacy signals in this session. Keep tightening references to sources, answer opposing points more directly, and maintain factual precision to raise your final score.',
 		fr: 'Vous avez montré de bons signaux de plaidoirie dans cette session. Continuez à renforcer vos références aux sources, répondez plus directement aux points adverses et maintenez une grande précision factuelle pour améliorer votre score final.'
 	},
+	'debate.coachStrengths': { en: 'What worked', fr: 'Ce qui a fonctionné' },
+	'debate.coachWeaknesses': { en: 'What was weak', fr: 'Ce qui était faible' },
+	'debate.coachNextTime': { en: 'Next time', fr: 'La prochaine fois' },
 
 	// ===== COURT =====
 	'court.header': { en: 'Chambers Overview', fr: 'Vue d\'ensemble' },

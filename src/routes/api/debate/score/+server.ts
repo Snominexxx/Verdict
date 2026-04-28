@@ -66,6 +66,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	return json({
 		summary: ai.summary,
+		strengths: ai.strengths ?? [],
+		weaknesses: ai.weaknesses ?? [],
+		nextTime: ai.nextTime ?? [],
 		scores: { ...blended, average }
 	});
 };

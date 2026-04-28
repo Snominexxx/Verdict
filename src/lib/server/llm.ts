@@ -12,6 +12,9 @@ type PerformanceTurn = {
 
 type PerformanceEvaluationResponse = {
 	summary: string;
+	strengths?: string[];
+	weaknesses?: string[];
+	nextTime?: string[];
 	scores: {
 		persuasion: number;
 		lawCited: number;
@@ -958,7 +961,10 @@ IMPORTANT: You are evaluating ONLY the LITIGANT (the human user). Ignore the AI 
 
 You must return JSON only with keys:
 {
-  "summary": "string (max 90 words)",
+  "summary": "string (max 60 words — overall takeaway)",
+  "strengths": ["2 to 3 short bullets — what the litigant did well, concrete"],
+  "weaknesses": ["2 to 3 short bullets — what was missing or weak, concrete"],
+  "nextTime": ["1 to 2 short bullets — specific advice for next case, actionable"],
   "scores": {
     "persuasion": number 0-100,
     "lawCited": number 0-100,
@@ -967,6 +973,11 @@ You must return JSON only with keys:
     "factFidelity": number 0-100
   }
 }
+
+BULLET RULES:
+- Each bullet: max 20 words, no fluff, point to a SPECIFIC moment or argument from the transcript when possible.
+- strengths/weaknesses describe what HAPPENED. nextTime tells what to DO differently.
+- Never write generic platitudes ("be more persuasive"). Always concrete.
 
 SCORING PHILOSOPHY — BE JUST:
 Score like a fair, experienced exam evaluator. Not harsh, not lenient — accurate.
@@ -1019,6 +1030,9 @@ Return strict JSON only.`;
 		required: ['summary', 'scores'],
 		properties: {
 			summary: { type: 'string' },
+			strengths: { type: 'array', items: { type: 'string' } },
+			weaknesses: { type: 'array', items: { type: 'string' } },
+			nextTime: { type: 'array', items: { type: 'string' } },
 			scores: {
 				type: 'object',
 				required: ['persuasion', 'lawCited', 'structure', 'responsiveness', 'factFidelity'],
@@ -1036,8 +1050,15 @@ Return strict JSON only.`;
 	try {
 		const raw = await dispatchToProvider(systemPrompt, userPrompt, schema as unknown as Record<string, unknown>, TEMP_EVALUATION);
 		const parsed = JSON.parse(extractJson(raw)) as PerformanceEvaluationResponse;
+		const cleanList = (list: unknown): string[] =>
+			Array.isArray(list)
+				? list.map((s) => String(s).trim()).filter((s) => s.length > 0).slice(0, 4)
+				: [];
 		return {
 			summary: parsed.summary?.trim() || (language === 'fr' ? 'Résumé indisponible.' : 'Summary unavailable.'),
+			strengths: cleanList(parsed.strengths),
+			weaknesses: cleanList(parsed.weaknesses),
+			nextTime: cleanList(parsed.nextTime),
 			scores: {
 				persuasion: clamp(Number(parsed.scores?.persuasion ?? 60), 0, 100),
 				lawCited: clamp(Number(parsed.scores?.lawCited ?? 60), 0, 100),

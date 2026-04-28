@@ -5,6 +5,9 @@ import { userKey } from './userSession';
 
 export type CasePerformance = {
 	summary: string;
+	strengths?: string[];
+	weaknesses?: string[];
+	nextTime?: string[];
 	scores: {
 		persuasion: number;
 		lawCited: number;

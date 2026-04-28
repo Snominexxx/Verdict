@@ -779,19 +779,6 @@
 									</div>
 								{/if}
 
-								<!-- Badges -->
-								<div class="flex gap-1.5 flex-wrap mt-0.5">
-									{#if doc.jurisdiction && doc.jurisdiction !== 'Other'}
-										<span class="text-[10px] px-2 py-0.5 border border-white/20 rounded-full text-white/65 uppercase tracking-wide">{doc.jurisdiction}</span>
-									{/if}
-									{#if doc.docType}
-										<span class="text-[10px] px-2 py-0.5 border border-white/20 rounded-full text-white/65 uppercase tracking-wide">{doc.docType}</span>
-									{/if}
-									{#if doc.trustLevel}
-										<span class={`text-[10px] px-2 py-0.5 border rounded-full uppercase tracking-wide ${doc.trustLevel === 'official' ? 'border-emerald-400/40 text-emerald-300' : doc.trustLevel === 'recognized' ? 'border-amber-400/40 text-amber-300' : 'border-white/20 text-white/55'}`}>{doc.trustLevel}</span>
-									{/if}
-								</div>
-
 								<!-- Actions -->
 								{#if !$indexingSourceIds.has(doc.id) && renamingId !== doc.id}
 									<div class="flex items-center gap-1.5 pt-1.5 mt-auto opacity-70 group-hover:opacity-100 transition">

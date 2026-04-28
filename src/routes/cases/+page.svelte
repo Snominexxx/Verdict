@@ -180,6 +180,15 @@
 		}
 	};
 
+	const selectAllSources = () => {
+		if (!selectedPack) return;
+		formData = { ...formData, sources: selectedPack.sources.map((s) => s.id) };
+	};
+
+	const deselectAllSources = () => {
+		formData = { ...formData, sources: [] };
+	};
+
 	const resetForm = () => {
 		caseDraftStore.clear();
 		formData = get(caseDraftStore);
@@ -333,6 +342,32 @@
 						{/if}
 						{#if step1Attempted && !$selectedLegalPackId}
 							<p class="text-sm font-semibold text-red-400">{t('cases.selectPackRequired', $language)}</p>
+						{/if}
+
+						<!-- Per-source toggle (revealed once a pack is selected) -->
+						{#if selectedPack && selectedPack.sources.length > 0}
+							<div class="mt-4 border border-white/15 rounded-lg p-4 bg-white/[0.03] space-y-3">
+								<div class="flex items-center justify-between gap-3 flex-wrap">
+									<div>
+										<p class="text-xs font-bold uppercase tracking-widest text-white/70 font-mono">{t('cases.includeSources', $language)}</p>
+										<p class="text-xs text-white/45 mt-1">{t('cases.includeSourcesDesc', $language)}</p>
+									</div>
+									<div class="flex gap-1.5 shrink-0">
+										<button type="button" onclick={selectAllSources} class="text-xs px-2.5 py-1 border border-white/20 rounded text-white/70 hover:bg-white/10 hover:text-white transition">{t('cases.allOn', $language)}</button>
+										<button type="button" onclick={deselectAllSources} class="text-xs px-2.5 py-1 border border-white/20 rounded text-white/70 hover:bg-white/10 hover:text-white transition">{t('cases.allOff', $language)}</button>
+									</div>
+								</div>
+								<div class="grid gap-1.5 sm:grid-cols-2 max-h-[260px] overflow-y-auto pr-1">
+									{#each selectedPack.sources as doc}
+										{@const checked = formData.sources.includes(doc.id)}
+										<label class={`flex items-center gap-2.5 px-3 py-2 border rounded-lg cursor-pointer transition ${checked ? 'border-white/40 bg-white/10' : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.06]'}`}>
+											<input type="checkbox" {checked} onchange={() => toggleSource(doc.id)} class="w-3.5 h-3.5 accent-white shrink-0" />
+											<span class="text-sm text-white/85 truncate" title={doc.title}>{doc.title}</span>
+										</label>
+									{/each}
+								</div>
+								<p class="text-[11px] text-white/45 font-mono">{formData.sources.length} / {selectedPack.sources.length} {t('cases.selected', $language)}</p>
+							</div>
 						{/if}
 					</div>
 
