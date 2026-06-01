@@ -1,11 +1,27 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { error, json } from '@sveltejs/kit';
-import type { DebateTurn, StagedCase } from '$lib/types';
+import type { DebateTurn, PackContext, PackLanguage, StagedCase } from '$lib/types';
 import type { LibraryDocument } from '$lib/data/library';
 import { generatePerformanceEvaluation } from '$lib/server/llm';
 import { rateLimit } from '$lib/server/rateLimit';
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+const normalizePackLanguage = (value: unknown): PackLanguage => (value === 'fr' ? 'fr' : 'en');
+
+const normalizePackContext = (value: unknown): PackContext | undefined => {
+	if (!value || typeof value !== 'object') return undefined;
+	const raw = value as Record<string, unknown>;
+	return {
+		id: typeof raw.id === 'string' ? raw.id.slice(0, 100) : undefined,
+		name: typeof raw.name === 'string' ? raw.name.slice(0, 200) : undefined,
+		jurisdiction: typeof raw.jurisdiction === 'string' ? raw.jurisdiction.slice(0, 200) : undefined,
+		domain: typeof raw.domain === 'string' ? raw.domain.slice(0, 200) : undefined,
+		language: raw.language === 'fr' ? 'fr' : raw.language === 'en' ? 'en' : undefined,
+		sourceLanguage: raw.sourceLanguage === 'fr' ? 'fr' : raw.sourceLanguage === 'en' ? 'en' : undefined,
+		draftLanguage: raw.draftLanguage === 'fr' ? 'fr' : raw.draftLanguage === 'en' ? 'en' : undefined,
+		hearingLanguage: raw.hearingLanguage === 'fr' ? 'fr' : raw.hearingLanguage === 'en' ? 'en' : undefined
+	};
+};
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const { session } = await locals.safeGetSession();
@@ -21,6 +37,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const stagedCase = payload.case as StagedCase | undefined;
 	const transcript = (payload.transcript as DebateTurn[] | undefined) ?? [];
 	const sources = (payload.sources as LibraryDocument[] | undefined) ?? [];
+	const packContext = normalizePackContext(payload.packContext ?? stagedCase?.packContext);
 	const deterministic = payload.deterministic as
 		| {
 				persuasion?: number;
@@ -30,7 +47,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				factFidelity?: number;
 		  }
 		| undefined;
-	const language = String(payload.language ?? 'en');
+	const language = normalizePackLanguage(
+		stagedCase?.paperSnapshot?.hearingLanguage ??
+			packContext?.hearingLanguage ??
+			packContext?.sourceLanguage ??
+			packContext?.language ??
+			payload.language
+	);
 
 	if (!stagedCase) {
 		throw error(400, 'No staged case supplied.');
@@ -43,6 +66,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const ai = await generatePerformanceEvaluation({
 		stagedCase,
 		sources,
+		packContext,
 		transcript: transcript.map((turn) => ({
 			role: turn.role,
 			speaker: turn.speaker,

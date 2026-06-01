@@ -1,16 +1,23 @@
 /**
- * Verdict RAG — Chunking, Embedding & Semantic Search
+ * Verdict — Document text storage.
  *
- * Handles:
- * 1. Intelligent chunking of legal documents (by article/section)
- * 2. Embedding via OpenAI text-embedding-3-small
- * 3. Storage in Supabase pgvector
- * 4. Semantic search for debate context
+ * Persists user-uploaded legal documents in Supabase. Verdict now uses a
+ * full-context architecture: at query time the LLM receives the complete
+ * text of every selected source (assembled by `$lib/server/sources`) and
+ * reasons over it directly. No embeddings, no semantic search.
+ *
+ * The `document_chunks` table is reused as ordered text storage so we can
+ * reconstruct the full document by concatenating rows in `chunk_index` order.
+ * The `embedding` column stays nullable for backwards compatibility with
+ * pre-existing rows but is never written.
  */
 
-import { env } from '$env/dynamic/private';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { assertSupabaseAdmin } from './supabaseAdmin';
+import {
+	legalStructureMetadataForUnit,
+	parseLegalStructure,
+	type LegalStructureAudit
+} from '$lib/server/legalStructure';
 
 // ─────────────────────────────────────────────────────────
 // Types
@@ -21,6 +28,7 @@ export type DocumentChunk = {
 	content: string;
 	chunkIndex: number;
 	tokenCount: number;
+	metadata?: Record<string, unknown>;
 };
 
 export type ChunkMetadata = {
@@ -35,15 +43,9 @@ export type ChunkMetadata = {
 	fileSize?: number;
 };
 
-export type MatchedChunk = {
-	id: string;
-	sourceId: string;
-	chunkIndex: number;
-	heading: string;
-	content: string;
-	tokenCount: number;
-	metadata: ChunkMetadata;
-	similarity: number;
+export type StoreChunksResult = {
+	chunkCount: number;
+	ingestionAudit: LegalStructureAudit;
 };
 
 // ─────────────────────────────────────────────────────────
@@ -70,19 +72,38 @@ const estimateTokens = (text: string): number => Math.ceil(text.length / 4);
  * Tries to split by article/section boundaries first,
  * then falls back to paragraph splitting for non-structured text.
  */
-export const chunkDocument = (text: string): DocumentChunk[] => {
+export const prepareDocumentChunks = (text: string): StoreChunksResult & { chunks: DocumentChunk[] } => {
 	const cleaned = text.replace(/\r\n/g, '\n').trim();
-	if (!cleaned) return [];
+	if (!cleaned) {
+		const structure = parseLegalStructure('');
+		return { chunks: [], chunkCount: 0, ingestionAudit: structure.audit };
+	}
+
+	const structure = parseLegalStructure(cleaned);
+	if (structure.audit.mode === 'structured-legal' && structure.units.length) {
+		const chunks = structure.units.map((unit, index) => ({
+			heading: unit.heading || unit.citation || unit.label,
+			content: unit.content,
+			chunkIndex: index,
+			tokenCount: unit.tokenCount,
+			metadata: legalStructureMetadataForUnit(unit)
+		}));
+		return { chunks, chunkCount: chunks.length, ingestionAudit: structure.audit };
+	}
 
 	// Try structure-aware splitting first
 	const sections = splitBySections(cleaned);
 	if (sections.length > 1) {
-		return balanceChunks(sections);
+		const chunks = balanceChunks(sections);
+		return { chunks, chunkCount: chunks.length, ingestionAudit: structure.audit };
 	}
 
 	// Fallback: split by paragraphs / double newlines
-	return splitByParagraphs(cleaned);
+	const chunks = splitByParagraphs(cleaned);
+	return { chunks, chunkCount: chunks.length, ingestionAudit: structure.audit };
 };
+
+export const chunkDocument = (text: string): DocumentChunk[] => prepareDocumentChunks(text).chunks;
 
 /**
  * Split by legal section markers (Art., Section, Chapter, etc.)
@@ -251,105 +272,8 @@ const balanceChunks = (chunks: DocumentChunk[]): DocumentChunk[] => {
 };
 
 // ─────────────────────────────────────────────────────────
-// 2. EMBEDDING — OpenAI text-embedding-3-small
+// 2. STORAGE — Persist text rows in document_chunks
 // ─────────────────────────────────────────────────────────
-
-const EMBEDDING_MODEL = 'text-embedding-3-small';
-const EMBEDDING_BATCH_SIZE = 50; // OpenAI allows up to 2048 inputs, but batch for safety
-
-/**
- * Generate embeddings for an array of text strings.
- * Returns one 1536-dim vector per input.
- */
-export const generateEmbeddings = async (texts: string[]): Promise<number[][]> => {
-	if (!env.LLM_API_KEY) {
-		throw new Error('LLM_API_KEY is not configured.');
-	}
-	if (!texts.length) return [];
-
-	const allEmbeddings: number[][] = [];
-
-	for (let i = 0; i < texts.length; i += EMBEDDING_BATCH_SIZE) {
-		const batch = texts.slice(i, i + EMBEDDING_BATCH_SIZE);
-		const response = await fetch('https://api.openai.com/v1/embeddings', {
-			method: 'POST',
-			headers: {
-				Authorization: `Bearer ${env.LLM_API_KEY}`,
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				model: EMBEDDING_MODEL,
-				input: batch
-			})
-		});
-
-		if (!response.ok) {
-			const errBody = await response.text().catch(() => '');
-			throw new Error(`Embedding API error (${response.status}): ${errBody}`);
-		}
-
-		const data = await response.json();
-		const sorted = data.data.sort((a: { index: number }, b: { index: number }) => a.index - b.index);
-		allEmbeddings.push(...sorted.map((item: { embedding: number[] }) => item.embedding));
-	}
-
-	return allEmbeddings;
-};
-
-// ─────────────────────────────────────────────────────────
-// 3. STORAGE — Save chunks + embeddings to Supabase
-// ─────────────────────────────────────────────────────────
-
-/**
- * Chunk a document, embed all chunks, and store in document_chunks.
- * Returns the number of chunks created.
- */
-export const indexDocument = async (args: {
-	supabase: SupabaseClient;
-	userId: string;
-	sourceId: string;
-	packId?: string;
-	content: string;
-	metadata: ChunkMetadata;
-}): Promise<number> => {
-	const { supabase, userId, sourceId, packId, content, metadata } = args;
-
-	// 1. Delete existing chunks for this source (re-index)
-	await supabase.from('document_chunks').delete().match({ user_id: userId, source_id: sourceId });
-
-	// 2. Chunk the document
-	const chunks = chunkDocument(content);
-	if (!chunks.length) return 0;
-
-	// 3. Generate embeddings for all chunks
-	const embeddings = await generateEmbeddings(chunks.map((c) => c.content));
-
-	// 4. Insert in batches  
-	const rows = chunks.map((chunk, i) => ({
-		user_id: userId,
-		source_id: sourceId,
-		pack_id: packId || null,
-		chunk_index: chunk.chunkIndex,
-		heading: chunk.heading,
-		content: chunk.content,
-		token_count: chunk.tokenCount,
-		embedding: JSON.stringify(embeddings[i]),
-		metadata
-	}));
-
-	// Insert in batches of 100 to avoid payload limits
-	const BATCH_SIZE = 100;
-	for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-		const batch = rows.slice(i, i + BATCH_SIZE);
-		const { error } = await supabase.from('document_chunks').insert(batch);
-		if (error) {
-			console.error(`Failed to insert chunk batch ${i}:`, error);
-			throw new Error(`Failed to store document chunks: ${error.message}`);
-		}
-	}
-
-	return chunks.length;
-};
 
 /**
  * Delete all chunks for a specific source document.
@@ -374,27 +298,50 @@ export const storeChunksOnly = async (args: {
 	packId?: string;
 	content: string;
 	metadata: ChunkMetadata;
-}): Promise<number> => {
-	const { supabase, userId, sourceId, packId, content, metadata } = args;
+	append?: boolean;
+}): Promise<StoreChunksResult> => {
+	const { supabase, userId, sourceId, packId, content, metadata, append = false } = args;
 
-	// Delete existing chunks for this source (re-index)
-	await supabase.from('document_chunks').delete().match({ user_id: userId, source_id: sourceId });
+	let chunkIndexOffset = 0;
+	if (append) {
+		const { data, error } = await supabase
+			.from('document_chunks')
+			.select('chunk_index')
+			.eq('user_id', userId)
+			.eq('source_id', sourceId)
+			.order('chunk_index', { ascending: false })
+			.limit(1)
+			.maybeSingle();
+		if (error) {
+			console.warn('Failed to read existing chunk index before append:', error.message);
+		}
+		chunkIndexOffset = typeof data?.chunk_index === 'number' ? data.chunk_index + 1 : 0;
+	} else {
+		// Delete existing chunks for this source (re-index)
+		await supabase.from('document_chunks').delete().match({ user_id: userId, source_id: sourceId });
+	}
 
-	// Chunk the document
-	const chunks = chunkDocument(content);
-	if (!chunks.length) return 0;
+	// Chunk the document. Legal sources are split on article/section boundaries
+	// when the structure is detectable; generic text keeps the previous fallback.
+	const prepared = prepareDocumentChunks(content);
+	const chunks = prepared.chunks;
+	if (!chunks.length) return { chunkCount: 0, ingestionAudit: prepared.ingestionAudit };
 
 	// Store chunks without embeddings
 	const rows = chunks.map((chunk) => ({
 		user_id: userId,
 		source_id: sourceId,
 		pack_id: packId || null,
-		chunk_index: chunk.chunkIndex,
+		chunk_index: chunk.chunkIndex + chunkIndexOffset,
 		heading: chunk.heading,
 		content: chunk.content,
 		token_count: chunk.tokenCount,
 		embedding: null,
-		metadata
+		metadata: {
+			...metadata,
+			ingestionAudit: prepared.ingestionAudit,
+			...(chunk.metadata ?? {})
+		}
 	}));
 
 	const BATCH_SIZE = 100;
@@ -407,144 +354,5 @@ export const storeChunksOnly = async (args: {
 		}
 	}
 
-	return chunks.length;
-};
-
-/**
- * Embed a batch of un-embedded chunks for a given source.
- * Returns { embedded, remaining }.
- */
-export const embedChunkBatch = async (args: {
-	supabase: SupabaseClient;
-	userId: string;
-	sourceId: string;
-	limit?: number;
-}): Promise<{ embedded: number; remaining: number }> => {
-	const { userId, sourceId, limit = 50 } = args;
-	const admin = assertSupabaseAdmin();
-
-	// Fetch un-embedded chunks (use admin to bypass RLS)
-	const { data: chunks, error: fetchErr } = await admin
-		.from('document_chunks')
-		.select('id, content')
-		.match({ user_id: userId, source_id: sourceId })
-		.is('embedding', null)
-		.order('chunk_index', { ascending: true })
-		.limit(limit);
-
-	if (fetchErr) throw new Error(`Failed to fetch chunks: ${fetchErr.message}`);
-	if (!chunks?.length) return { embedded: 0, remaining: 0 };
-
-	// Generate embeddings
-	const embeddings = await generateEmbeddings(chunks.map((c) => c.content));
-
-	// Update each chunk with its embedding
-	for (let i = 0; i < chunks.length; i++) {
-		const { error: updateErr } = await admin
-			.from('document_chunks')
-			.update({ embedding: JSON.stringify(embeddings[i]) })
-			.eq('id', chunks[i].id);
-
-		if (updateErr) {
-			console.error(`Failed to update chunk ${chunks[i].id}:`, updateErr);
-		}
-	}
-
-	// Count remaining un-embedded
-	const { count } = await admin
-		.from('document_chunks')
-		.select('id', { count: 'exact', head: true })
-		.match({ user_id: userId, source_id: sourceId })
-		.is('embedding', null);
-
-	return { embedded: chunks.length, remaining: count ?? 0 };
-};
-
-// ─────────────────────────────────────────────────────────
-// 4. SEMANTIC SEARCH — Find relevant chunks for a query
-// ─────────────────────────────────────────────────────────
-
-/**
- * Search for the most relevant document chunks given a query string.
- * Uses pgvector cosine similarity via Supabase RPC.
- */
-export const searchChunks = async (args: {
-	supabase: SupabaseClient;
-	userId: string;
-	query: string;
-	packId?: string;
-	maxChunks?: number;
-	maxTokens?: number;
-}): Promise<MatchedChunk[]> => {
-	const { supabase, userId, query, packId, maxChunks = 15, maxTokens = 12000 } = args;
-
-	// 1. Embed the query
-	const [queryEmbedding] = await generateEmbeddings([query]);
-
-	// 2. Call the match_chunks RPC function
-	const { data, error } = await supabase.rpc('match_chunks', {
-		query_embedding: JSON.stringify(queryEmbedding),
-		match_user_id: userId,
-		match_count: maxChunks,
-		match_pack_id: packId || null
-	});
-
-	if (error) {
-		console.error('Semantic search failed:', error);
-		throw new Error(`Semantic search failed: ${error.message}`);
-	}
-
-	if (!data?.length) return [];
-
-	// 3. Budget-constrained selection: take top chunks until token budget is exhausted
-	const results: MatchedChunk[] = [];
-	let totalTokens = 0;
-
-	for (const row of data) {
-		if (totalTokens + row.token_count > maxTokens) continue;
-		totalTokens += row.token_count;
-		results.push({
-			id: row.id,
-			sourceId: row.source_id,
-			chunkIndex: row.chunk_index,
-			heading: row.heading,
-			content: row.content,
-			tokenCount: row.token_count,
-			metadata: row.metadata,
-			similarity: row.similarity
-		});
-	}
-
-	return results;
-};
-
-/**
- * Format matched chunks into a string suitable for LLM prompt injection.
- * Groups by source document for readability.
- */
-export const formatChunksForPrompt = (chunks: MatchedChunk[]): string => {
-	if (!chunks.length) return '- No relevant document sections found.';
-
-	// Group by source
-	const bySource = new Map<string, MatchedChunk[]>();
-	for (const chunk of chunks) {
-		const key = chunk.metadata.title || chunk.sourceId;
-		if (!bySource.has(key)) bySource.set(key, []);
-		bySource.get(key)!.push(chunk);
-	}
-
-	const lines: string[] = [];
-	for (const [title, sourceChunks] of bySource) {
-		// Sort chunks by their original order in the document
-		sourceChunks.sort((a, b) => a.chunkIndex - b.chunkIndex);
-		const jurisdiction = sourceChunks[0].metadata.jurisdiction || '';
-		lines.push(`─ ${title}${jurisdiction ? ` (${jurisdiction})` : ''} ─`);
-		for (const chunk of sourceChunks) {
-			const label = chunk.heading && chunk.heading !== `Section ${chunk.chunkIndex + 1}` ? `[${chunk.heading}]` : '';
-			lines.push(`${label}\n${chunk.content}`);
-		}
-		lines.push('');
-	}
-
-	return lines.join('\n');
+	return { chunkCount: chunks.length, ingestionAudit: prepared.ingestionAudit };
 };

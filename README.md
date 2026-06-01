@@ -1,6 +1,6 @@
 # Verdict — AI Litigation Simulator
 
-Verdict is an MVP training cockpit where lawyers and law students can debate a case against an AI advocate while five AI jurors react with distinct scoring styles.
+Verdict is a source-bound legal training cockpit where lawyers, teachers, and law students upload materials, build grounded exercise papers, save drafts, and argue before an AI judge.
 
 ## Stack
 
@@ -40,11 +40,11 @@ LLM_TEMPERATURE=0.2
 ## Available Pages
 
 - **/** — overview with primary call-to-action buttons
-- **/cases** — staging area for official sample cases or custom uploads (with AI auto-fill)
+- **/cases** — Create workspace for source-aware chat, grounded exercise building, and launch into judge mode
+- **/drafts** — saved pre-judge exercise papers that can be reopened in Create
 - **/court** — case management hub showing ongoing and finished cases
-- **/debate** — chat-style arena plus juror/judge panel and scorecards
-- **/jury** — deeper view of juror psychology and scoring rubric
-- **/library** — reader for foundational Canadian legal sources
+- **/debate** — judge-mode hearing with source-grounded citations, judge focus, and scoring
+- **/library** — upload, read, and manage source packs and legal documents
 - **/about** — project mission statement
 - **/how-it-works** — step-by-step guide to the Verdict engine
 
@@ -58,11 +58,11 @@ LLM_TEMPERATURE=0.2
 
 ## Development Workflow
 
-1. Stage cases + sources (Supabase Storage + Postgres)
-2. Start a debate; frontend hits `POST /api/debate`
-3. Server endpoint pushes prompt + sources to your configured LLM (OpenAI, Azure OpenAI, or Anthropic)
-4. Juror personas get scored via the same response (JSON enforced) and fed back to the UI
-5. Persist verdict + transcript for later review/export
+1. Upload and organize sources in Library (Supabase Storage + Postgres)
+2. Use Create to chat naturally, review selected documents, and build a grounded exercise paper
+3. Save the paper as a Draft or launch it into Judge mode
+4. Judge mode sends the staged case + sources to your configured LLM (OpenAI, Azure OpenAI, or Anthropic)
+5. Persist drafts, hearings, scores, and transcripts for later review
 
 ### Library content
 
@@ -71,7 +71,7 @@ LLM_TEMPERATURE=0.2
 
 - `src/routes/api/cases/+server.ts` writes staged cases to the `staged_cases` table and stores the ID in the `verdict_case_id` cookie so `/debate` can reload the context after a refresh.
 - `src/routes/debate/+page.server.ts` hydrates the current case from Supabase before rendering.
-- `src/routes/api/debate/+server.ts` now calls your actual LLM and synthesizes juror scorecards from the same response payload.
+- `src/routes/api/debate/+server.ts` now calls your actual LLM for a bench-only judge hearing grounded in the selected sources.
 
 ### Supabase schema
 
@@ -102,8 +102,8 @@ Netlify reads `netlify.toml`, runs the build, and serves the generated server bu
 
 ## Next Steps
 
-- Replace the mock `/api/debate` logic with your LLM provider of choice
-- Wire Supabase auth/storage for uploads and private workspaces
-- Add PDF/CSV export of the juror scorecards for coaching feedback
+- Continue refining the Create-to-Draft-to-Judge workflow
+- Expand Supabase auth/storage for private source workspaces
+- Add richer export/review options for saved hearings and draft exercise papers
 
 Happy litigating! ✨

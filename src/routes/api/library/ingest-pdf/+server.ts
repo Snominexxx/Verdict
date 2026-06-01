@@ -5,6 +5,7 @@ import mammoth from 'mammoth';
 import { storeChunksOnly } from '$lib/server/rag';
 import { assertSupabaseAdmin } from '$lib/server/supabaseAdmin';
 import { rateLimit } from '$lib/server/rateLimit';
+import { validateExtractedText, formatExtractionError } from '$lib/server/textQuality';
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15 MB
 const ACCEPTED_EXTENSIONS = ['.pdf', '.docx'];
@@ -74,6 +75,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	try {
 		let rawText = '';
+		let ingestionAudit = null;
 
 		if (ext === '.docx') {
 			const result = await mammoth.extractRawText({ buffer: Buffer.from(fileBytes) });
@@ -91,8 +93,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			.replace(/\n{3,}/g, '\n\n')     // cap consecutive newlines at 2
 			.trim();
 
-		if (!text || text.length < 20) {
-			throw error(422, 'Could not extract readable text from this file. It may be scanned, image-based, or empty.');
+		// Quality gate: reject scanned PDFs, formatting noise, image-only files,
+		// and other garbage extractions BEFORE they pollute the user's library and
+		// the AI's context. Each rejection carries a precise hint so the user knows
+		// exactly what to fix (run OCR, paste manually, re-export, etc.).
+		const quality = validateExtractedText(text);
+		if (!quality.valid) {
+			throw error(422, formatExtractionError(quality));
 		}
 
 		const title = filename.replace(/\.(pdf|docx)$/i, '').replace(/[_-]+/g, ' ').trim();
@@ -106,7 +113,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		if (text.length >= 50) {
 			try {
 				const supabase = assertSupabaseAdmin();
-				totalChunks = await storeChunksOnly({
+				const stored = await storeChunksOnly({
 					supabase,
 					userId: session.user.id,
 					sourceId,
@@ -120,6 +127,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 						sourceUrl: `uploaded://${filename}`
 					}
 				});
+				totalChunks = stored.chunkCount;
+				ingestionAudit = stored.ingestionAudit;
 			} catch (storeErr) {
 				console.error('Failed to store chunks:', storeErr);
 				// Non-fatal: document is still returned, user can retry embedding
@@ -139,9 +148,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				docType,
 				trustLevel: 'unverified' as const,
 				isCustom: true,
-				note: `Uploaded ${fileType}. Review extracted text for accuracy.`
+				note: ingestionAudit?.reliableForClassroom
+					? `Uploaded ${fileType}. Legal structure detected and ready for classroom review.`
+					: `Uploaded ${fileType}. Review extracted text and structure before classroom use.`
 			},
-			totalChunks
+			totalChunks,
+			ingestionAudit
 		});
 	} catch (err) {
 		if (err instanceof Response) throw err;

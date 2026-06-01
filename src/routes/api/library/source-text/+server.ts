@@ -14,12 +14,12 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 	const pageSize = 1000;
 	let from = 0;
-	const rows: Array<{ chunk_index: number; content: string }> = [];
+	const rows: Array<{ chunk_index: number; content: string; metadata?: Record<string, unknown> }> = [];
 
 	while (true) {
 		const { data, error: dbError } = await locals.supabase
 			.from('document_chunks')
-			.select('chunk_index, content')
+			.select('chunk_index, content, metadata')
 			.eq('user_id', session.user.id)
 			.eq('source_id', sourceId)
 			.order('chunk_index', { ascending: true })
@@ -30,7 +30,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 			throw error(500, 'Failed to load source text.');
 		}
 
-		const batch = (data ?? []) as Array<{ chunk_index: number; content: string }>;
+		const batch = (data ?? []) as Array<{ chunk_index: number; content: string; metadata?: Record<string, unknown> }>;
 		if (!batch.length) break;
 
 		rows.push(...batch);
@@ -43,5 +43,6 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	}
 
 	const fullText = rows.map((r) => r.content ?? '').join('\n\n').trim();
-	return json({ sourceId, text: fullText, chunks: rows.length });
+	const ingestionAudit = rows.find((row) => row.metadata?.ingestionAudit)?.metadata?.ingestionAudit ?? null;
+	return json({ sourceId, text: fullText, chunks: rows.length, ingestionAudit });
 };

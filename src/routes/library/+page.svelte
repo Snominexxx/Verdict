@@ -4,7 +4,6 @@
 	import type { LibraryDocument } from '$lib/data/library';
 	import { legalPacksStore, selectedLegalPackId, type LegalPack } from '$lib/stores/legalPacks';
 	import { language } from '$lib/stores/language';
-	import { indexingSourceIds, indexingProgress, markIndexing, markIndexed, updateProgress } from '$lib/stores/indexing';
 	import { t } from '$lib/i18n';
 
 	let selectedDoc: LibraryDocument | null = null;
@@ -32,7 +31,8 @@
 	let packModalOpen = false;
 	let editingPackId = '';
 	let packName = '';
-	let packJurisdiction = '';
+	let sourcePackMetadataLabel = '';
+	let packLanguage: 'en' | 'fr' = 'en';
 	let packDomain = '';
 	let packDescription = '';
 
@@ -79,6 +79,127 @@
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 	};
 
+	const normalizePdfArtifactLine = (line: string): string =>
+		line
+			.toLowerCase()
+			.replace(/\s+/g, ' ')
+			.replace(/[0-9]+/g, '#')
+			.replace(/[|•·]/g, ' ')
+			.trim();
+
+	const looksLikePageCounter = (line: string): boolean => {
+		const value = line.trim().toLowerCase();
+		if (!value) return false;
+		if (/^(?:p\.?|page|pages?)\s*\d+(?:\s*(?:\/|of|sur)\s*\d+)?$/.test(value)) return true;
+		if (/^\d+\s*(?:\/|of|sur)\s*\d+$/.test(value)) return true;
+		if (/^\d{1,4}$/.test(value)) return true;
+		return false;
+	};
+
+	const stripRepeatedPdfArtifacts = (pageTexts: string[]): string[] => {
+		if (pageTexts.length < 2) return pageTexts;
+		const topLineCounts = new Map<string, number>();
+		const bottomLineCounts = new Map<string, number>();
+
+		for (const pageText of pageTexts) {
+			const lines = pageText
+				.split('\n')
+				.map((line) => line.trim())
+				.filter(Boolean);
+			if (!lines.length) continue;
+
+			const topLine = normalizePdfArtifactLine(lines[0]);
+			const bottomLine = normalizePdfArtifactLine(lines[lines.length - 1]);
+			if (topLine && topLine.length <= 140) {
+				topLineCounts.set(topLine, (topLineCounts.get(topLine) ?? 0) + 1);
+			}
+			if (bottomLine && bottomLine.length <= 140) {
+				bottomLineCounts.set(bottomLine, (bottomLineCounts.get(bottomLine) ?? 0) + 1);
+			}
+		}
+
+		const repeatedThreshold = Math.max(2, Math.ceil(pageTexts.length * 0.5));
+		const repeatedTopLines = new Set(
+			Array.from(topLineCounts.entries())
+				.filter(([, count]) => count >= repeatedThreshold)
+				.map(([line]) => line)
+		);
+		const repeatedBottomLines = new Set(
+			Array.from(bottomLineCounts.entries())
+				.filter(([, count]) => count >= repeatedThreshold)
+				.map(([line]) => line)
+		);
+
+		return pageTexts.map((pageText) => {
+			const lines = pageText
+				.split('\n')
+				.map((line) => line.trim())
+				.filter(Boolean);
+			if (!lines.length) return '';
+
+			let start = 0;
+			let end = lines.length;
+			const topLine = normalizePdfArtifactLine(lines[0]);
+			const bottomLine = normalizePdfArtifactLine(lines[lines.length - 1]);
+
+			if (looksLikePageCounter(lines[0]) || repeatedTopLines.has(topLine)) start = 1;
+			if (end - start > 0 && (looksLikePageCounter(lines[end - 1]) || repeatedBottomLines.has(bottomLine))) {
+				end -= 1;
+			}
+
+			return lines.slice(start, end).join('\n').trim();
+		});
+	};
+
+	const extractPdfPageText = async (page: any): Promise<string> => {
+		const content = await page.getTextContent();
+		type PdfTextItem = { str?: string; transform?: number[] };
+		type PositionedPdfText = { text: string; x: number; y: number };
+		const rawItems = content.items as PdfTextItem[];
+		const positionedItems: PositionedPdfText[] = rawItems
+			.filter((item) => typeof item.str === 'string' && item.str.trim().length > 0)
+			.map((item) => {
+				const transform = item.transform;
+				return {
+					text: item.str!.trim(),
+					x: transform?.[4] ?? 0,
+					y: transform?.[5] ?? 0
+				};
+			})
+			.filter((item) => item.text.length > 0)
+			.sort((left, right) => {
+				const yDiff = right.y - left.y;
+				if (Math.abs(yDiff) > 2.4) return yDiff;
+				return left.x - right.x;
+			});
+
+		const lines: string[] = [];
+		let currentY: number | null = null;
+		let lineBuffer: string[] = [];
+		const flushLine = () => {
+			if (!lineBuffer.length) return;
+			const line = lineBuffer.join(' ').replace(/\s+/g, ' ').trim();
+			if (line) lines.push(line);
+			lineBuffer = [];
+		};
+
+		for (const item of positionedItems) {
+			if (currentY === null) {
+				currentY = item.y;
+				lineBuffer.push(item.text);
+				continue;
+			}
+			if (Math.abs(item.y - currentY) > 2.4) {
+				flushLine();
+				currentY = item.y;
+			}
+			lineBuffer.push(item.text);
+		}
+		flushLine();
+
+		return lines.join('\n');
+	};
+
 	const fileExtensionOf = (doc: LibraryDocument): 'pdf' | 'docx' | 'url' | 'doc' => {
 		const name = (doc.originalFileName || doc.sourceUrl || '').toLowerCase();
 		if (name.endsWith('.pdf') || doc.mimeType?.includes('pdf')) return 'pdf';
@@ -115,23 +236,7 @@
 	onMount(() => {
 		legalPacksStore.hydrate();
 		selectedLegalPackId.hydrate();
-		checkPendingIndexing();
 	});
-
-	/** On page load, check for sources with un-embedded chunks and auto-resume. */
-	const checkPendingIndexing = async () => {
-		try {
-			const res = await fetch('/api/library/pending');
-			if (!res.ok) return;
-			const { sourceIds } = await res.json() as { sourceIds: string[] };
-			for (const sid of sourceIds) {
-				if (!$indexingSourceIds.has(sid)) {
-					markIndexing(sid);
-					runBatchEmbedding(sid, 0);
-				}
-			}
-		} catch { /* silent */ }
-	};
 
 	$: packs = $legalPacksStore;
 	$: selectedPack = packs.find((p) => p.id === $selectedLegalPackId) ?? packs[0] ?? null;
@@ -148,7 +253,8 @@
 	const openCreatePack = () => {
 		editingPackId = '';
 		packName = '';
-		packJurisdiction = '';
+		sourcePackMetadataLabel = '';
+		packLanguage = $language;
 		packDomain = '';
 		packDescription = '';
 		packModalOpen = true;
@@ -157,7 +263,8 @@
 	const openEditPack = (pack: LegalPack) => {
 		editingPackId = pack.id;
 		packName = pack.name;
-		packJurisdiction = pack.jurisdiction;
+		sourcePackMetadataLabel = pack.jurisdiction;
+		packLanguage = pack.language ?? 'en';
 		packDomain = pack.domain;
 		packDescription = pack.description;
 		packModalOpen = true;
@@ -173,14 +280,16 @@
 		if (editingPackId) {
 			legalPacksStore.updatePack(editingPackId, {
 				name: packName.trim(),
-				jurisdiction: packJurisdiction.trim() || 'Other',
+				jurisdiction: sourcePackMetadataLabel.trim() || 'Source materials',
+				language: packLanguage,
 				domain: packDomain.trim() || 'General',
 				description: packDescription.trim()
 			});
 		} else {
 			legalPacksStore.createPack({
 				name: packName.trim(),
-				jurisdiction: packJurisdiction.trim() || 'Other',
+				jurisdiction: sourcePackMetadataLabel.trim() || 'Source materials',
+				language: packLanguage,
 				domain: packDomain.trim() || 'General',
 				description: packDescription.trim(),
 				sources: []
@@ -259,23 +368,14 @@
 							.replace('{total}', String(totalPages));
 					}
 					const page = await pdf.getPage(i);
-					const content = await page.getTextContent();
-					let pageText = '';
-					let lastY: number | null = null;
-					for (const item of content.items) {
-						if (!('str' in item) || !item.str) continue;
-						const y = (item as any).transform?.[5] ?? null;
-						if (lastY !== null && y !== null && Math.abs(y - lastY) > 2) {
-							pageText += '\n';
-						} else if (pageText) {
-							pageText += ' ';
-						}
-						pageText += item.str;
-						if (y !== null) lastY = y;
-					}
+					const pageText = await extractPdfPageText(page);
 					pageTexts.push(pageText);
 				}
-				extractedText = pageTexts.join('\n');
+				const cleanedPageTexts = stripRepeatedPdfArtifacts(pageTexts).filter(Boolean);
+				extractedText = cleanedPageTexts.join('\n\n').trim();
+				if (extractedText.length < 80) {
+					extractedText = pageTexts.join('\n\n').trim();
+				}
 			} else {
 				parseProgress = t('library.extractingWord', $language);
 				const arrayBuffer = await file.arrayBuffer();
@@ -338,6 +438,7 @@
 			let totalChunksAll = 0;
 			let linkedSourceId = sourceId;
 			let ingested: LibraryDocument | null = null;
+			let ingestionAudit: LibraryDocument['ingestionAudit'] | null = null;
 
 			for (let i = 0; i < segments.length; i++) {
 				parseProgress = segments.length > 1
@@ -363,6 +464,7 @@
 					ingested = payload.document as LibraryDocument;
 					linkedSourceId = ingested.id;
 				}
+				if (payload.ingestionAudit) ingestionAudit = payload.ingestionAudit as LibraryDocument['ingestionAudit'];
 				totalChunksAll += payload.totalChunks ?? 0;
 			}
 
@@ -377,65 +479,16 @@
 				mimeType: originalFileMeta.mimeType ?? ingested.mimeType,
 				originalFileName: originalFileMeta.originalFileName ?? ingested.originalFileName,
 				fileSize: originalFileMeta.fileSize ?? ingested.fileSize,
+				ingestionAudit: ingestionAudit ?? ingested.ingestionAudit,
 				content: text.slice(0, 1000)
 			};
 			legalPacksStore.addSourceToPack(selectedPack.id, doc);
-
-			// Start embedding
-			parseProgress = t('library.indexing', $language);
-			if (totalChunksAll > 0 && linkedSourceId) {
-				markIndexing(linkedSourceId);
-				runBatchEmbedding(linkedSourceId, totalChunksAll);
-			}
 		} catch (err) {
 			sourceError = err instanceof Error ? err.message : t('library.pdfParseFailed', $language);
 			parseProgress = '';
 		} finally {
 			ingesting = false;
 		}
-	};
-
-	let indexingStatus: string | null = null;
-
-	const runBatchEmbedding = async (sourceId: string, totalChunks: number) => {
-		let embedded = 0;
-		let batchNum = 0;
-
-		indexingStatus = t('library.indexing', $language);
-		updateProgress(sourceId, 0);
-
-		while (true) {
-			try {
-				const res = await fetch('/api/library/embed-batch', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ sourceId })
-				});
-				const data = await res.json();
-				if (!res.ok) throw new Error(data?.message ?? 'Embedding failed');
-
-				embedded += data.embedded;
-				batchNum++;
-
-				// Use server's remaining count as the source of truth for progress
-				const total = embedded + data.remaining;
-				updateProgress(sourceId, Math.min((embedded / Math.max(total, 1)) * 100, 100));
-
-				if (data.remaining <= 0 || data.embedded === 0) break;
-
-				indexingStatus = t('library.indexing', $language);
-			} catch {
-				indexingStatus = t('library.indexError', $language);
-				setTimeout(() => (indexingStatus = null), 5000);
-				markIndexed(sourceId);
-				return;
-			}
-		}
-
-		updateProgress(sourceId, 100);
-		indexingStatus = t('library.indexed', $language).replace('{count}', String(embedded));
-		setTimeout(() => (indexingStatus = null), 4000);
-		markIndexed(sourceId);
 	};
 
 	const removeSourceFromPack = (sourceId: string) => {
@@ -662,7 +715,7 @@
 							class={`w-full text-left border rounded-lg p-3 transition cursor-pointer ${selectedPack?.id === pack.id ? 'border-white/40 bg-white/15' : 'border-white/15 hover:bg-white/10'}`}
 						>
 							<p class="text-sm font-semibold text-white">{pack.name}</p>
-							<p class="text-sm text-white/60 mt-0.5">{pack.jurisdiction} · {pack.domain}</p>
+							<p class="text-sm text-white/60 mt-0.5">{pack.domain} · {pack.language.toUpperCase()}</p>
 							<div class="flex items-center justify-between mt-2">
 								<p class="text-sm text-white/50">{pack.sources.length} {t('library.documents', $language)}</p>
 								<div class="flex gap-1.5">
@@ -683,7 +736,7 @@
 					<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 						<div>
 							<h3 class="text-lg font-bold text-white">{selectedPack.name}</h3>
-							<p class="text-sm text-white/60 mt-0.5">{selectedPack.jurisdiction} · {selectedPack.domain}</p>
+							<p class="text-sm text-white/60 mt-0.5">{selectedPack.domain} · {selectedPack.language.toUpperCase()}</p>
 							{#if selectedPack.description}
 								<p class="text-sm text-white/60 mt-1">{selectedPack.description}</p>
 							{/if}
@@ -715,7 +768,7 @@
 					<div class="grid gap-3 sm:grid-cols-2">
 						{#each selectedPack.sources as doc}
 						{@const ext = fileExtensionOf(doc)}
-						<div class="group border border-white/15 rounded-lg p-4 bg-white/[0.04] hover:bg-white/[0.07] hover:border-white/25 transition flex gap-3 {$indexingSourceIds.has(doc.id) ? 'opacity-60' : ''}">
+						<div class="group border border-white/15 rounded-lg p-4 bg-white/[0.04] hover:bg-white/[0.07] hover:border-white/25 transition flex gap-3">
 							<!-- File-type icon -->
 							<div class="shrink-0">
 								{#if ext === 'pdf'}
@@ -754,13 +807,6 @@
 											<p class="text-sm font-semibold text-white leading-snug line-clamp-2 group-hover/title:text-flare transition">{doc.title}</p>
 										</button>
 									{/if}
-
-									{#if $indexingSourceIds.has(doc.id)}
-										<span class="inline-flex items-center gap-1 text-xs text-flare/80 font-mono shrink-0">
-											<span class="inline-block w-2.5 h-2.5 border-2 border-flare/30 border-t-flare rounded-full animate-spin"></span>
-											{t('library.indexingBadge', $language)}
-										</span>
-									{/if}
 								</div>
 
 								<!-- Filename + size meta line -->
@@ -772,15 +818,8 @@
 									<a href={doc.sourceUrl} target="_blank" rel="noreferrer" class="text-[11px] text-white/45 hover:text-flare hover:underline truncate font-mono" title={doc.sourceUrl}>{doc.sourceUrl}</a>
 								{/if}
 
-								<!-- Indexing progress -->
-								{#if $indexingSourceIds.has(doc.id)}
-									<div class="w-full h-1 bg-white/10 rounded-full overflow-hidden mt-0.5">
-										<div class="h-full bg-flare/70 rounded-full transition-all duration-500 ease-out" style="width: {$indexingProgress[doc.id] ?? 0}%"></div>
-									</div>
-								{/if}
-
 								<!-- Actions -->
-								{#if !$indexingSourceIds.has(doc.id) && renamingId !== doc.id}
+								{#if renamingId !== doc.id}
 									<div class="flex items-center gap-1.5 pt-1.5 mt-auto opacity-70 group-hover:opacity-100 transition">
 										<button
 											type="button"
@@ -802,7 +841,7 @@
 											<button
 												type="button"
 												on:click={() => removeSourceFromPack(doc.id)}
-												class="text-[11px] px-2 py-1 border border-white/20 rounded text-white/65 hover:text-red-300 hover:border-red-400/40 ml-auto"
+												class="text-[11px] px-2 py-1 border border-red-400/40 rounded text-red-300 hover:text-white hover:bg-red-500/20 ml-auto font-bold uppercase tracking-wider"
 											>
 												{t('library.remove', $language)}
 											</button>
@@ -920,11 +959,9 @@
 			if (event.key === 'Escape') closePackModal();
 		}}
 	>
-		<div class="w-full max-w-xl bg-ink border border-white/15 rounded-xl p-5 space-y-2.5">
+			<div class="w-full max-w-xl bg-ink border border-white/15 rounded-xl p-5 space-y-2.5">
 			<h3 class="text-base font-bold uppercase tracking-widest text-white">{editingPackId ? t('library.editPack', $language) : t('library.createPack', $language)}</h3>
 			<input bind:value={packName} placeholder={t('library.packName', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-base text-white" />
-			<input bind:value={packJurisdiction} placeholder={t('library.packJurisdiction', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-base text-white" />
-			<input bind:value={packDomain} placeholder={t('library.packDomain', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-base text-white" />
 			<textarea bind:value={packDescription} placeholder={t('library.packDescription', $language)} class="w-full bg-white/10 border border-white/20 rounded px-4 py-3 text-base text-white min-h-[90px]"></textarea>
 			<div class="flex justify-end gap-2 pt-1">
 				<button type="button" on:click={closePackModal} class="px-4 py-2 border border-white/20 rounded text-sm font-bold uppercase tracking-widest text-white/70">{t('library.cancel', $language)}</button>
@@ -948,8 +985,7 @@
 		<div class="relative w-full max-w-5xl bg-ink border border-white/15 rounded-2xl flex flex-col max-h-[90vh]">
 			<button type="button" on:click={closeReader} class="absolute top-3 right-3 text-white/60 hover:text-white rounded-full border border-white/20 w-8 h-8 flex items-center justify-center text-sm" aria-label="Close reader">×</button>
 			<header class="p-6 pb-4 border-b border-white/10">
-				<p class="text-[10px] uppercase tracking-[0.3em] text-white/40">{selectedDoc.jurisdiction}</p>
-				<h3 class="text-lg font-bold text-white mt-1">{selectedDoc.title}</h3>
+				<h3 class="text-lg font-bold text-white">{selectedDoc.title}</h3>
 				<p class="text-white/50 text-xs mt-1">{selectedDoc.description}</p>
 				{#if selectedDoc.storagePath && selectedDoc.isCustom}
 					<button
@@ -1037,7 +1073,6 @@
 		<div class="relative w-full max-w-6xl bg-ink border border-white/15 rounded-2xl flex flex-col h-[92vh]">
 			<header class="px-5 py-3 border-b border-white/10 flex items-center justify-between gap-3 shrink-0">
 				<div class="min-w-0 flex-1">
-					<p class="text-[10px] uppercase tracking-[0.3em] text-white/40">{selectedDoc.jurisdiction}</p>
 					<h3 class="text-sm font-bold text-white truncate" title={previewName || selectedDoc.title}>{previewName || selectedDoc.title}</h3>
 				</div>
 				<div class="flex items-center gap-2 shrink-0">
@@ -1079,18 +1114,6 @@
 				{/if}
 			</section>
 		</div>
-	</div>
-{/if}
-
-<!-- Indexing status toast -->
-{#if indexingStatus}
-	<div class="fixed bottom-6 right-6 z-50 bg-black/90 border border-white/15 rounded-lg px-4 py-3 text-sm text-white/80 shadow-xl backdrop-blur-sm flex items-center gap-2">
-		{#if indexingStatus.includes('...')}
-			<span class="inline-block w-3 h-3 border-2 border-white/30 border-t-white/80 rounded-full animate-spin"></span>
-		{:else}
-			<span class="text-green-400">&#10003;</span>
-		{/if}
-		{indexingStatus}
 	</div>
 {/if}
 

@@ -6,12 +6,12 @@
 - **LLM:** OpenAI gpt-4o-mini (configurable via env vars)
 
 ## Architecture
-- `src/lib/stores/` — Svelte writable stores (debate, stagedCase, caseHistory, language, ui)
-- `src/lib/server/llm.ts` — LLM prompt construction + API dispatch (jury + bench modes)
+- `src/lib/stores/` — Svelte writable stores (debate, stagedCase, caseHistory, drafts, language, ui)
+- `src/lib/server/llm.ts` — LLM prompt construction + API dispatch for Create and bench-only judge mode
 - `src/lib/i18n.ts` — All translation keys (EN/FR) with `t(key, lang)` helper
-- `src/lib/data/` — Static data (juror personas, judge persona, library documents)
+- `src/lib/data/` — Static data (judge persona, library documents)
 - `src/routes/api/` — Server endpoints (debate, generate-case, cases)
-- `src/routes/` — Pages (home, cases, court, debate, jury, library, about, how-it-works)
+- `src/routes/` — Pages (home, create/cases, drafts, court, debate, library, about, how-it-works)
 
 ## Conventions
 - All UI strings use `t()` from `$lib/i18n` — never hardcode user-visible text

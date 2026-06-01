@@ -3,6 +3,7 @@ import type { RequestHandler } from '@sveltejs/kit';
 import { storeChunksOnly } from '$lib/server/rag';
 import { assertSupabaseAdmin } from '$lib/server/supabaseAdmin';
 import { rateLimit } from '$lib/server/rateLimit';
+import { validateExtractedText, formatExtractionError } from '$lib/server/textQuality';
 
 const MAX_TEXT_LENGTH = 4_000_000; // ~4 MB per request (stays under Netlify 6 MB body limit with JSON overhead)
 
@@ -71,8 +72,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const filename = payload.filename;
 	const packId = payload.packId ?? '';
 
-	if (!text || text.length < 20) {
-		throw error(422, 'Could not extract readable text from this file. It may be scanned, image-based, or empty.');
+	// Quality gate — apply to every segment, including continuations. We do NOT
+	// want a clean first segment followed by junk segments to silently corrupt
+	// the document. Each chunk uploaded must be meaningful on its own.
+	const quality = validateExtractedText(text);
+	if (!quality.valid) {
+		throw error(422, formatExtractionError(quality));
 	}
 
 	const title = filename.replace(/\.(pdf|docx)$/i, '').replace(/[_-]+/g, ' ').trim();
@@ -86,14 +91,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const fileSize = typeof payload.fileSize === 'number' ? payload.fileSize : undefined;
 
 	let totalChunks = 0;
+	let ingestionAudit = null;
 	try {
 		const supabase = assertSupabaseAdmin();
-		totalChunks = await storeChunksOnly({
+		const stored = await storeChunksOnly({
 			supabase,
 			userId: session.user.id,
 			sourceId,
 			packId: packId || undefined,
 			content: text,
+			append: Boolean(continueSourceId),
 			metadata: {
 				title,
 				jurisdiction,
@@ -106,6 +113,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					fileSize
 			}
 		});
+		totalChunks = stored.chunkCount;
+		ingestionAudit = stored.ingestionAudit;
 	} catch (storeErr) {
 		console.error('Failed to store chunks:', storeErr);
 		throw error(500, 'Document text was extracted but chunk storage failed. Please try uploading again.');
@@ -127,8 +136,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			docType,
 			trustLevel: 'unverified' as const,
 			isCustom: true,
-			note: 'Uploaded document. Review extracted text for accuracy.'
+			note: ingestionAudit?.reliableForClassroom
+				? 'Uploaded document. Legal structure detected and ready for classroom review.'
+				: 'Uploaded document. Review extracted text and structure before classroom use.'
 		},
-		totalChunks
+		totalChunks,
+		ingestionAudit
 	});
 };

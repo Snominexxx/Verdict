@@ -1,7 +1,27 @@
 import { env } from '$env/dynamic/private';
-import type { JurorPersona, StagedCase, VerdictScore } from '$lib/types';
+import type { PackContext, StagedCase } from '$lib/types';
 import type { LibraryDocument } from '$lib/data/library';
 import { getJudgePersona, type JudgePersona } from '$lib/data/judge';
+import { callLLM, getProvider, isNewStackEnabled, type LLMTask } from './providers';
+
+const hasConfiguredProviderKey = (task: LLMTask): boolean => {
+	if (!isNewStackEnabled()) return Boolean(env.LLM_API_KEY);
+	const provider = getProvider(task);
+	return provider.name === 'gemini' ? Boolean(env.GOOGLE_API_KEY) : Boolean(env.ANTHROPIC_API_KEY);
+};
+
+const requireLLMKeys = (task: LLMTask): void => {
+	if (isNewStackEnabled()) {
+		const provider = getProvider(task);
+		if (provider.name === 'gemini') {
+			if (!env.GOOGLE_API_KEY) throw new Error('GOOGLE_API_KEY is not configured.');
+		} else {
+			if (!env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not configured.');
+		}
+		return;
+	}
+	if (!env.LLM_API_KEY) throw new Error('LLM_API_KEY is not configured.');
+};
 
 type PerformanceTurn = {
 	role: string;
@@ -24,347 +44,217 @@ type PerformanceEvaluationResponse = {
 	};
 };
 
-const stanceOptions = ['plaintiff', 'defense', 'hung'] as const;
-type Stance = (typeof stanceOptions)[number];
-
-type LLMStructuredResponse = {
-	reply: {
-		message: string;
-		citations?: string[];
-	};
-	jurorScores: Array<{
-		jurorId: string;
-		stance: Stance;
-		score: number;
-		rationale: string;
-		metrics?: {
-			logic?: number;
-			sources?: number;
-			tone?: number;
-		};
-	}>;
-};
-
-// Per-mode temperatures: jury is persuasive/emotional, bench is precise/legal,
-// evaluation needs consistent scoring, fallback for other calls.
-const TEMP_JURY = 0.75;
+// Per-mode temperatures: bench is precise/legal and evaluation uses a lower,
+// more stable temperature for scoring.
 const TEMP_BENCH = 0.6;
 const TEMP_EVALUATION = 0.4;
 
-export const generateDebateAnalysis = async (args: {
-	prompt: string;
-	stagedCase: StagedCase;
-	sources: LibraryDocument[];
-	jurors: JurorPersona[];
-	language?: string;
-	ragContext?: string;
-}): Promise<{ reply: { message: string; citations: string[] }; jurorScores: VerdictScore[] }> => {
-	const { prompt, stagedCase, sources, jurors, language = 'en', ragContext } = args;
+/**
+ * Lightweight prior-exchange entry shared across debate / bench prompts.
+ * The route handler (`/api/debate`) sanitises and trims this before passing it
+ * to the LLM helpers so we can trust the shape here.
+ */
+export type TranscriptEntry = {
+	role: string;
+	speaker: string;
+	message: string;
+};
 
-	if (!env.LLM_API_KEY) {
-		throw new Error('LLM_API_KEY is not configured.');
-	}
-
-	const systemPrompt = buildSystemPrompt(jurors, language);
-	const userPrompt = buildUserPrompt({ prompt, stagedCase, sources, jurors, ragContext });
-	const schema = buildJsonSchema(jurors);
-	const raw = await dispatchToProvider(systemPrompt, userPrompt, schema, TEMP_JURY);
-	const parsed = parseModelResponse(raw);
-
-	const reply = {
-		message: parsed.reply?.message?.trim() || (language === 'fr' ? 'Aucune réponse générée.' : 'No response generated.'),
-		citations: (parsed.reply?.citations ?? []).filter(Boolean)
-	};
-
-	const jurorScores = jurors.map((juror) => {
-		const candidate = parsed.jurorScores?.find((entry) => entry.jurorId === juror.id);
-		return {
-			jurorId: juror.id,
-			stance: isValidStance(candidate?.stance) ? candidate!.stance : 'hung',
-			score: clamp(candidate?.score ?? 50, 0, 100),
-			rationale:
-				candidate?.rationale?.trim() ||
-				(language === 'fr' ? `Aucune justification renvoyée pour ${juror.name}.` : `No rationale returned for ${juror.name}.`),
-			metrics: {
-				logic: clamp(candidate?.metrics?.logic ?? 50, 0, 100),
-				sources: clamp(candidate?.metrics?.sources ?? 50, 0, 100),
-				tone: clamp(candidate?.metrics?.tone ?? 50, 0, 100)
-			}
-		};
+const renderTranscriptBlock = (transcript: TranscriptEntry[]): string => {
+	if (!transcript.length) return '';
+	const lines = transcript.map((entry, i) => {
+		const tag = entry.role === 'litigant' ? 'LITIGANT' : entry.role.toUpperCase();
+		const speaker = entry.speaker ? ` (${entry.speaker})` : '';
+		return `[T${i + 1} ${tag}${speaker}]\n${entry.message.trim()}`;
 	});
-
-	return { reply, jurorScores };
+	return `\n\nPRIOR EXCHANGES (chronological — earliest first; the litigant turn shown last in this list happened just before the current one):\n${lines.join('\n\n')}`;
 };
 
-const buildSystemPrompt = (jurors: JurorPersona[], language: string = 'en') => {
-	const langLabel = language === 'fr' ? 'French (Canadian French / Français québécois)' : 'English';
-	const langStrict = language === 'fr'
-		? `RÈGLE LINGUISTIQUE ABSOLUE — VOUS DEVEZ RÉPONDRE EXCLUSIVEMENT EN FRANÇAIS (français canadien). Tout le contenu — reply.message, jurorScores[*].rationale, jurorScores[*].stance, et chaque champ texte — doit être en français. N'utilisez AUCUN mot anglais sauf les noms propres et les termes juridiques latins (ex. "ratio decidendi"). Toute réponse partiellement ou entièrement en anglais est invalide.`
-		: `ABSOLUTE LANGUAGE RULE — YOU MUST RESPOND EXCLUSIVELY IN ENGLISH. All output — reply.message, jurorScores[*].rationale, jurorScores[*].stance, and every text field — must be in English. Any French content is invalid.`;
-	return `${langStrict}
-
-You are Advocate AI — opposing counsel in a trial. You argue AGAINST the litigant.
-
-LANGUAGE INSTRUCTION: You MUST respond entirely in ${langLabel}. All text in reply.message, juror rationales, and every other text field must be in ${langLabel}.
-
-YOUR TWO ROLES IN ONE RESPONSE:
-1. ADVOCATE (reply.message): You speak as opposing counsel — sharp, adaptive, human. One voice.
-2. JUROR PANEL (jurorScores): You voice each of the 5 jurors separately — their score, stance, and rationale in their own distinct voice. Each juror is a different person. Do NOT let them sound alike.
-NEVER BLEND THESE ROLES. The advocate is one voice. Each juror is their own.
-
-EVALUATION TARGET (CRITICAL):
-- Jurors evaluate ONLY the LITIGANT (the human user). NOT the Advocate AI.
-- The Advocate's arguments exist only as context and opposition — jurors do not score the Advocate.
-- Each juror's score, stance, and rationale must reflect how well the LITIGANT argued their case.
-- If the litigant made a weak argument, jurors score low — even if the Advocate was also weak.
-- If the litigant made a strong argument, jurors score high — even if the Advocate dismantled it.
-
-ROLE LOCK (CRITICAL):
-- The litigant's selected side is authoritative.
-- You MUST always argue the exact opposite side.
-- If litigant = plaintiff, you argue defense.
-- If litigant = defendant, you argue plaintiff.
-- Never switch sides mid-response.
-
-STIPULATED FACTS (CRITICAL):
-- The synopsis ("What Happened") contains AGREED FACTS. Both sides accept them as true.
-- You MUST NEVER contradict, dispute, rewrite, or cast doubt on these facts.
-- Your job is to argue the opposing LEGAL POSITION — challenge the user's interpretation of the facts, their reasoning, whether their remedy is justified, or how the law applies.
-- Say things like "Even accepting these facts..." or "The facts don't support your conclusion because..." — NEVER "That's not what happened" or "The facts actually show..."
-
-OPENING MOVE (FIRST ROUND ONLY):
-- If this is the first exchange (the litigant's first message), keep your opening SHORT.
-- State your opposing stance in 1-2 sentences and invite the user to argue: e.g. "As opposing counsel, I maintain that [opposing position]. Present your argument."
-- Do NOT recap the facts. The user already knows them. Get straight to the opposition.
-
-CASE AWARENESS (CRITICAL):
-- You have FULL knowledge of the case: title, synopsis, legal issues, and remedy sought.
-- Your arguments MUST engage directly with the specific facts of the case. Generic legal arguments are lazy.
-- Attack the litigant's LEGAL POSITION — challenge whether their remedy is proportionate, whether the law supports their interpretation, whether their reasoning holds.
-- When the litigant makes a new argument, connect your counter to what they've already said in this debate — show you've been listening.
-- Adapt across rounds: if the litigant shifts strategy, acknowledge the shift and counter the new angle. Don't repeat old points they've already addressed.
-
-SOURCE DISCIPLINE (CRITICAL):
-- You MUST ground your arguments EXCLUSIVELY in the sources provided in the case. These are the litigant's selected legal pack.
-- If a source is listed, refer to it by name and connect it to the argument.
-- Do NOT reference any external legal knowledge, articles, cases, or principles that are not present in the provided sources.
-- If no sources are provided, note this gap and state that you cannot make source-based arguments without documents.
-
-EVIDENCE FRAME (CRITICAL — this is MOOT COURT, not a live trial):
-- This is a rhetorical-reasoning exercise. The litigant argues from the case file, the provided sources, and legal reasoning. There is NO mechanism to physically produce exhibits, emails, contracts, or witness testimony mid-debate.
-- NEVER demand the litigant "provide", "produce", "submit", "send", "show me", "upload", or "authenticate" a physical document, email, exhibit, or testimony. That breaks the exercise.
-- DO challenge evidence and proof — but as ANALYTICAL PRESSURE, not production demands. Turn every evidence challenge into a reasoning question.
-- Examples of the RIGHT way to press on evidence:
-  • "You claim the email shows intent. What would that email need to contain to support your reading — and does anything in the case file suggest it does?"
-  • "Your argument rests on a clause in the contract. The synopsis doesn't quote it. How do you bridge that gap — parol evidence, custom, something else?"
-  • "If opposing counsel challenges the authenticity of that document, walk me through your foundation."
-  • "The case file is silent on that fact. Whose burden is it, and what would you seek in discovery?"
-  • "What evidentiary standard applies here, and does your argument meet it?"
-- Acceptable "proof" the litigant CAN offer: facts from the case file/synopsis, cited jurisprudence or statutes from the provided sources, quoted clauses, legal principles (good faith, proportionality, burden of proof, etc.), and logical inference. Treat these as valid.
-- When the litigant's argument lacks evidentiary basis, teach through the challenge: ask what they'd need, what standard applies, or how they'd establish foundation — don't demand they conjure the document.
-
-JURISPRUDENCE HANDLING:
-- The provided sources may contain BOTH statutory text (codes, statutes) AND jurisprudence (court decisions, case law).
-- STATUTORY sources: cite by article/section number (e.g., "art. 1457 C.c.Q.", "s. 267(1)(a) Criminal Code").
-- JURISPRUDENCE sources: cite by case name and paragraph number if available (e.g., "Ciment du Saint-Laurent v. Barrette, 2008 SCC 64, par. 25"). Reference the court's reasoning or ratio decidendi — not just the name.
-- When a jurisprudence source supports or contradicts the litigant's position, USE IT. Case law is powerful — don't ignore it.
-- You may ONLY cite case names and paragraph numbers that appear VERBATIM in the provided sources.
-
-ANTI-HALLUCINATION RULES (MANDATORY — ZERO TOLERANCE):
-- You may ONLY cite article numbers, section numbers, or provision identifiers that appear VERBATIM in the provided sources.
-- NEVER extrapolate or invent article/section numbers — even if they seem logically sequential (e.g., if sources contain articles 3165-3168, article 3169 does NOT exist unless explicitly shown).
-- NEVER fabricate case names, jurisprudence, or court decisions. If a court decision is NOT in the provided sources, do NOT cite it by name — argue from statutory text or general legal principles instead.
-- If you are unsure whether a specific provision or case exists in the sources, state the general legal principle WITHOUT a specific citation.
-- Violating these rules destroys credibility. When in doubt, be general rather than specific.
-
----
-YOU ARE HUMAN, NOT A MACHINE:
-- You have a personality that reacts to what the litigant does.
-- You adapt your register every round based on what you're reading.
-- Never telegraph your moves. Don't say "I'll be sarcastic now." Just be it.
-
-PERSONALITY MODES — read the room and pick one:
-- SARDONIC: When they state the obvious as if it were profound. One raised-eyebrow response. Keep it short.
-- RUTHLESS: When they contradict themselves or walk into a trap. No softening. Expose it and move on.
-- WITTY: When there's an opening for a line that lands a point AND gets a reaction. Humor that cuts.
-- IRRITATING/PERSISTENT: When they've dodged the same question twice. Ask it again. Shorter. Then again.
-- COLD/CLINICAL: When their argument is actually solid — match precision, find the single crack.
-- BLUNT: Short lazy input gets a flat one-liner. Don't reward nothing with effort.
-- SOCRATIC: When they're overconfident — ask the one question that unravels the assumption underneath.
-
-RHETORICAL WEAPONS — use these, not just generic counters:
-- The Callback: "You just said X. Earlier you said Y. Pick one."
-- The Trap: Ask a question you already know exposes a gap they haven't thought through.
-- False Concession: "Fine. Accept all of that. It still doesn't get you to your conclusion."
-- Reductio: Take their logic to its natural end. Let them see where it actually leads.
-- The Pause: Sometimes one sentence is more devastating than a paragraph. Use silence.
-
-RESPONSE STYLE:
-- Match their effort. Lazy input = short dismissal. Strong argument = real counter.
-- Cite from the provided sources first. Supplement with real jurisdiction-appropriate law only when it sharpens your point.
-- Call out weak spots directly. No cushioning.
-- Ask questions that force them to defend positions they haven't defended yet.
-- Every word earns its place. Never pad.
-
-LENGTH:
-- Weak/short input → 1-3 sentences max.
-- Solid argument → proportionate, not longer than needed.
-- Never pad. Get to the point.
-
-JURY CONTEXT:
-The 5 jurors are ordinary citizens, not lawyers. They judge credibility and fairness, not legal technicalities.
-Jurors evaluate ONLY the LITIGANT — not you (Advocate AI). Your job is to challenge. Their job is to score the human.
-Jurors: ${jurors.map((j) => `${j.name} (${j.temperament})`).join(', ')}.
-
-JUROR SCORING (0-100%):
-| 0-15%   | No real argument. Insults, nonsense, off-topic. |
-| 16-35%  | Assertion without proof. "Says who?" |
-| 36-55%  | Some reasoning but major gaps. |
-| 56-75%  | Decent argument with support. Minor holes. |
-| 76-100% | Strong, well-supported, addresses objections. |
-
-Each juror writes 20-40 words in THEIR OWN VOICE — not generic, not interchangeable:
-- Marcus: blunt, common-sense filter, cuts through noise fast.
-- Priya: traces the logic chain, flags where it breaks.
-- Darlene: asks who actually got hurt and why it matters.
-- Jake: gut-check, smells dishonesty, rewards straight shooters.
-- Elena: weighs both sides before committing, wants fairness.
-Make them sound like themselves. If they all sound the same, you've failed.
-
-REMINDER: Every juror score and rationale is about the LITIGANT's performance. Reference what the litigant said, how they argued, and whether they convinced the juror. Do NOT evaluate the Advocate.
-
-FINAL LANGUAGE REMINDER: ${langStrict}
-
-Output: JSON only → reply {message, citations[]} and jurorScores [{jurorId, stance, score, rationale, metrics{logic, sources, tone}}]`;
-};
-
-const buildUserPrompt = (args: {
-	prompt: string;
-	stagedCase: StagedCase;
-	sources: LibraryDocument[];
-	jurors: JurorPersona[];
-	ragContext?: string;
-}) => {
-	const { prompt, stagedCase, sources, jurors, ragContext } = args;
-	// RAG context takes priority when available (semantically retrieved chunks)
-	const sourceLines = ragContext
-		? ragContext
-		: sources.length
-			? sources
-					.map((source) => {
-						const excerpt = source.content?.trim()
-							? source.content.slice(0, 16_000)
-							: source.description;
-						return `- ${source.title} (${source.jurisdiction}):\n  ${excerpt}`;
-					})
-					.join('\n')
-			: '- No sources provided. Note this gap candidly—feel free to say "You have given me nothing to work with here."';
-	const jurorNotes = jurors
-		.map((juror) => `- ${juror.name} [${juror.temperament}]: ${juror.biasVector}`)
-		.join('\n');
-	const jurisdictions = [...new Set(sources.map((s) => s.jurisdiction).filter(Boolean))];
-	const jurisdictionNote = jurisdictions.length
-		? `Jurisdiction(s) in play: ${jurisdictions.join(', ')}. Any external citations must come from these jurisdictions and include a URL.`
-		: 'No jurisdiction identified from sources. Stick to the provided sources only.';
-	const toneSignal = deriveToneSignal(prompt);
-	const varietySeed = Math.floor(Math.random() * 8);
-	const varietyInstruction =
-		varietySeed === 0 ? 'Lead with a direct counterpoint. No preamble.' :
-		varietySeed === 1 ? 'Open sardonic — one dry observation — then land the actual point.' :
-		varietySeed === 2 ? 'Ask a single pointed question that exposes the gap. Nothing else.' :
-		varietySeed === 3 ? 'Briefly concede one thing (genuinely), then pivot hard to what actually matters.' :
-		varietySeed === 4 ? 'Anchor your response in one of the provided sources or a real law from the same jurisdiction. Use it as a weapon.' :
-		varietySeed === 5 ? 'Lay a trap — ask a question you already know they cannot answer cleanly.' :
-		varietySeed === 6 ? 'One sentence. Make it land.' :
-		'Deconstruct their argument piece by piece. Be methodical. Be brief.';
-
-	return `JURY TRIAL — ADVOCATE RESPONSE
-Case: ${stagedCase.title}
-Litigant side (selected): ${stagedCase.role.toUpperCase()}
-You represent: ${stagedCase.role === 'plaintiff' ? 'DEFENSE' : 'PLAINTIFF'} (opposing the litigant)
-Stipulated Facts (agreed — do not dispute): ${stagedCase.synopsis}
-Issues: ${stagedCase.issues || 'Unspecified'}
-Remedy: ${stagedCase.remedy || 'Unspecified'}
-
-Sources (from selected legal pack):\n${sourceLines}
-
-${jurisdictionNote}
-
-Jury:\n${jurorNotes}
-
-Tone reading: ${toneSignal.observations}
-Suggested register: ${toneSignal.guidance}
-
----
-LITIGANT SAYS:\n"""${prompt}"""
----
-
-ADVOCATE — your move:
-- Stay opposite to the litigant's selected side at all times.
-- Treat the selected litigant side as source of truth, even if wording inside their argument is messy or inconsistent.
-- Never present yourself as neutral. Never present yourself as the litigant's ally.
-- If the litigant is DEFENDANT, you argue for PLAINTIFF relief. If the litigant is PLAINTIFF, you argue for DEFENSE dismissal/reduction.
-- The synopsis facts are STIPULATED — accept them as true. Argue against the user's LEGAL POSITION, not the facts.
-- If the litigant's remedy is disproportionate, say so. If their legal reasoning doesn't follow from the facts, expose that.
-- Track what the litigant has already argued. Don't repeat counters to points they've already addressed. Advance the debate.
-- ${varietyInstruction}
-- Match their effort. Short input = short response. Strong argument = real counter.
-- Ground arguments EXCLUSIVELY in the provided sources. Do NOT reference any external legal knowledge, articles, cases, or principles not present in the sources.
-- ONLY cite article/section numbers that appear VERBATIM in the sources. NEVER extrapolate sequential numbers.
-- If the sources contain jurisprudence (court decisions), cite them by case name and paragraph. NEVER invent case names not in the sources.
-- Call out weak spots without softening them.
-
-JUROR PANEL — score the LITIGANT only (0-100%). Each juror reacts to what the USER said, in their own voice (20-40 words). Do not evaluate the Advocate. Do not let jurors sound alike.
-
-OUTPUT: JSON → reply {message, citations[]} + jurorScores [{jurorId, stance, score, rationale, metrics{logic, sources, tone}}]`;
-};
-
-const buildJsonSchema = (jurors: JurorPersona[]) => ({
-	type: 'object',
-	required: ['reply', 'jurorScores'],
-	properties: {
-		reply: {
-			type: 'object',
-			required: ['message'],
-			properties: {
-				message: { type: 'string' },
-				citations: {
-					type: 'array',
-					items: { type: 'string' }
-				}
-			}
-		},
-		jurorScores: {
-			type: 'array',
-			minItems: jurors.length,
-			items: {
-				type: 'object',
-				required: ['jurorId', 'stance', 'score', 'rationale'],
-				properties: {
-					jurorId: { enum: jurors.map((juror) => juror.id) },
-					stance: { enum: stanceOptions },
-					score: { type: 'number' },
-					rationale: { type: 'string' },
-					metrics: {
-						type: 'object',
-						properties: {
-							logic: { type: 'number' },
-							sources: { type: 'number' },
-							tone: { type: 'number' }
-						}
-					}
-				}
-			}
-		}
+/**
+ * Render selected sources for prompt injection.
+ *
+	 * Callers may supply full texts or a retrieved source packet. Either way, this
+	 * block is the only authority currently in view for the model.
+ *
+ * Token budgets are enforced by the caller (`assertWithinBudget` from
+ * `$lib/server/sources`); this helper assumes the input has already been
+ * validated.
+ */
+const renderSourcesBlock = (sources: LibraryDocument[]): string => {
+	if (!sources.length) {
+		return '- No sources provided. Note this gap candidly when answering.';
 	}
-});
+	return sources
+		.map((source) => {
+			const body = source.content?.trim() || source.description?.trim() || '(no body text)';
+			const header = `═══ ${source.title}${source.jurisdiction ? ` — ${source.jurisdiction}` : ''} ═══`;
+			return `${header}\n${body}`;
+		})
+		.join('\n\n');
+};
+
+const renderPackContextBlock = (args: {
+	packContext?: PackContext;
+	sources: LibraryDocument[];
+	language: string;
+}): string => {
+	const { packContext, sources, language } = args;
+	const sourceJurisdictions = [...new Set(sources.map((s) => s.jurisdiction).filter(Boolean))];
+	const jurisdiction = packContext?.jurisdiction?.trim() || sourceJurisdictions.join(' / ') || 'Not specified';
+	const packLanguage = packContext?.language === 'fr'
+		? 'French'
+		: packContext?.language === 'en'
+			? 'English'
+			: language === 'fr'
+				? 'French'
+				: 'English';
+
+	return `LEGAL PACK CONTEXT (AUTHORITATIVE ROUTING DATA)
+Pack: ${packContext?.name?.trim() || 'Selected legal pack'}
+Jurisdiction: ${jurisdiction}
+Domain: ${packContext?.domain?.trim() || 'General'}
+Pack language: ${packLanguage}
+
+PACK RULES (CRITICAL):
+- Jurisdiction, domain, and language tell you the intended courtroom context and vocabulary.
+- They are NOT legal authority. The only legal authorities are the texts inside the SOURCES block below.
+- Do NOT cite statutes, articles, cases, principles, tests, or doctrines from training memory just because they belong to this jurisdiction.
+- If the SOURCES block does not contain enough authority for a point, say the selected pack is silent or incomplete on that point.
+- Every concrete legal citation must be traceable to exact text in the SOURCES block.`;
+};
+
+const renderJudgeBriefBlock = (stagedCase: StagedCase, language: string): string => {
+	const brief = stagedCase.judgeBrief;
+	const notSpecified = language === 'fr' ? 'Non precise' : 'Not specified';
+	const list = (items?: string[]) =>
+		items?.length ? items.map((item) => `- ${item}`).join('\n') : `- ${notSpecified}`;
+
+	if (!brief) {
+		return `JUDGE EXERCISE BRIEF
+- No explicit judge brief supplied.
+- Use the teaching objective, target skill, issues, remedy, and allowed sources as the pedagogical contract.
+- Do NOT invent a new training goal beyond those case fields.`;
+	}
+
+	return `JUDGE EXERCISE BRIEF (PEDAGOGICAL CONTRACT)
+Goal: ${brief.goal || notSpecified}
+Student task: ${brief.studentTask || notSpecified}
+Hearing focus: ${brief.hearingFocus || notSpecified}
+Primary skill: ${brief.primarySkill || stagedCase.targetSkill || notSpecified}
+Issues to probe:
+${list(brief.issuesToProbe)}
+Pressure points:
+${list(brief.pressurePoints)}
+Source boundaries:
+${list(brief.sourceBoundaries)}
+Success criteria:
+${list(brief.successCriteria)}`;
+};
+
+const renderGroundingAuditBlock = (stagedCase: StagedCase, language: string): string => {
+	const audit = stagedCase.groundingAudit;
+	const notSpecified = language === 'fr' ? 'Non precise' : 'Not specified';
+	const list = (items?: string[]) =>
+		items?.length ? items.map((item) => `- ${item}`).join('\n') : `- ${notSpecified}`;
+
+	if (!audit) {
+		return `CREATE GROUNDING AUDIT
+- No Create audit supplied.
+- Apply the selected sources and judge brief conservatively.
+- Do not add legal requirements, citations, or doctrines beyond the SOURCES block.`;
+	}
+
+	const groundingMap = audit.groundingMap?.length
+		? audit.groundingMap
+			.map((item) => {
+				const citation = item.citation ? ` (${item.citation})` : '';
+				const excerpt = item.excerpt ? ` | excerpt: "${item.excerpt}"` : '';
+				const note = item.note ? ` | note: ${item.note}` : '';
+				return `- [${item.status}] ${item.area}: ${item.claim} — ${item.sourceTitle}${citation}${excerpt}${note}`;
+			})
+			.join('\n')
+		: `- ${notSpecified}`;
+
+	return `CREATE GROUNDING AUDIT (SOURCE CONTRACT)
+Status: ${audit.status}
+Summary: ${audit.summary || notSpecified}
+Blocked reasons:
+${list(audit.blockedReasons)}
+Warnings:
+${list(audit.warnings)}
+Grounding map:
+${groundingMap}
+
+JUDGE AUDIT RULES:
+- Treat grounded map items as the intended legal and pedagogical boundaries of the exercise.
+- If a map item is needs-review or unsupported, ask the litigant to anchor it in the sources instead of assuming it is correct.
+- Do not pressure the litigant on legal theories outside this audit, the judge brief, and the SOURCES block.
+- If the litigant asks for or relies on an unsupported point, say the selected sources do not establish it.`;
+};
+
+const renderExercisePaperBlock = (stagedCase: StagedCase, language: string): string => {
+	const paper = stagedCase.paperSnapshot;
+	const notSpecified = language === 'fr' ? 'Non precise' : 'Not specified';
+	if (!paper) {
+		return `EXERCISE PAPER SNAPSHOT
+- No saved paper snapshot supplied.
+- Use the case fields, judge brief, and grounding audit as the full contract.`;
+	}
+
+	const list = (items?: string[]) =>
+		items?.length ? items.map((item) => `- ${item}`).join('\n') : `- ${notSpecified}`;
+	const packMemoryBlock = paper.packMemory
+		? `\n\nPACK MEMORY (navigation map, not authority)
+Summary: ${paper.packMemory.summary || notSpecified}
+Topics:
+${paper.packMemory.topics.slice(0, 12).map((topic) => `- ${topic.topic}: authorities=[${topic.authorityIds.join(', ')}]; related=[${topic.relatedTerms.join(', ')}]`).join('\n') || `- ${notSpecified}`}
+Authorities:
+${paper.packMemory.authorities.slice(0, 24).map((authority) => `- ${authority.authorityId}: ${authority.sourceTitle}${authority.citation ? `, ${authority.citation}` : ''}; role=${authority.role}; topic=${authority.topic}; notes=${authority.retrievalNotes}`).join('\n') || `- ${notSpecified}`}
+Gaps:
+${list(paper.packMemory.gaps)}
+Rules:
+${list(paper.packMemory.safetyRules)}`
+		: '';
+	const sufficiencyBlock = paper.evidenceSufficiency
+		? `\n\nEVIDENCE SUFFICIENCY CHECK
+canProceed: ${paper.evidenceSufficiency.canProceed}
+coverage: ${paper.evidenceSufficiency.coverage}
+missingConcepts: ${paper.evidenceSufficiency.missingConcepts.join('; ') || notSpecified}
+reason: ${paper.evidenceSufficiency.reason}`
+		: '';
+
+	return `EXERCISE PAPER SNAPSHOT (AUTHORITATIVE PRE-HEARING FILE)
+Title: ${paper.title || stagedCase.title || notSpecified}
+Objective: ${paper.objective || stagedCase.objective || notSpecified}
+Primary skill: ${paper.targetSkill || stagedCase.targetSkill || notSpecified}
+Selected side: ${paper.selectedRole || stagedCase.role || notSpecified}
+Recommended side: ${paper.recommendedRole || notSpecified}
+Main issue: ${paper.issues || stagedCase.issues || notSpecified}
+Plaintiff position: ${paper.plaintiffPosition || notSpecified}
+Defendant position: ${paper.defendantPosition || notSpecified}
+Practice points:
+${list(paper.practicePoints)}${packMemoryBlock}${sufficiencyBlock}`;
+};
 
 const dispatchToProvider = async (
 	systemPrompt: string,
 	userPrompt: string,
 	schema: Record<string, unknown>,
-	temp: number = TEMP_JURY
+	temp: number = TEMP_BENCH,
+	task: LLMTask = 'bench'
 ) => {
+	if (isNewStackEnabled()) {
+		return callLLM({
+			task,
+			systemPrompt,
+			userPrompt,
+			temperature: temp,
+			schema,
+			jsonMode: true,
+			maxTokens: task === 'coaching' ? 2000 : task === 'generate-case' ? 3000 : 2500
+		});
+	}
+
 	const provider = (env.LLM_PROVIDER ?? 'openai').toLowerCase();
 
 	switch (provider) {
@@ -605,31 +495,45 @@ const deriveToneSignal = (text: string): ToneSignal => {
 	};
 };
 
-const parseModelResponse = (raw: string): LLMStructuredResponse => {
-	try {
-		return JSON.parse(extractJson(raw));
-	} catch (err) {
-		console.error('Failed to parse LLM JSON', err, raw);
-		return { reply: { message: raw }, jurorScores: [] };
-	}
-};
-
 const extractJson = (text: string) => {
-	const start = text.indexOf('{');
-	const end = text.lastIndexOf('}');
-	if (start === -1 || end === -1) {
+	// Strip code fences (```json ... ``` or ``` ... ```)
+	let cleaned = text.trim();
+	if (cleaned.startsWith('```')) {
+		cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+	}
+
+	// Find the first balanced JSON object. We walk the string tracking braces
+	// so we don't get confused by `}` characters inside string values.
+	const start = cleaned.indexOf('{');
+	if (start === -1) {
 		throw new Error('No JSON object detected in LLM response.');
 	}
-	return text.slice(start, end + 1);
+
+	let depth = 0;
+	let inString = false;
+	let escape = false;
+	for (let i = start; i < cleaned.length; i++) {
+		const ch = cleaned[i];
+		if (escape) { escape = false; continue; }
+		if (ch === '\\' && inString) { escape = true; continue; }
+		if (ch === '"') { inString = !inString; continue; }
+		if (inString) continue;
+		if (ch === '{') depth++;
+		else if (ch === '}') {
+			depth--;
+			if (depth === 0) return cleaned.slice(start, i + 1);
+		}
+	}
+
+	// Fallback to greedy slice if we never closed cleanly.
+	const end = cleaned.lastIndexOf('}');
+	if (end === -1) throw new Error('No JSON object detected in LLM response.');
+	return cleaned.slice(start, end + 1);
 };
 
 const clamp = (value: number, min: number, max: number) => {
 	if (Number.isNaN(value)) return min;
 	return Math.min(Math.max(value, min), max);
-};
-
-const isValidStance = (stance?: string): stance is Stance => {
-	return stanceOptions.includes((stance ?? '') as Stance);
 };
 
 // ============================================================
@@ -652,22 +556,21 @@ export const generateBenchTrialAnalysis = async (args: {
 	prompt: string;
 	stagedCase: StagedCase;
 	sources: LibraryDocument[];
+	packContext?: PackContext;
+	transcript?: TranscriptEntry[];
 	language?: string;
-	ragContext?: string;
 }): Promise<{
 	reply: { message: string; citations: string[] };
 	judgeMind: { assessment: string; concerns: string; leaning: string };
 }> => {
-	const { prompt, stagedCase, sources, language = 'en', ragContext } = args;
+	const { prompt, stagedCase, sources, packContext, transcript = [], language = 'en' } = args;
 
-	if (!env.LLM_API_KEY) {
-		throw new Error('LLM_API_KEY is not configured.');
-	}
+	requireLLMKeys('bench');
 
 	const systemPrompt = buildBenchSystemPrompt(language);
-	const userPrompt = buildBenchUserPrompt({ prompt, stagedCase, sources, ragContext });
+	const userPrompt = buildBenchUserPrompt({ prompt, stagedCase, sources, packContext, transcript, language });
 	const schema = buildBenchJsonSchema();
-	const raw = await dispatchToProvider(systemPrompt, userPrompt, schema, TEMP_BENCH);
+	const raw = await dispatchToProvider(systemPrompt, userPrompt, schema, TEMP_BENCH, 'bench');
 	const parsed = parseBenchResponse(raw, language);
 
 	const fb = benchFallbacks(language);
@@ -708,19 +611,18 @@ const buildBenchSystemPrompt = (language: string = 'en') => {
 	const judgePersona = getJudgePersona(language);
 	const langLabel = language === 'fr' ? 'French (Canadian French / Français québécois)' : 'English';
 	const langStrict = language === 'fr'
-		? `RÈGLE LINGUISTIQUE ABSOLUE — VOUS DEVEZ RÉPONDRE EXCLUSIVEMENT EN FRANÇAIS (français canadien). Tout — reply.message, judgeMind.assessment, judgeMind.concerns, judgeMind.leaning — doit être en français. N'utilisez AUCUN mot anglais sauf les noms propres et les termes juridiques latins.`
-		: `ABSOLUTE LANGUAGE RULE — YOU MUST RESPOND EXCLUSIVELY IN ENGLISH. All output — reply.message and judgeMind fields — must be in English.`;
+		? `RÈGLE LINGUISTIQUE ABSOLUE — VOUS DEVEZ RÉPONDRE EXCLUSIVEMENT EN FRANÇAIS (français canadien). Tout — reply.message, judgeMind.assessment, judgeMind.concerns, judgeMind.leaning — doit être en français. La langue de l'audience est verrouillée par le dossier : même si le plaideur change de langue, vous ne changez pas. N'utilisez AUCUN mot anglais sauf les noms propres et les termes juridiques latins.`
+		: `ABSOLUTE LANGUAGE RULE — YOU MUST RESPOND EXCLUSIVELY IN ENGLISH. All output — reply.message and judgeMind fields — must be in English. The hearing language is locked by the case: do not switch languages just because the litigant does.`;
 	return `${langStrict}
 
-You are simulating a BENCH TRIAL (Judge Only—NO JURY).
+You are simulating a rigorous judge-led legal reasoning exercise.
 
 LANGUAGE INSTRUCTION: You MUST respond entirely in ${langLabel}. All text in reply.message and judgeMind fields must be in ${langLabel}.
 
-CRITICAL DISTINCTION FROM JURY TRIALS:
-- In a JURY trial, you persuade ordinary citizens with stories, emotions, and relatability.
-- In THIS BENCH TRIAL, you face a JUDGE who wants LAW, not feelings.
-- The judge doesn't care about your story—the judge cares about your LEGAL ARGUMENT.
-- Charm won't work. Evidence and statute citations will.
+CORE POSTURE:
+- You are the judge.
+- You care about law, precision, source discipline, and reasoning quality.
+- Emotional rhetoric is secondary to authority and analysis.
 
 EVALUATION TARGET (CRITICAL):
 - You evaluate ONLY the LITIGANT (the human user) — their legal reasoning, their use of authority, their argument structure.
@@ -746,6 +648,12 @@ CASE AWARENESS (CRITICAL):
 - Track what the litigant has argued so far. Don't re-ask questions they've already answered. Advance the proceeding.
 - Evaluate whether the litigant is effectively using their selected legal pack sources.
 
+PEDAGOGICAL CONTRACT (CRITICAL):
+- If a JUDGE EXERCISE BRIEF is provided in the user prompt, it controls the teaching goal of the hearing.
+- Do NOT redefine the lesson mid-hearing. Test the listed skill, probe the listed issues, and respect the listed source boundaries.
+- If the brief says the sources are silent or limited on a point, keep that silence explicit instead of filling the gap.
+- Treat the brief as the teacher's honest intent translated into a source-grounded exercise.
+
 YOU ARE: ${judgePersona.name.toUpperCase()}
 ${judgePersona.style}
 ${judgePersona.description}
@@ -755,6 +663,13 @@ SOURCE DISCIPLINE (CRITICAL):
 - You MUST evaluate the litigant's arguments against these provided sources.
 - If the litigant fails to reference their own sources, point this out.
 - Do NOT reference any external legal knowledge, articles, cases, or principles that are not present in the provided sources.
+- Jurisdiction/language metadata tells you the intended courtroom context. It does NOT authorize you to cite law from memory.
+- If the selected pack is silent on a legal point, say so candidly instead of filling the gap.
+- If PACK MEMORY appears in the exercise snapshot, treat it only as a navigation map from a prior source read. It can tell you which authorities or gaps may matter, but it is NOT authority.
+- If EVIDENCE SUFFICIENCY CHECK says canProceed=false or identifies missingConcepts, do not make a final legal conclusion on those missing points. Ask the litigant to anchor the point in the selected sources or say the current source packet is incomplete.
+- Final citations must still come from exact source text in the SOURCES block, not from Pack Memory summaries.
+- Treat this turn as a classroom activity capsule, not a full legal research memo. Stay within the case facts, judge brief, source packet, and recent transcript.
+- If the litigant asks for law outside the packet, say the activity does not contain enough source material for that point and ask them to return to the assigned issue.
 
 EVIDENCE FRAME (CRITICAL — this is a MOOT BENCH TRIAL, not live litigation):
 - This is a rhetorical-reasoning exercise. The litigant argues from the case file, the provided sources, and legal reasoning. There is NO mechanism for physical production of exhibits, emails, contracts, or witness testimony at the bench.
@@ -777,8 +692,10 @@ JURISPRUDENCE HANDLING:
 
 ANTI-HALLUCINATION RULES (MANDATORY — ZERO TOLERANCE):
 - You may ONLY cite article numbers, section numbers, or provision identifiers that appear VERBATIM in the provided sources.
+- VERBATIM-QUOTE RULE: Before citing an article/section number, you MUST quote a short fragment (5–20 words) of that article's actual text from the sources, in quotation marks, immediately next to the citation. If you cannot find the article's text in the sources, do NOT cite the number — describe the principle in general terms instead.
 - NEVER extrapolate or invent article/section numbers — even if they seem logically sequential (e.g., if sources contain articles 3165-3168, article 3169 does NOT exist unless explicitly shown).
 - NEVER fabricate case names, jurisprudence, or court decisions. If a court decision is NOT in the provided sources, do NOT cite it by name — argue from statutory text or general legal principles instead.
+- NEVER cite an article for a proposition it does not actually contain. If you remember an article from training data, IGNORE that memory — only what is in the sources counts.
 - If you are unsure whether a specific provision or case exists in the sources, state the general legal principle WITHOUT a specific citation.
 - Violating these rules is a judicial error. When in doubt, be general rather than specific.
 
@@ -789,6 +706,7 @@ JUDGE PERSONALITY:
 - Respectful but firm. Will cut you off if you ramble.
 - Has zero patience for emotional manipulation or theatrics.
 - Values: Clarity, precision, preparation, intellectual honesty.
+- Keep reply.message concise: usually 2-5 sentences. Do not lecture through the whole source packet unless the litigant specifically needs a narrow correction.
 
 INTEGRATED QUESTIONING (CRITICAL — no interruptions, just a focused ruling):
 - Do NOT issue separate "interjections" or theatrical interruptions. The judge speaks ONCE per turn, in a single ruling.
@@ -813,7 +731,7 @@ Judge questions are SHORT and pointed and usually end with a question — but th
 - "Name the statute or case you're relying on."
 
 ---
-JUDGE SCORING (stricter than jury):
+JUDGE SCORING:
 The judge focuses on LEGAL MERIT, not persuasion:
 
 | 0-15%   | No legal argument present. Gibberish, insults, or completely off-topic. |
@@ -830,6 +748,12 @@ METRICS:
 
 OUTPUT: JSON only with keys: reply {message, citations[]}, judgeMind {assessment, concerns, leaning}
 
+JUDGE MIND CONTRACT:
+- judgeMind.assessment: 1-2 short sentences on how the litigant is currently doing.
+- judgeMind.concerns: 1-2 short sentences naming the main weakness or unanswered issue.
+- judgeMind.leaning: 1 short sentence on the court's current direction; if undecided, say so and identify what would move the court.
+- Keep all judgeMind fields concise, concrete, and useful. No bullet lists.
+
 FINAL LANGUAGE REMINDER: ${langStrict}`;
 };
 
@@ -837,42 +761,46 @@ const buildBenchUserPrompt = (args: {
 	prompt: string;
 	stagedCase: StagedCase;
 	sources: LibraryDocument[];
-	ragContext?: string;
+	packContext?: PackContext;
+	transcript?: TranscriptEntry[];
+	language?: string;
 }) => {
-	const { prompt, stagedCase, sources, ragContext } = args;
-	const sourceLines = ragContext
-		? ragContext
-		: sources.length
-			? sources
-					.map((source) => {
-						const excerpt = source.content?.trim()
-							? source.content.slice(0, 16_000)
-							: source.description;
-						return `- ${source.title} (${source.jurisdiction}):\n  ${excerpt}`;
-					})
-					.join('\n')
-			: '- No sources provided.';
-	const jurisdictions = [...new Set(sources.map((s) => s.jurisdiction).filter(Boolean))];
-	const jurisdictionNote = jurisdictions.length
-		? `Jurisdiction(s): ${jurisdictions.join(', ')}. Any external citations must come from these jurisdictions and include a URL.`
-		: 'No jurisdiction identified. Evaluate based on provided sources only.';
+	const { prompt, stagedCase, sources, packContext, transcript = [], language = 'en' } = args;
+	const sourceLines = renderSourcesBlock(sources);
+	const packContextBlock = renderPackContextBlock({ packContext, sources, language });
+	const judgeBriefBlock = renderJudgeBriefBlock(stagedCase, language);
+	const groundingAuditBlock = renderGroundingAuditBlock(stagedCase, language);
+	const transcriptBlock = renderTranscriptBlock(transcript);
 	const toneSignal = deriveToneSignal(prompt);
+	const objective = stagedCase.objective?.trim() || (language === 'fr' ? 'Raisonnement juridique general' : 'General legal reasoning');
+	const targetSkill = stagedCase.targetSkill?.trim() || (language === 'fr' ? 'Raisonnement juridique general' : 'General legal reasoning');
+	const practicePoints = stagedCase.practicePoints?.length
+		? stagedCase.practicePoints.join('; ')
+		: (language === 'fr' ? 'Non precise' : 'Not specified');
 
-	return `BENCH TRIAL: ${stagedCase.title}
-Court Type: Judge Alone (self-represented litigant)
+	return `JUDGE-LED LEGAL REASONING SESSION: ${stagedCase.title}
+Court Type: Judge-led review
 Litigant argues: ${stagedCase.role.toUpperCase()}
 Litigant's position: The litigant is the ${stagedCase.role.toUpperCase()} and must prove their case from that side.
+Teaching Objective: ${objective}
+Primary Skill Focus: ${targetSkill}
+Practice Points: ${practicePoints}
+
+${judgeBriefBlock}
+
+${groundingAuditBlock}
 
 Stipulated Facts (agreed — do not dispute): ${stagedCase.synopsis}
 Core Issues: ${stagedCase.issues || 'Unspecified'}
 Remedy Sought: ${stagedCase.remedy || 'Unspecified'}
 
-Available Authorities (from selected legal pack):\n${sourceLines}
+${packContextBlock}
 
-${jurisdictionNote}
+Available Authorities (retrieved from the selected legal pack for this turn):\n${sourceLines}
 
 Tone Analysis: ${toneSignal.observations}
 Suggested Approach: ${toneSignal.guidance}
+${transcriptBlock}
 
 ---
 LITIGANT'S SUBMISSION:
@@ -880,18 +808,24 @@ LITIGANT'S SUBMISSION:
 ---
 
 Generate:
-1. Judge response — engage directly with what the litigant said. The facts in the synopsis are stipulated — do not dispute them. Challenge the litigant's LEGAL REASONING and whether the law supports their position. Ask pointed questions that force the litigant to strengthen their ${stagedCase.role} position.
+1. Judge response — engage directly with what the litigant said. The facts in the synopsis are stipulated — do not dispute them. Challenge the litigant's LEGAL REASONING and whether the law supports their position. Prioritize testing the stated skill focus (${targetSkill}) while asking pointed questions that force the litigant to strengthen their ${stagedCase.role} position.
 2. Judge mind snapshot (evaluate ONLY the litigant's performance) with:
-	- assessment: how well is the litigant arguing their ${stagedCase.role} case so far? Reference specific points they made.
-	- concerns: what's missing, weak, or unsupported in the litigant's argument?
+	- assessment: how well is the litigant arguing their ${stagedCase.role} case so far, especially on ${targetSkill}? Reference specific points they made.
+	- concerns: what's missing, weak, or unsupported in the litigant's argument, especially on ${targetSkill}?
 	- leaning: based on the litigant's performance, possible direction (e.g., "leaning plaintiff", "leaning defendant", "undecided")
 
 Remember:
-- The judge is STRICTER than jurors. Judges care about law, not emotion.
+- If a JUDGE EXERCISE BRIEF is provided above, treat it as the controlling teaching contract for this hearing.
+- If a CREATE GROUNDING AUDIT is provided above, treat it as the source contract for what the exercise can safely test.
+- This exercise is designed to train ${targetSkill}. Make that skill the center of your questioning while still checking source use, structure, and authority.
+- The judge prioritizes law, precision, and reasoning quality over rhetoric.
+- The SOURCES block may be a retrieved packet rather than the whole legal pack. Treat the packet as the only authority currently in view and do not assume unseen provisions help either side.
+- This is a low-cost classroom Judge turn. Use the existing activity capsule; do not perform broad legal research in the response.
 - Ask for authority when it isn't provided.
 - Evaluate the litigant's use of the provided legal pack sources — if they have sources but aren't citing them, point that out.
 - Press the litigant on whether their arguments actually address the issues and remedy they specified.
-- If citing external law, include URLs in citations array.
+- Use the listed pressure points and source boundaries if they are provided. Do not invent new doctrinal terrain outside them.
+- Treat pack jurisdiction/language as context only. They do not permit external citations.
 - ONLY cite article/section numbers that appear VERBATIM in the sources. NEVER extrapolate sequential numbers.
 - If the sources contain jurisprudence (court decisions), cite them by case name and paragraph. NEVER invent case names not in the sources.`;
 };
@@ -940,12 +874,14 @@ const parseBenchResponse = (raw: string, language: string = 'en'): BenchTrialRes
 export const generatePerformanceEvaluation = async (args: {
 	stagedCase: StagedCase;
 	sources: LibraryDocument[];
+	packContext?: PackContext;
 	transcript: PerformanceTurn[];
 	language?: string;
 }): Promise<PerformanceEvaluationResponse> => {
-	const { stagedCase, sources, transcript, language = 'en' } = args;
+	const { stagedCase, sources, packContext, transcript, language = 'en' } = args;
 
-	if (!env.LLM_API_KEY) {
+	const hasKeys = hasConfiguredProviderKey('coaching');
+	if (!hasKeys) {
 		return {
 			summary: language === 'fr'
 				? 'Évaluation indisponible pour le moment. Résumé local appliqué.'
@@ -958,7 +894,10 @@ export const generatePerformanceEvaluation = async (args: {
 
 LANGUAGE INSTRUCTION: Respond entirely in ${language === 'fr' ? 'French (Canadian French)' : 'English'}.
 
-IMPORTANT: You are evaluating ONLY the LITIGANT (the human user). Ignore the AI opponent's performance entirely. The transcript contains both sides — focus exclusively on turns marked with role "litigant".
+IMPORTANT: You are evaluating ONLY the LITIGANT (the human user). Ignore the AI judge's performance entirely. The transcript contains both sides — focus exclusively on turns marked with role "litigant".
+If the case includes a primary skill focus, make it central to the assessment, the weaknesses you identify, and the next-step advice.
+Treat the case file as a pedagogical contract. Score the litigant against the assigned side, teaching objective, judge goal, student task, hearing focus, practice points, source boundaries, and success criteria.
+If the litigant sounds polished but avoids the assigned task, misses the core issue, or ignores the success criteria, score accordingly.
 
 You must return JSON only with keys:
 {
@@ -999,6 +938,9 @@ Scoring rubric (evaluate the LITIGANT only):
 
 Do not include markdown, preface, or commentary outside JSON.`;
 
+	const judgeBriefBlock = renderJudgeBriefBlock(stagedCase, language);
+	const groundingAuditBlock = renderGroundingAuditBlock(stagedCase, language);
+	const exercisePaperBlock = renderExercisePaperBlock(stagedCase, language);
 	const transcriptSlice = transcript.slice(-20);
 	const transcriptText = transcriptSlice
 		.map((turn, index) => {
@@ -1010,6 +952,7 @@ Do not include markdown, preface, or commentary outside JSON.`;
 	const sourcesText = sources.length
 		? sources.map((source) => `- ${source.title} (${source.jurisdiction})`).join('\n')
 		: '- No sources selected.';
+	const packContextBlock = renderPackContextBlock({ packContext, sources, language });
 
 	const userPrompt = `Case: ${stagedCase.title}
 Role: ${stagedCase.role}
@@ -1017,6 +960,17 @@ Court: ${stagedCase.courtType}
 Synopsis: ${stagedCase.synopsis}
 Issues: ${stagedCase.issues || 'Unspecified'}
 Remedy: ${stagedCase.remedy || 'Unspecified'}
+Teaching Objective: ${stagedCase.objective || 'General legal reasoning'}
+Primary Skill Focus: ${stagedCase.targetSkill || 'General legal reasoning'}
+Practice Points: ${stagedCase.practicePoints?.length ? stagedCase.practicePoints.join('; ') : 'Not specified'}
+
+${exercisePaperBlock}
+
+${judgeBriefBlock}
+
+${groundingAuditBlock}
+
+${packContextBlock}
 
 Allowed sources:
 ${sourcesText}
@@ -1049,7 +1003,7 @@ Return strict JSON only.`;
 	} as const;
 
 	try {
-		const raw = await dispatchToProvider(systemPrompt, userPrompt, schema as unknown as Record<string, unknown>, TEMP_EVALUATION);
+		const raw = await dispatchToProvider(systemPrompt, userPrompt, schema as unknown as Record<string, unknown>, TEMP_EVALUATION, 'coaching');
 		const parsed = JSON.parse(extractJson(raw)) as PerformanceEvaluationResponse;
 		const cleanList = (list: unknown): string[] =>
 			Array.isArray(list)

@@ -1,12 +1,15 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
-import { indexDocument, deleteDocumentChunks } from '$lib/server/rag';
+import { storeChunksOnly, deleteDocumentChunks } from '$lib/server/rag';
 
 /**
- * POST — Index a document: chunk + embed + store in pgvector
+ * POST — Store a document's full text in `document_chunks` (no embeddings).
+ * The full-context loader (`$lib/server/sources`) reconstructs the document
+ * by concatenating rows in `chunk_index` order at query time.
+ *
  * Body: { sourceId, packId?, content, metadata: { title, jurisdiction, docType?, trustLevel?, sourceUrl? } }
  *
- * DELETE — Remove all chunks for a source
+ * DELETE — Remove all rows for a source
  * Query: ?sourceId=xxx
  */
 
@@ -25,7 +28,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	try {
-		const chunkCount = await indexDocument({
+		const stored = await storeChunksOnly({
 			supabase: locals.supabase,
 			userId: session.user.id,
 			sourceId: String(payload.sourceId),
@@ -40,10 +43,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			}
 		});
 
-		return json({ success: true, chunkCount });
+		return json({ success: true, chunkCount: stored.chunkCount, ingestionAudit: stored.ingestionAudit });
 	} catch (err) {
-		console.error('Indexing failed:', err);
-		const msg = err instanceof Error ? err.message : 'Indexing failed';
+		console.error('Document storage failed:', err);
+		const msg = err instanceof Error ? err.message : 'Document storage failed';
 		throw error(500, msg);
 	}
 };

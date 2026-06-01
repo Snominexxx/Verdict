@@ -81,7 +81,7 @@
 				<span>{t('court.ongoing', $language)}: <strong class="text-white">{ongoingCases.length}</strong></span>
 				<span>{t('court.finished', $language)}: <strong class="text-white">{finishedCases.length}</strong></span>
 			</div>
-			<a href="/cases" class="px-4 py-2 bg-white text-black text-sm font-bold uppercase tracking-widest rounded hover:bg-white/90 transition">
+			<a href="/create" class="px-4 py-2 bg-white text-black text-sm font-bold uppercase tracking-widest rounded hover:bg-white/90 transition">
 				{t('court.stageNew', $language)}
 			</a>
 			<a href="/library" class="px-4 py-2 border border-white/30 text-sm font-bold uppercase tracking-widest rounded text-white/90 hover:bg-white/10 transition">
@@ -98,7 +98,7 @@
 				<h3 class="text-3xl font-display font-bold text-white mb-3">{t('court.welcomeTitle', $language)}</h3>
 				<p class="text-base text-white/70 leading-relaxed mb-7 max-w-md mx-auto">{t('court.welcomeDesc', $language)}</p>
 				<div class="flex flex-col sm:flex-row gap-3 justify-center items-center">
-					<a href="/cases" class="px-7 py-3 bg-white text-black text-sm font-bold uppercase tracking-widest rounded hover:bg-white/90 transition">
+					<a href="/create" class="px-7 py-3 bg-white text-black text-sm font-bold uppercase tracking-widest rounded hover:bg-white/90 transition">
 						{t('court.welcomeStart', $language)}
 					</a>
 					<a href="/how-it-works" class="px-5 py-3 text-sm font-semibold text-white/70 hover:text-white underline underline-offset-4 transition">
@@ -133,6 +133,9 @@
 								<div class="min-w-0">
 									<p class="text-xs uppercase tracking-[0.2em] text-white/50">{roleCopy[entry.role]?.[$language] ?? t('court.litigant', $language)}</p>
 									<h4 class="text-sm font-semibold leading-snug mt-0.5 truncate">{entry.title}</h4>
+									{#if entry.targetSkill}
+										<p class="text-[10px] uppercase tracking-[0.18em] text-flare/80 mt-1">{t('cases.skillFocus', $language)} · {entry.targetSkill}</p>
+									{/if}
 								</div>
 								<span class="text-[9px] uppercase tracking-wider text-amber-300 border border-amber-300/30 rounded-full px-2 py-0.5 whitespace-nowrap">{t('court.ongoingBadge', $language)}</span>
 							</div>
@@ -180,6 +183,9 @@
 								<div class="min-w-0">
 									<p class="text-xs uppercase tracking-[0.2em] text-white/50">{roleCopy[entry.role]?.[$language] ?? t('court.litigant', $language)}</p>
 									<h4 class="text-sm font-semibold leading-snug mt-0.5 truncate">{entry.title}</h4>
+									{#if entry.targetSkill}
+										<p class="text-[10px] uppercase tracking-[0.18em] text-flare/80 mt-1">{t('cases.skillFocus', $language)} · {entry.targetSkill}</p>
+									{/if}
 								</div>
 								<span class="text-[9px] uppercase tracking-wider text-white/50 border border-white/15 rounded-full px-2 py-0.5 whitespace-nowrap">{t('court.finishedBadge', $language)}</span>
 							</div>

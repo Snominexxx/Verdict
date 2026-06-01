@@ -1,12 +1,14 @@
 import { browser } from '$app/environment';
 import { writable, get } from 'svelte/store';
 import type { LibraryDocument } from '$lib/data/library';
+import type { PackLanguage } from '$lib/types';
 import { userKey } from './userSession';
 
 export type LegalPack = {
 	id: string;
 	name: string;
 	jurisdiction: string;
+	language: PackLanguage;
 	domain: string;
 	description: string;
 	sources: LibraryDocument[];
@@ -17,6 +19,32 @@ const STORAGE_KEY = 'verdict.legalPacks.v1';
 const SELECTED_PACK_KEY = 'verdict.selectedPackId.v1';
 
 const defaultPacks: LegalPack[] = [];
+
+const normalizePackLanguage = (value: unknown): PackLanguage => (value === 'fr' ? 'fr' : 'en');
+
+const normalizePack = (raw: Partial<LegalPack> & Record<string, unknown>): LegalPack | null => {
+	if (!raw || typeof raw !== 'object') return null;
+	const id = String(raw.id ?? '').trim();
+	const name = String(raw.name ?? '').trim();
+	if (!id || !name) return null;
+	return {
+		id,
+		name,
+		jurisdiction: String(raw.jurisdiction ?? 'Other').trim() || 'Other',
+		language: normalizePackLanguage(raw.language),
+		domain: String(raw.domain ?? 'General').trim() || 'General',
+		description: String(raw.description ?? ''),
+		sources: Array.isArray(raw.sources) ? raw.sources.map(withCustomFlag) : [],
+		isDefault: raw.isDefault === true
+	};
+};
+
+const normalizePacks = (value: unknown): LegalPack[] => {
+	if (!Array.isArray(value)) return [];
+	return value
+		.map((pack) => normalizePack(pack as Partial<LegalPack> & Record<string, unknown>))
+		.filter((pack): pack is LegalPack => Boolean(pack));
+};
 
 const withCustomFlag = (source: LibraryDocument): LibraryDocument => ({
 	...source,
@@ -59,7 +87,7 @@ const createLegalPacksStore = () => {
 			try {
 				const raw = localStorage.getItem(key);
 				if (raw) {
-					const parsed = JSON.parse(raw) as LegalPack[];
+					const parsed = normalizePacks(JSON.parse(raw));
 					const filtered = parsed.filter((p) => !p.isDefault);
 					persist(filtered);
 					set(filtered);
@@ -77,7 +105,7 @@ const createLegalPacksStore = () => {
 			const key = userKey(STORAGE_KEY);
 			const raw = key ? localStorage.getItem(key) : null;
 			if (raw) {
-				const parsed = JSON.parse(raw) as LegalPack[];
+				const parsed = normalizePacks(JSON.parse(raw));
 				set(parsed);
 			} else {
 				set([]);
@@ -96,7 +124,7 @@ const createLegalPacksStore = () => {
 			if (!res.ok) return;
 			const data = await res.json();
 			if (data.packs && Array.isArray(data.packs) && data.packs.length > 0) {
-				const remotePacks = data.packs as LegalPack[];
+				const remotePacks = normalizePacks(data.packs);
 				set(remotePacks);
 				persist(remotePacks);
 			} else if (!_hydrated) {
@@ -111,7 +139,7 @@ const createLegalPacksStore = () => {
 	const createPack = (pack: Omit<LegalPack, 'id'>) => {
 		update((packs) => {
 			const next: LegalPack[] = [
-				{ ...pack, id: `pack-${Date.now()}` },
+				{ ...pack, language: normalizePackLanguage(pack.language), id: `pack-${Date.now()}` },
 				...packs
 			];
 			persist(next);
@@ -148,7 +176,12 @@ const createLegalPacksStore = () => {
 		update((packs) => {
 			const next = packs.map((pack) => {
 				if (pack.id !== packId) return pack;
-				const prepared = withCustomFlag(source);
+				const prepared = withCustomFlag({
+					...source,
+					jurisdiction: source.jurisdiction && source.jurisdiction !== 'Other'
+						? source.jurisdiction
+						: pack.jurisdiction
+				});
 				const deduped = [prepared, ...pack.sources.filter((s) => s.id !== prepared.id)];
 				return { ...pack, sources: deduped };
 			});

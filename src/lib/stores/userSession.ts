@@ -12,6 +12,7 @@ export const activeUserId = writable<string | null>(null);
 /** All localStorage keys that are user-scoped */
 const USER_SCOPED_KEYS = [
 	'verdict.caseHistory.v1',
+	'verdict.savedDrafts.v1',
 	'verdict.legalPacks.v1',
 	'verdict.subscription.v1',
 	'verdict.librarySources.v1',

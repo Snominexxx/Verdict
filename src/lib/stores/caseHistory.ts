@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
-import type { StagedCase } from '$lib/types';
+import type { ExercisePaperSnapshot, JudgePacket, SourceBundle, StagedCase } from '$lib/types';
 import { userKey } from './userSession';
 
 export type CasePerformance = {
@@ -26,6 +26,46 @@ performance?: CasePerformance;
 };
 
 const STORAGE_KEY = 'verdict.caseHistory.v1';
+const MAX_PERSISTED_PACKET_EXCERPTS = 6;
+const MAX_PERSISTED_EXCERPT_CHARS = 1200;
+
+const compactSourceBundle = (bundle: SourceBundle | undefined): SourceBundle | undefined => {
+	if (!bundle) return undefined;
+	return {
+		...bundle,
+		excerpts: bundle.excerpts.slice(0, MAX_PERSISTED_PACKET_EXCERPTS).map((excerpt) => ({
+			...excerpt,
+			excerpt: excerpt.excerpt.length > MAX_PERSISTED_EXCERPT_CHARS
+				? `${excerpt.excerpt.slice(0, MAX_PERSISTED_EXCERPT_CHARS)}...`
+				: excerpt.excerpt
+		}))
+	};
+};
+
+const compactPaperSnapshot = (snapshot: ExercisePaperSnapshot | undefined): ExercisePaperSnapshot | undefined => {
+	if (!snapshot) return undefined;
+	return {
+		...snapshot,
+		sourceBundle: compactSourceBundle(snapshot.sourceBundle),
+		packMemory: undefined,
+		evidenceSufficiency: undefined
+	};
+};
+
+const compactJudgePacket = (packet: JudgePacket | undefined): JudgePacket | undefined => {
+	if (!packet) return undefined;
+	return {
+		...packet,
+		paper: compactPaperSnapshot(packet.paper) ?? packet.paper,
+		sourcePacket: compactSourceBundle(packet.sourcePacket)
+	};
+};
+
+const compactHistoryEntry = (entry: CaseHistoryEntry): CaseHistoryEntry => ({
+	...entry,
+	paperSnapshot: compactPaperSnapshot(entry.paperSnapshot),
+	judgePacket: compactJudgePacket(entry.judgePacket)
+});
 
 /** Debounced sync to Supabase */
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -33,7 +73,7 @@ const scheduleSync = (cases: CaseHistoryEntry[], deletedIds?: string[]) => {
 	if (!browser) return;
 	if (syncTimer) clearTimeout(syncTimer);
 	syncTimer = setTimeout(() => {
-		const payload: Record<string, unknown> = { cases };
+		const payload: Record<string, unknown> = { cases: cases.map(compactHistoryEntry) };
 		if (deletedIds?.length) payload.deletedCaseIds = deletedIds;
 		fetch('/api/user-data', {
 			method: 'POST',
@@ -48,8 +88,12 @@ const { subscribe, set, update } = writable<CaseHistoryEntry[]>([]);
 
 const persist = (value: CaseHistoryEntry[]) => {
 if (!browser) return;
-const key = userKey(STORAGE_KEY);
-if (key) localStorage.setItem(key, JSON.stringify(value));
+try {
+	const key = userKey(STORAGE_KEY);
+	if (key) localStorage.setItem(key, JSON.stringify(value.map(compactHistoryEntry)));
+} catch (error) {
+	console.warn('Case history persistence skipped:', error);
+}
 };
 
 const hydrateCaseHistory = () => {
@@ -77,8 +121,9 @@ const loadFromRemote = async () => {
 		if (!res.ok) return;
 		const data = await res.json();
 		if (data.cases && Array.isArray(data.cases)) {
-			set(data.cases as CaseHistoryEntry[]);
-			persist(data.cases as CaseHistoryEntry[]);
+			const remoteCases = (data.cases as CaseHistoryEntry[]).map(compactHistoryEntry);
+			set(remoteCases);
+			persist(remoteCases);
 		}
 	} catch {
 		// Offline — localStorage values are already loaded

@@ -5,6 +5,7 @@
 	import { onMount } from 'svelte';
 	import { invalidate } from '$app/navigation';
 	import { caseHistoryStore } from '$lib/stores/caseHistory';
+	import { draftsStore } from '$lib/stores/drafts';
 	import { legalPacksStore } from '$lib/stores/legalPacks';
 	import { subscriptionStore } from '$lib/stores/subscription';
 	import { language, toggleLanguage } from '$lib/stores/language';
@@ -25,10 +26,12 @@
 		if (userId) {
 			// Hydrate from user-namespaced localStorage first (fast)
 			caseHistoryStore.hydrateCaseHistory();
+			draftsStore.hydrate();
 			legalPacksStore.hydrate();
 			subscriptionStore.hydrate();
 
 			// Then load from Supabase
+			draftsStore.loadFromRemote();
 			legalPacksStore.loadFromRemote();
 			caseHistoryStore.loadFromRemote();
 			subscriptionStore.loadFromRemote();
@@ -122,14 +125,14 @@
 
 	<!-- Open Graph -->
 	<meta property="og:type" content="website" />
-	<meta property="og:title" content="Verdict — AI Legal Debates" />
+	<meta property="og:title" content="Verdict — AI Judge Practice" />
 	<meta property="og:description" content={t('meta.description', $language)} />
 	<meta property="og:url" content="https://verdictmvp.netlify.app" />
 	<meta property="og:image" content="https://verdictmvp.netlify.app/og-image.png" />
 
 	<!-- Twitter Card -->
 	<meta name="twitter:card" content="summary_large_image" />
-	<meta name="twitter:title" content="Verdict — AI Legal Debates" />
+	<meta name="twitter:title" content="Verdict — AI Judge Practice" />
 	<meta name="twitter:description" content={t('meta.description', $language)} />
 	<meta name="twitter:image" content="https://verdictmvp.netlify.app/og-image.png" />
 
@@ -149,9 +152,18 @@
 				V
 			</a>
 			<div class="w-12 h-[1px] bg-white/20"></div>
-			<a href="/cases" class="flex flex-col items-center gap-1 py-2 px-1 text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition w-[78px]" title={t('nav.stage', $language)}>
+			<a href="/create" class="flex flex-col items-center gap-1 py-2 px-1 text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition w-[78px]" title={t('nav.stage', $language)}>
 				<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="square" stroke-linejoin="miter" stroke-width="1.5" d="M12 4v16m8-8H4"></path></svg>
 				<span class="text-xs font-semibold uppercase tracking-wide">{t('nav.stage', $language)}</span>
+			</a>
+			<a href="/drafts" class="flex flex-col items-center gap-1 py-2 px-1 text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition w-[78px]" title={t('nav.drafts', $language)}>
+				<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="square" stroke-linejoin="miter" stroke-width="1.5" d="M7 3.75h7.5L19.5 8.75v11.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-15.5a1 1 0 0 1 1-1Z"></path>
+					<path stroke-linecap="square" stroke-linejoin="miter" stroke-width="1.5" d="M14.5 3.75v5h5"></path>
+					<path stroke-linecap="square" stroke-linejoin="miter" stroke-width="1.5" d="M9 12h6"></path>
+					<path stroke-linecap="square" stroke-linejoin="miter" stroke-width="1.5" d="M9 16h4"></path>
+				</svg>
+				<span class="text-xs font-semibold uppercase tracking-wide">{t('nav.drafts', $language)}</span>
 			</a>
 			<a href="/court" class="flex flex-col items-center gap-1 py-2 px-1 text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition w-[78px]" title={t('nav.court', $language)}>
 				<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -231,7 +243,7 @@
 		{/if}
 		
 		<!-- Workspace -->
-		<div class="flex-1 overflow-auto bg-[url('/grid.svg')]">
+		<div class="flex-1 overflow-auto">
 			{@render children()}
 		</div>
 	</main>

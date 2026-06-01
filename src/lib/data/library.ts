@@ -15,6 +15,18 @@ export type LibraryDocument = {
 	trustLevel?: 'official' | 'recognized' | 'unverified';
 	isCustom?: boolean;
 	note?: string;
+	ingestionAudit?: {
+		mode: 'structured-legal' | 'paragraph-fallback';
+		reliableForClassroom: boolean;
+		qualityScore: number;
+		coverageRatio: number;
+		unitCount: number;
+		articleCount: number;
+		sectionCount: number;
+		language: 'en' | 'fr' | 'mixed' | 'unknown';
+		bilingualRisk: boolean;
+		warnings: string[];
+	};
 };
 
 export const libraryDocuments: LibraryDocument[] = [

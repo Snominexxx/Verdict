@@ -4,6 +4,9 @@ import { language } from '$lib/stores/language';
 
 const emptyTranscript: DebateTurn[] = [];
 
+const isTransientCaseId = (caseId: string): boolean =>
+	caseId.startsWith('local-') || caseId.startsWith('shared-');
+
 const { subscribe, update, set } = writable<DebateTurn[]>(emptyTranscript);
 
 export const debateStore = { subscribe };
@@ -16,6 +19,7 @@ export const resetTranscript = () => set(emptyTranscript);
 
 /** Save an array of new turns to the backend. */
 export const saveTurns = async (caseId: string, turns: DebateTurn[]) => {
+	if (isTransientCaseId(caseId)) return;
 	if (!caseId || !turns.length) return;
 	try {
 		await fetch('/api/debate-turns', {
@@ -30,6 +34,7 @@ export const saveTurns = async (caseId: string, turns: DebateTurn[]) => {
 
 /** Load saved turns from the backend and hydrate the store. Returns true if turns were found. */
 export const loadTurns = async (caseId: string): Promise<boolean> => {
+	if (isTransientCaseId(caseId)) return false;
 	if (!caseId) return false;
 	try {
 		const res = await fetch(`/api/debate-turns?caseId=${encodeURIComponent(caseId)}`);
@@ -47,6 +52,7 @@ export const loadTurns = async (caseId: string): Promise<boolean> => {
 
 /** Clear all saved turns for a case (used on restart). */
 export const clearSavedTurns = async (caseId: string) => {
+	if (isTransientCaseId(caseId)) return;
 	if (!caseId) return;
 	try {
 		await fetch(`/api/debate-turns?caseId=${encodeURIComponent(caseId)}`, { method: 'DELETE' });
@@ -67,54 +73,41 @@ export const seedTranscript = (stagedCase?: StagedCase | null) => {
 	const youAre = stagedCase.role === 'plaintiff'
 		? (lang === 'fr' ? 'Demandeur' : 'Plaintiff')
 		: (lang === 'fr' ? 'Défendeur' : 'Defendant');
-	const iAm = stagedCase.role === 'plaintiff'
-		? (lang === 'fr' ? 'Défendeur' : 'Defendant')
-		: (lang === 'fr' ? 'Demandeur' : 'Plaintiff');
-
-	const isBenchTrial = stagedCase.courtType === 'bench';
-
-	if (isBenchTrial) {
-		const judgeSummary: DebateTurn = {
-			role: 'judge',
-			speaker: 'Justice Beaumont',
-			message: `**${stagedCase.title}**\n\n` +
-				(lang === 'fr'
-					? `Audience devant juge seul. Vous vous représentez en tant que ${youAre}.`
-					: `Bench hearing. You represent yourself as ${youAre}.`),
-			timestamp: now
-		};
-
-		const judgeOpening: DebateTurn = {
-			role: 'judge',
-			speaker: 'Justice Beaumont',
-			message: lang === 'fr'
-				? `Les faits sont notés. Présentez votre argument en citant le droit applicable.`
-				: `The facts are noted. Present your argument and cite the applicable law.`,
-			timestamp: new Date().toISOString()
-		};
-
-		set([judgeSummary, judgeOpening]);
-		return;
-	}
-
-	const summaryTurn: DebateTurn = {
-		role: 'ai',
-		speaker: 'Advocate AI',
+	const skillFocus = stagedCase.targetSkill?.trim();
+	const hearingFocus = stagedCase.judgeBrief?.hearingFocus?.trim();
+	const studentTask = stagedCase.judgeBrief?.studentTask?.trim();
+	const judgeSummary: DebateTurn = {
+		role: 'judge',
+		speaker: 'Justice Beaumont',
 		message: `**${stagedCase.title}**\n\n` +
 			(lang === 'fr'
-				? `Vous = ${youAre}\nMoi = ${iAm} (j'argumente contre vous)`
-				: `You = ${youAre}\nMe = ${iAm} (I argue against you)`),
+				? `Audience devant juge seul. Vous vous représentez en tant que ${youAre}.`
+				: `Bench hearing. You represent yourself as ${youAre}.`) +
+			(hearingFocus
+				? `\n\n${lang === 'fr' ? `Cadre de l audience : ${hearingFocus}.` : `Hearing focus: ${hearingFocus}.`}`
+				: '') +
+			(skillFocus
+				? `\n\n${lang === 'fr' ? `Compétence ciblée : ${skillFocus}.` : `Skill focus: ${skillFocus}.`}`
+				: ''),
 		timestamp: now
 	};
 
-	const openingTurn: DebateTurn = {
-		role: 'ai',
-		speaker: 'Advocate AI',
+	const judgeOpening: DebateTurn = {
+		role: 'judge',
+		speaker: 'Justice Beaumont',
 		message: lang === 'fr'
-			? `Les faits sont convenus. Présentez votre premier argument.`
-			: `The facts are agreed. Present your opening argument.`,
+			? (studentTask
+				? `${studentTask}${skillFocus ? ` Compétence ciblée : ${skillFocus}.` : ''}`
+				: skillFocus
+				? `La compétence ciblée aujourd'hui est ${skillFocus}. Présentez votre argument en citant le droit applicable.`
+				: `Les faits sont notés. Présentez votre argument en citant le droit applicable.`)
+			: (studentTask
+				? `${studentTask}${skillFocus ? ` Primary skill: ${skillFocus}.` : ''}`
+				: skillFocus
+				? `Today's exercise focuses on ${skillFocus}. Present your argument and cite the applicable law.`
+				: `The facts are noted. Present your argument and cite the applicable law.`),
 		timestamp: new Date().toISOString()
 	};
 
-	set([summaryTurn, openingTurn]);
+	set([judgeSummary, judgeOpening]);
 };

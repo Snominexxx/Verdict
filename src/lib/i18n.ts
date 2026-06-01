@@ -2,7 +2,8 @@ import type { Lang } from '$lib/stores/language';
 
 const translations = {
 	// ===== LAYOUT =====
-	'nav.stage': { en: 'Stage', fr: 'Créer' },
+	'nav.stage': { en: 'Create', fr: 'Créer' },
+	'nav.drafts': { en: 'Drafts', fr: 'Brouillons' },
 	'nav.court': { en: 'Court', fr: 'Cour' },
 	'nav.library': { en: 'Library', fr: 'Sources' },
 	'nav.about': { en: 'About Verdict', fr: 'À propos' },
@@ -11,8 +12,8 @@ const translations = {
 	'layout.resumePrefix': { en: 'Ongoing case:', fr: 'Cause en cours :' },
 	'layout.resumeButton': { en: 'Resume', fr: 'Reprendre' },
 	'meta.description': {
-		en: 'Verdict — debate against AI counsel and five autonomous jurors.',
-		fr: 'Verdict — débattez contre un avocat IA devant cinq jurés autonomes.'
+		en: 'Verdict — source-bound legal reasoning practice with an AI judge.',
+		fr: 'Verdict — pratique du raisonnement juridique fondé sur les sources avec un juge IA.'
 	},
 
 	// ===== DISCLAIMER =====
@@ -30,7 +31,7 @@ const translations = {
 
 	// ===== AUTH =====
 	'auth.pageTitle': { en: 'Sign In', fr: 'Connexion' },
-	'auth.tagline': { en: 'Argue your case. Face the jury.', fr: 'Plaidez votre cause. Faites face au jury.' },
+	'auth.tagline': { en: 'Build the record. Face the judge.', fr: 'Bâtissez le dossier. Faites face au juge.' },
 	'auth.continueWithGoogle': { en: 'Continue with Google', fr: 'Continuer avec Google' },
 	'auth.or': { en: 'or', fr: 'ou' },
 	'auth.email': { en: 'Email', fr: 'Courriel' },
@@ -52,32 +53,29 @@ const translations = {
 	'home.subtitle': { en: 'Verdict', fr: 'Verdict' },
 	'home.headline': { en: 'Practice. Argue. Win.', fr: 'Pratiquez. Argumentez. Gagnez.' },
 	'home.description': {
-		en: 'Build your legal library, set up a case, and argue it before AI counsel and jurors.',
-		fr: 'Créez votre bibliothèque juridique, montez un dossier et plaidez devant un avocat et des jurés IA.'
+		en: 'Upload source material, talk normally with Verdict, then create source-grounded exercises when the direction is ready.',
+		fr: 'Téléversez des sources, parlez normalement avec Verdict, puis créez des exercices fondés sur les documents quand l’orientation est prête.'
 	},
-	'home.initCase': { en: 'Initialize Case', fr: 'Créer une cause' },
+	'home.initCase': { en: 'Open Create', fr: 'Ouvrir Créer' },
 	'home.browseLibrary': { en: 'Browse Library', fr: 'Parcourir les sources' },
 
 	// ===== CASES =====
-	'cases.header': { en: 'Start a Case', fr: 'Créer une cause' },
+	'cases.header': { en: 'Create', fr: 'Créer' },
 	'cases.subheader': {
-		en: 'Keep it simple. Tell the story in plain words.',
-		fr: 'Restez simple. Racontez l\'histoire en mots clairs.'
+		en: 'Upload sources, talk naturally, and let Verdict guide the exercise only from the documents you selected.',
+		fr: 'Téléversez des sources, discutez naturellement, et laissez Verdict guider l’exercice seulement à partir des documents sélectionnés.'
 	},
-	'cases.resetForm': { en: 'Reset Form', fr: 'Réinitialiser' },
-	'cases.mode': { en: 'Mode', fr: 'Mode' },
-	'cases.jury': { en: 'Jury', fr: 'Jury' },
-	'cases.judge': { en: 'Judge', fr: 'Juge' },
+	'cases.resetForm': { en: 'Reset Chat', fr: 'Réinitialiser' },
+	'cases.mode': { en: 'Review Format', fr: 'Format de révision' },
+	'cases.judge': { en: 'Judge Review', fr: 'Révision par le juge' },
 	'cases.autoFill': { en: 'Auto-fill', fr: 'Remplir auto' },
 	'cases.generating': { en: 'Generating...', fr: 'Génération...' },
-	'cases.juryDesc': {
-		en: 'Jury Trial — Debate against an AI advocate in front of 5 citizen jurors. Persuade real people, not a textbook. Each juror scores you based on credibility, logic, and fairness.',
-		fr: 'Procès devant jury — Débattez contre un avocat IA devant 5 jurés citoyens. Convainquez de vraies personnes, pas un manuel. Chaque juré vous évalue sur la crédibilité, la logique et l\'équité.'
-	},
 	'cases.judgeDesc': {
-		en: 'Bench Trial — Argue your case before a single AI judge. No jury, no persuasion — just law. Cite statutes, reference cases, and present structured legal arguments. The judge demands authority, not emotion.',
-		fr: 'Procès devant juge — Argumentez votre cause devant un seul juge IA. Pas de jury, pas de persuasion — juste le droit. Citez des lois, référencez des arrêts et présentez des arguments juridiques structurés.'
+		en: 'Strict examination — the judge tests whether your argument is actually supported by the uploaded sources.',
+		fr: 'Examen strict — le juge vérifie si votre argument est réellement appuyé par les sources téléversées.'
 	},
+	'cases.learningObjective': { en: 'Learning Objective', fr: 'Objectif pedagogique' },
+	'cases.skillFocus': { en: 'Skill Focus', fr: 'Competence ciblee' },
 	'cases.caseTitle': { en: 'Case Title', fr: 'Titre de la cause' },
 	'cases.caseTitlePlaceholder': { en: 'e.g. Smith v. Jones', fr: 'ex. Tremblay c. Dupont' },
 	'cases.yourSide': { en: 'Your Side', fr: 'Votre rôle' },
@@ -101,12 +99,12 @@ const translations = {
 		fr: 'Sélectionnez un pack juridique avant de créer la cause.'
 	},
 	'cases.selectPackFirst': {
-		en: 'Please select a Legal Pack first — the AI needs your uploaded laws to generate a case.',
-		fr: 'Veuillez d\'abord sélectionner un Pack juridique — l\'IA a besoin de vos lois téléversées pour générer une cause.'
+		en: 'Select or create a source pack first so Verdict can read your uploaded documents.',
+		fr: 'Sélectionnez ou créez d’abord un pack de sources pour que Verdict puisse lire vos documents téléversés.'
 	},
 	'cases.noSourcesInPack': {
-		en: 'This pack has no sources yet. Add sources from the library.',
-		fr: 'Ce pack ne contient pas encore de sources. Ajoutez des sources depuis la bibliothèque.'
+		en: 'This pack has no sources yet. Upload documents in the Library first.',
+		fr: 'Ce pack ne contient pas encore de sources. Téléversez d’abord des documents dans les Sources.'
 	},
 	'cases.sources': { en: 'Sources (Optional)', fr: 'Sources (Optionnel)' },
 	'cases.selected': { en: 'Selected', fr: 'Sélectionnées' },
@@ -125,14 +123,14 @@ const translations = {
 	'cases.startDebate': { en: 'START DEBATE', fr: 'LANCER LE DÉBAT' },
 	'cases.editSources': { en: 'Edit sources', fr: 'Modifier les sources' },
 	'cases.includeSources': { en: 'Include sources', fr: 'Sources à inclure' },
-	'cases.includeSourcesDesc': { en: 'Uncheck any source you want excluded from the AI generation.', fr: 'Décochez les sources que vous voulez exclure de la génération IA.' },
+	'cases.includeSourcesDesc': { en: 'Uncheck any document you want excluded from retrieval for this conversation.', fr: 'Décochez les documents que vous voulez exclure de la recherche pour cette conversation.' },
 	'cases.allOn': { en: 'Select all', fr: 'Tout cocher' },
 	'cases.allOff': { en: 'Deselect all', fr: 'Tout décocher' },
 	'cases.chooseSide': { en: 'Choose Your Side', fr: 'Choisissez votre camp' },
 	'cases.chooseSideDesc': { en: 'Now that you\'ve seen the case, which side do you want to argue?', fr: 'Maintenant que vous avez vu la cause, quel camp voulez-vous défendre?' },
 	'cases.youArgue': { en: 'You\'ll argue:', fr: 'Vous plaiderez :' },
-	'cases.noPacksYet': { en: 'No legal packs yet. Upload sources in the Library first.', fr: 'Aucun pack juridique. Téléversez des sources dans la Bibliothèque d\'abord.' },
-	'cases.goToLibrary': { en: 'Go to Library', fr: 'Aller à la Bibliothèque' },
+	'cases.noPacksYet': { en: 'No source packs yet. Create one in the Library first.', fr: 'Aucun pack de sources. Créez-en un dans les Sources d’abord.' },
+	'cases.goToLibrary': { en: 'Go to Sources', fr: 'Aller aux sources' },
 	'cases.uploadEvidence': { en: 'Upload Evidence / Packet', fr: 'Téléverser des preuves' },
 	'cases.uploadFormats': { en: 'PDF, DOCX, TXT // SHA-256 VERIFIED', fr: 'PDF, DOCX, TXT // SHA-256 VÉRIFIÉ' },
 	'cases.example': { en: 'Example', fr: 'Exemple' },
@@ -153,17 +151,298 @@ const translations = {
 	'cases.exWhatHappened': { en: 'What Happened', fr: 'Les faits' },
 	'cases.exMainQuestion': { en: 'Main Question', fr: 'Question principale' },
 	'cases.exWhatTheyWant': { en: 'What They Want', fr: 'Ce qu\'ils demandent' },
+	'cases.sourcePack': { en: 'Source Pack', fr: 'Pack de sources' },
+	'cases.activePackLabel': { en: 'Active pack', fr: 'Pack actif' },
+	'cases.activePackHint': {
+		en: 'This pack sets the source library for the current Create conversation.',
+		fr: 'Ce pack définit la bibliothèque de sources utilisée dans cette conversation Créer.'
+	},
+	'cases.sourcePackDesc': {
+		en: 'Create reads only the selected documents. If something is missing, Verdict must ask you first.',
+		fr: 'Créer lit seulement les documents sélectionnés. S’il manque quelque chose, Verdict doit vous demander d’abord.'
+	},
+	'cases.includedSourcesLabel': { en: 'Included sources', fr: 'Sources incluses' },
+	'cases.includedSourcesHint': {
+		en: 'Only checked documents from this pack are included in retrieval.',
+		fr: 'Seuls les documents cochés de ce pack sont inclus dans la recherche.'
+	},
+	'cases.allPackSourcesIncluded': { en: 'Full pack', fr: 'Pack complet' },
+	'cases.filteredPackSources': { en: 'Filtered', fr: 'Filtré' },
+	'cases.sourcesLabel': { en: 'sources', fr: 'sources' },
+	'cases.source': { en: 'source', fr: 'source' },
+	'cases.packStatus': { en: 'Pack status', fr: 'État du pack' },
+	'cases.readyStatus': { en: 'Ready', fr: 'Prêt' },
+	'cases.noSourceSelectedStatus': { en: 'No source', fr: 'Aucune source' },
+	'cases.selectSourcesRequired': {
+		en: 'Select at least one source before asking Verdict to build a case.',
+		fr: 'Sélectionnez au moins une source avant de demander à Verdict de créer un cas.'
+	},
+	'cases.studioRequestRequired': {
+		en: 'Write a message before continuing the conversation or creating the exercise pack.',
+		fr: 'Écrivez un message avant de poursuivre la conversation ou de créer le pack d’exercice.'
+	},
+	'cases.caseStudio': { en: 'Verdict', fr: 'Verdict' },
+	'cases.verdictSpeaker': { en: 'Verdict', fr: 'Verdict' },
+	'cases.chatWithVerdict': { en: 'Talk with Verdict', fr: 'Échanger avec Verdict' },
+	'cases.caseStudioIntro': {
+		en: 'Talk normally. Verdict reads the selected sources for every answer, suggests what they can support, and asks before going beyond them.',
+		fr: 'Parlez normalement. Verdict lit les sources sélectionnées à chaque réponse, propose ce qu’elles peuvent appuyer, et demande avant d’aller plus loin.'
+	},
+	'cases.readThenDraftPlaceholder': {
+		en: 'Example: Build the exercise pack from our conversation, using only the selected sources.',
+		fr: 'Exemple : monte le pack d’exercice à partir de notre conversation, seulement avec les sources sélectionnées.'
+	},
+	'cases.caseStudioPlaceholder': {
+		en: 'Example: I uploaded documents and want my students to practice default and liability. What exercises can we build from these sources?',
+		fr: 'Exemple : j’ai téléversé des documents et je veux que mes étudiants pratiquent le défaut et la responsabilité. Quels exercices peut-on créer avec ces sources ?'
+	},
+	'cases.caseStudioHint': {
+		en: 'Every reply is source-bound. If the documents do not support the request, Verdict should ask what you want to do next.',
+		fr: 'Chaque réponse est fondée sur les sources. Si les documents n’appuient pas la demande, Verdict doit demander quoi faire ensuite.'
+	},
+	'cases.refineDraftPlaceholder': {
+		en: 'Example: Keep this structure, but make the default issue sharper using only what the selected sources support.',
+		fr: 'Exemple : garde cette structure, mais rends la question du défaut plus précise seulement avec ce que les sources appuient.'
+	},
+	'cases.manageSources': { en: 'Manage sources', fr: 'Gérer les sources' },
+	'cases.chatThreadTitle': { en: 'Conversation', fr: 'Conversation' },
+	'cases.conversationTitle': { en: 'Verdict workspace', fr: 'Atelier Verdict' },
+	'cases.chatThreadHint': {
+		en: 'Talk through the idea normally. Build the exercise pack only when the source-grounded direction is ready.',
+		fr: 'Discutez normalement de l’idée. Montez le pack d’exercice seulement quand l’orientation fondée sur les sources est prête.'
+	},
+	'cases.readingSourcesMessage': {
+		en: 'I\'m checking the connected authorities now and building the judge-mode file from what they actually support.',
+		fr: 'Je vérifie maintenant les autorités reliées et je construis le dossier du mode juge à partir de ce qu’elles appuient réellement.'
+	},
+	'cases.readingSourcesRevisionMessage': {
+		en: 'I\'m re-checking the connected authorities and updating the current judge-mode file from them.',
+		fr: 'Je revérifie les autorités reliées et je mets à jour le dossier actuel du mode juge à partir d’elles.'
+	},
+	'cases.chatEmptyTitle': { en: 'Start like a normal conversation', fr: 'Commencez comme une vraie conversation' },
+	'cases.chatEmptyDesc': {
+		en: 'Start asking Verdict what it can build for you from your active pack.',
+		fr: 'Commencez par demander à Verdict ce qu’il peut construire pour vous à partir du pack actif.'
+	},
+	'cases.starterIdeasLabel': { en: 'Find an angle', fr: 'Trouver un angle' },
+	'cases.starterIdeasDesc': {
+		en: 'Ask Verdict for 2 or 3 grounded directions from these sources.',
+		fr: 'Demandez à Verdict 2 ou 3 pistes fondées sur ces sources.'
+	},
+	'cases.starterIdeasPrompt': {
+		en: 'Give me 2 or 3 grounded directions we can explore with these sources.',
+		fr: 'Donne-moi 2 ou 3 pistes fondées sur ces sources que nous pouvons explorer.'
+	},
+	'cases.starterDraftLabel': { en: 'Build a case', fr: 'Monter un cas' },
+	'cases.starterDraftDesc': {
+		en: 'Ask Verdict for a short case ready for judge mode.',
+		fr: 'Demandez à Verdict un cas court prêt pour le mode juge.'
+	},
+	'cases.starterDraftPrompt': {
+		en: 'Build a short practice case ready for judge mode from these sources.',
+		fr: 'Monte un cas pratique court prêt pour le mode juge à partir de ces sources.'
+	},
+	'cases.readThenDraftButton': { en: 'Build Exercise Pack', fr: 'Monter le pack d’exercice' },
+	'cases.reviseDraftButton': { en: 'Update Exercise Pack', fr: 'Mettre à jour le pack' },
+	'cases.buildNow': { en: 'Build now', fr: 'Construire maintenant' },
+	'cases.buildNowDesc': { en: 'Use the included sources and the current conversation.', fr: 'Utiliser les sources incluses et la conversation actuelle.' },
+	'cases.sendToStudio': { en: 'Send', fr: 'Envoyer' },
+	'cases.buildJudgeModeButton': { en: 'Build Exercise Pack', fr: 'Monter le pack d’exercice' },
+	'cases.updateJudgeDraftButton': { en: 'Update Exercise Pack', fr: 'Mettre à jour le pack' },
+	'cases.readingSourceChatMessage': {
+		en: 'I’m reading the selected sources before I answer.',
+		fr: 'Je lis les sources sélectionnées avant de répondre.'
+	},
+	'cases.noSourcesChatMessage': {
+		en: 'I need at least one selected source before I can guide the exercise. Upload or select documents first, then tell me what students should practice.',
+		fr: 'J’ai besoin d’au moins une source sélectionnée avant de guider l’exercice. Téléversez ou sélectionnez des documents, puis dites-moi ce que les étudiants doivent pratiquer.'
+	},
+	'cases.analyzingSources': { en: 'Analyzing selected sources...', fr: 'Analyse des sources sélectionnées...' },
+	'cases.activityThinking': { en: 'Thinking', fr: 'Réflexion' },
+	'cases.activityThinkingDesc': {
+		en: 'Verdict is preparing a normal response.',
+		fr: 'Verdict prépare une réponse normale.'
+	},
+	'cases.activityReading': { en: 'Reading sources', fr: 'Lecture des sources' },
+	'cases.activityReadingDesc': {
+		en: 'Verdict is loading and checking the selected documents.',
+		fr: 'Verdict charge et vérifie les documents sélectionnés.'
+	},
+	'cases.activityBuilding': { en: 'Building exercise', fr: 'Construction de l’exercice' },
+	'cases.activityBuildingDesc': {
+		en: 'Verdict is turning the teacher goal into a judge-mode draft.',
+		fr: 'Verdict transforme l’objectif pédagogique en projet pour le mode juge.'
+	},
+	'cases.activityAuditing': { en: 'Checking grounding', fr: 'Vérification du rattachement' },
+	'cases.activityAuditingDesc': {
+		en: 'Verdict is verifying source links before showing the draft.',
+		fr: 'Verdict vérifie les liens aux sources avant d’afficher le projet.'
+	},
+	'cases.activityStepReading': { en: 'Read', fr: 'Lire' },
+	'cases.activityStepBuilding': { en: 'Build', fr: 'Construire' },
+	'cases.activityStepAuditing': { en: 'Audit', fr: 'Auditer' },
+	'cases.caseOptionsReady': { en: 'Options ready', fr: 'Options prêtes' },
+	'cases.sourcesIncomplete': { en: 'Sources incomplete', fr: 'Sources incomplètes' },
+	'cases.studioAnalysis': { en: 'Source analysis', fr: 'Analyse des sources' },
+	'cases.sourceReadout': { en: 'Source readout', fr: 'Lecture des sources' },
+	'cases.understoodGoal': { en: 'Understood goal', fr: 'Objectif compris' },
+	'cases.workflowStage': { en: 'Workflow stage', fr: 'Etape du flux' },
+	'cases.sourcesReviewed': { en: 'Sources reviewed', fr: 'Sources lues' },
+	'cases.nextStep': { en: 'Next step', fr: 'Prochaine etape' },
+	'cases.sourceReviewedState': { en: 'Sources reviewed', fr: 'Sources lues' },
+	'cases.draftReadyState': { en: 'Draft ready', fr: 'Projet pret' },
+	'cases.jurisdictionDetected': { en: 'Jurisdiction', fr: 'Juridiction' },
+	'cases.sourceSummary': { en: 'Useful sources', fr: 'Sources utiles' },
+	'cases.retrievedSourcePacket': { en: 'Retrieved source packet', fr: 'Paquet de sources récupéré' },
+	'cases.retrievedSourcePacketDesc': {
+		en: 'These are the passages Verdict retrieved before drafting this exercise.',
+		fr: 'Voici les passages que Verdict a récupérés avant de rédiger cet exercice.'
+	},
+	'cases.sourcePacketCoverage': { en: 'Coverage', fr: 'Couverture' },
+	'cases.sourcePacketExcerpts': { en: 'excerpts', fr: 'extraits' },
+	'cases.coverageHigh': { en: 'High', fr: 'Élevée' },
+	'cases.coverageMedium': { en: 'Medium', fr: 'Moyenne' },
+	'cases.coverageLow': { en: 'Low', fr: 'Faible' },
+	'cases.missingSources': { en: 'Missing material', fr: 'Documents manquants' },
+	'cases.noMissingSources': { en: 'No major missing material flagged.', fr: 'Aucun document majeur manquant signalé.' },
+	'cases.limits': { en: 'Limits', fr: 'Limites' },
+	'cases.judgeModeFit': { en: 'Judge-mode fit', fr: 'Compatibilite mode juge' },
+	'cases.judgeModeRationale': { en: 'Why this fits Judge mode', fr: 'Pourquoi cela convient au mode juge' },
+	'cases.judgeFitHigh': { en: 'High fit', fr: 'Forte compatibilite' },
+	'cases.judgeFitMedium': { en: 'Partial fit', fr: 'Compatibilite partielle' },
+	'cases.judgeFitLow': { en: 'Low fit', fr: 'Faible compatibilite' },
+	'cases.noLimits': { en: 'No major limits flagged.', fr: 'Aucune limite majeure signalée.' },
+	'cases.confidenceHigh': { en: 'High confidence', fr: 'Confiance élevée' },
+	'cases.confidenceMedium': { en: 'Medium confidence', fr: 'Confiance moyenne' },
+	'cases.confidenceLow': { en: 'Low confidence', fr: 'Confiance faible' },
+	'cases.draftNavigator': { en: 'Draft navigator', fr: 'Navigateur de projets' },
+	'cases.primaryDraftTitle': { en: 'Judge-mode working file', fr: 'Dossier de travail du mode juge' },
+	'cases.alternativeDirections': { en: 'Alternative directions', fr: 'Directions alternatives' },
+	'cases.alternativeDirectionsDesc': {
+		en: 'These stay secondary. Switch only if you want a different source-grounded angle.',
+		fr: 'Ces pistes restent secondaires. Changez seulement si vous voulez un autre angle fonde sur les memes sources.'
+	},
+	'cases.noAlternativeDirections': {
+		en: 'Verdict is keeping the conversation focused on one main draft right now.',
+		fr: 'Verdict garde la conversation concentree sur un seul projet principal pour le moment.'
+	},
+	'cases.switchToAlternative': { en: 'Switch to this direction', fr: 'Basculer vers cette piste' },
+	'cases.generatedOptions': { en: 'Generated practice options', fr: 'Options de pratique proposées' },
+	'cases.generatedOptionsDesc': {
+		en: 'Pick the option that best matches the class objective, then choose which side the student should argue.',
+		fr: 'Choisissez l\'option qui correspond le mieux à l\'objectif du cours, puis choisissez le camp que l\'étudiant doit défendre.'
+	},
+	'cases.levelIntroductory': { en: 'Introductory', fr: 'Débutant' },
+	'cases.levelIntermediate': { en: 'Intermediate', fr: 'Intermédiaire' },
+	'cases.levelAdvanced': { en: 'Advanced', fr: 'Avancé' },
+	'cases.practicePoints': { en: 'Practice points', fr: 'Points à pratiquer' },
+	'cases.judgeBrief': { en: 'Judge brief', fr: 'Brief du juge' },
+	'cases.judgeStudentTask': { en: 'Student task', fr: 'Tache de l etudiant' },
+	'cases.judgeHearingFocus': { en: 'Hearing focus', fr: 'Focalisation de l audience' },
+	'cases.judgeIssuesToProbe': { en: 'Issues to probe', fr: 'Questions a sonder' },
+	'cases.judgePressurePoints': { en: 'Pressure points', fr: 'Points de pression' },
+	'cases.judgeSuccessCriteria': { en: 'Success criteria', fr: 'Criteres de reussite' },
+	'cases.judgeSourceBoundaries': { en: 'Source boundaries', fr: 'Limites imposees par les sources' },
+	'cases.groundingStatus': { en: 'Grounding status', fr: 'État du rattachement' },
+	'cases.sourceGrounded': { en: 'Source-grounded', fr: 'Fondé sur les sources' },
+	'cases.needsReview': { en: 'Needs review', fr: 'À réviser' },
+	'cases.insufficientSources': { en: 'Insufficient sources', fr: 'Sources insuffisantes' },
+	'cases.groundingMap': { en: 'Source grounding map', fr: 'Carte de rattachement aux sources' },
+	'cases.auditWarnings': { en: 'Audit warnings', fr: 'Avertissements d’audit' },
+	'cases.groundingMainIssue': { en: 'Main issue', fr: 'Question principale' },
+	'cases.groundingPlaintiffTheory': { en: 'Plaintiff theory', fr: 'Thèse du demandeur' },
+	'cases.groundingDefendantTheory': { en: 'Defendant theory', fr: 'Thèse du défendeur' },
+	'cases.groundingJudgePressure': { en: 'Judge pressure point', fr: 'Point de pression du juge' },
+	'cases.groundingSuccessCriteria': { en: 'Success criteria', fr: 'Critère de réussite' },
+	'cases.groundingSourceBoundary': { en: 'Source boundary', fr: 'Limite de source' },
+	'cases.groundingOther': { en: 'Source link', fr: 'Lien source' },
+	'cases.difficultyTrap': { en: 'Reasoning trap', fr: 'Piège de raisonnement' },
+	'cases.selectCase': { en: 'Select case', fr: 'Sélectionner' },
+	'cases.caseSelected': { en: 'Selected', fr: 'Sélectionné' },
+	'cases.selectedCase': { en: 'Selected case', fr: 'Cas sélectionné' },
+	'cases.documentPreview': { en: 'Exercise pack', fr: 'Pack d’exercice' },
+	'cases.openExercisePaper': { en: 'Open paper', fr: 'Ouvrir le document' },
+	'cases.closeExercisePaper': { en: 'Close paper', fr: 'Fermer le document' },
+	'cases.documentNote': {
+		en: 'Verdict built this pack from the conversation and selected sources. Review it, choose a side, then launch judge mode.',
+		fr: 'Verdict a monté ce pack à partir de la conversation et des sources sélectionnées. Révisez-le, choisissez un camp, puis lancez le mode juge.'
+	},
+	'cases.documentEmptyTitle': { en: 'No exercise pack yet', fr: 'Aucun pack d’exercice pour le moment' },
+	'cases.documentEmptyDesc': {
+		en: 'Talk with Verdict first. When the direction is right, build the exercise pack and it will appear here.',
+		fr: 'Parlez d’abord avec Verdict. Quand l’orientation est bonne, montez le pack d’exercice et il apparaîtra ici.'
+	},
+	'cases.roleRecommendation': { en: 'Recommended role', fr: 'Role recommande' },
+	'cases.issueQuestion': { en: 'Main legal question', fr: 'Question juridique principale' },
+	'cases.plaintiffPosition': { en: 'Plaintiff position', fr: 'Position du demandeur' },
+	'cases.defendantPosition': { en: 'Defendant position', fr: 'Position du defendeur' },
+	'cases.sourcesUsed': { en: 'Sources used', fr: 'Sources utilisées' },
+	'cases.noSourceDetails': { en: 'No source details returned.', fr: 'Aucun détail de source retourné.' },
+	'cases.sourceWarnings': { en: 'Source warnings', fr: 'Avertissements sur les sources' },
+	'cases.noSourceWarnings': { en: 'No source warnings for this option.', fr: 'Aucun avertissement pour cette option.' },
+	'cases.hideSources': { en: 'Hide sources', fr: 'Masquer les sources' },
+	'cases.launchPanel': { en: 'Launch judge mode', fr: 'Lancer le mode juge' },
+	'cases.saveDraft': { en: 'Save draft', fr: 'Enregistrer le brouillon' },
+	'cases.updateDraft': { en: 'Update draft', fr: 'Mettre à jour le brouillon' },
+	'cases.draftSaved': { en: 'Draft saved', fr: 'Brouillon enregistré' },
+	'cases.draftSavedDesc': {
+		en: 'You can reopen this paper from Drafts before sending it into judge mode.',
+		fr: 'Vous pouvez rouvrir ce document depuis Brouillons avant de l’envoyer en mode juge.'
+	},
+	'cases.startPractice': { en: 'LAUNCH JUDGE MODE', fr: 'LANCER LE MODE JUGE' },
+	'cases.shareCase': { en: 'Share', fr: 'Partager' },
+	'cases.shareCreated': { en: 'Share link created.', fr: 'Lien de partage créé.' },
+	'cases.shareCopied': { en: 'Share link copied.', fr: 'Lien de partage copié.' },
+	'cases.shareFailed': { en: 'Unable to create the share link.', fr: 'Impossible de créer le lien de partage.' },
+	'cases.shareManualCopy': { en: 'Copy the link manually.', fr: 'Copiez le lien manuellement.' },
+	'cases.shareLinkReady': { en: 'Student link ready', fr: 'Lien élève prêt' },
+	'cases.copyLink': { en: 'Copy link', fr: 'Copier le lien' },
+	'cases.launchValidation': {
+		en: 'Select a pack, source, and role, then complete the case fields before starting.',
+		fr: 'Sélectionnez un pack, une source et un rôle, puis complétez les champs du cas avant de commencer.'
+	},
+	'share.sharedCase': { en: 'Shared exercise', fr: 'Exercice partagé' },
+	'share.chooseSideDesc': {
+		en: 'Read the exercise, choose the side you want to argue, then enter judge mode.',
+		fr: 'Lisez l’exercice, choisissez le côté que vous voulez plaider, puis entrez en mode juge.'
+	},
+	'share.startJudge': { en: 'Go to judge mode', fr: 'Aller en mode juge' },
+	'share.starting': { en: 'Opening...', fr: 'Ouverture...' },
+	'share.sourceBoundary': {
+		en: 'Judge mode will use only this published case capsule and its verified source packet.',
+		fr: 'Le mode juge utilisera seulement cette capsule publiée et son paquet de sources vérifié.'
+	},
+
+	// ===== DRAFTS =====
+	'drafts.title': { en: 'Drafts', fr: 'Brouillons' },
+	'drafts.subtitle': {
+		en: 'Saved exercise papers stay here until you decide to reopen them in Create or launch judge mode later.',
+		fr: 'Les documents enregistrés restent ici jusqu’à ce que vous décidiez de les rouvrir dans Créer ou de lancer le mode juge plus tard.'
+	},
+	'drafts.emptyTitle': { en: 'No saved drafts yet', fr: 'Aucun brouillon enregistré' },
+	'drafts.emptyDesc': {
+		en: 'Build an exercise in Create, then save it before judge mode if you want to revisit it later.',
+		fr: 'Créez un exercice dans Créer, puis enregistrez-le avant le mode juge si vous voulez y revenir plus tard.'
+	},
+	'drafts.openInCreate': { en: 'Open in Create', fr: 'Ouvrir dans Créer' },
+	'drafts.preview': { en: 'Preview', fr: 'Aperçu' },
+	'drafts.delete': { en: 'Delete', fr: 'Supprimer' },
+	'drafts.savedPack': { en: 'Source pack', fr: 'Pack de sources' },
+	'drafts.savedRole': { en: 'Saved side', fr: 'Camp enregistré' },
+	'drafts.updated': { en: 'Updated', fr: 'Mis à jour' },
 
 	// ===== DEBATE =====
 	'debate.noCase': { en: 'No Active Case', fr: 'Aucune cause active' },
-	'debate.noCaseDesc': { en: 'Initialize a case to enter the arena.', fr: 'Créez une cause pour entrer dans l\'arène.' },
-	'debate.launchBuilder': { en: 'Launch Case Builder', fr: 'Créer une cause' },
+	'debate.noCaseDesc': { en: 'Open Create to prepare a source-grounded exercise before entering judge mode.', fr: 'Ouvrez Créer pour préparer un exercice fondé sur les sources avant d\'entrer en mode juge.' },
+	'debate.launchCreate': { en: 'Open Create', fr: 'Ouvrir Créer' },
 	'debate.activeCase': { en: 'Active Case', fr: 'Cause active' },
 	'debate.pl': { en: 'PL', fr: 'DEM' },
 	'debate.df': { en: 'DF', fr: 'DÉF' },
 	'debate.vs': { en: 'vs', fr: 'c.' },
 	'debate.synopsis': { en: 'Synopsis', fr: 'Résumé' },
 	'debate.issues': { en: 'Issues', fr: 'Questions en litige' },
+	'debate.learningObjective': { en: 'Learning Objective', fr: 'Objectif pedagogique' },
+	'debate.skillFocus': { en: 'Skill Focus', fr: 'Competence ciblee' },
 	'debate.na': { en: 'N/A', fr: 'S/O' },
 	'debate.sources': { en: 'Sources', fr: 'Sources' },
 	'debate.exitCourt': { en: '⟵ Exit Court', fr: '⟵ Quitter' },
@@ -171,11 +450,9 @@ const translations = {
 	'debate.resetSim': { en: '↺ Reset Simulation', fr: '↺ Recommencer' },
 	'debate.thinking': { en: 'thinking…', fr: 'réflexion…' },
 	'debate.reviewingBench': { en: 'Reviewing submission…', fr: 'Analyse de la soumission…' },
-	'debate.formulatingJury': { en: 'Formulating counter-argument…', fr: 'Formulation du contre-argument…' },
 	'debate.inputPlaceholder': { en: 'Enter your argument...', fr: 'Entrez votre argument...' },
 	'debate.sendMessage': { en: 'Send Message', fr: 'Envoyer le message' },
 	'debate.litigantSpeaker': { en: 'You', fr: 'Vous' },
-	'debate.advocateAI': { en: 'Advocate AI', fr: 'Avocat IA' },
 	'debate.systemSpeaker': { en: '⚠ System', fr: '⚠ Système' },
 	'debate.tipTitle': { en: 'How to write a strong argument', fr: 'Comment rédiger un argument solide' },
 	'debate.tipCite': {
@@ -187,21 +464,47 @@ const translations = {
 		fr: 'Structurez votre raisonnement : énoncez la règle, appliquez-la aux faits, puis concluez.'
 	},
 	'debate.tipCounter': {
-		en: 'Address the opponent\'s arguments directly before presenting your own.',
-		fr: 'Répondez directement aux arguments de l\'adversaire avant de présenter les vôtres.'
+		en: 'Address the judge\'s concerns directly before restating your position.',
+		fr: 'Répondez directement aux réserves du juge avant de reformuler votre position.'
 	},
 	'debate.panel': { en: 'Panel', fr: 'Panel' },
-	'debate.juryLabel': { en: 'Jury', fr: 'Jury' },
 	'debate.judgeLabel': { en: 'Judge', fr: 'Juge' },
+	'debate.judgeFocus': { en: 'Judge Focus', fr: 'Focus du juge' },
+	'debate.hearingBlueprint': { en: 'Hearing blueprint', fr: 'Plan de l audience' },
+	'debate.liveBenchRead': { en: 'Live bench read', fr: 'Lecture actuelle du banc' },
 	'debate.leaningPlaintiff': { en: 'Leaning Plaintiff', fr: 'Penche demandeur' },
 	'debate.leaningDefense': { en: 'Leaning Defense', fr: 'Penche défendeur' },
-	'debate.splitJury': { en: 'Split Jury', fr: 'Jury divisé' },
 	'debate.awaitingArgs': { en: 'Awaiting Arguments', fr: 'En attente des arguments' },
 	'debate.plaintiffLabel': { en: 'Plaintiff', fr: 'Demandeur' },
 	'debate.defenseLabel': { en: 'Defense', fr: 'Défendeur' },
 	'debate.undecided': { en: 'Undecided', fr: 'Indécis' },
 	'debate.avgScore': { en: 'Avg Score', fr: 'Score moyen' },
 	'debate.judgeMindTitle': { en: "Inside the Judge's Mind", fr: 'Dans l\'esprit du juge' },
+	'debate.sourceDrawerTitle': { en: 'Source Verification', fr: 'Vérification de la source' },
+	'debate.sourceDrawerDesc': {
+		en: 'This part of the judge response is tied to the source below.',
+		fr: 'Cette partie de la réponse du juge est rattachée à la source ci-dessous.'
+	},
+	'debate.citedPassage': { en: 'Cited passage', fr: 'Passage cité' },
+	'debate.matchedExcerpt': { en: 'Matched excerpt', fr: 'Extrait retrouvé' },
+	'debate.openFullSource': { en: 'Open full source', fr: 'Ouvrir la source complète' },
+	'debate.hideFullSource': { en: 'Hide full source', fr: 'Masquer la source complète' },
+	'debate.fullSource': { en: 'Full source', fr: 'Source complète' },
+	'debate.loadingSourceText': { en: 'Loading source…', fr: 'Chargement de la source…' },
+	'debate.sourceTextUnavailable': {
+		en: 'Full source text is not available for this citation.',
+		fr: 'Le texte complet de la source n’est pas disponible pour cette citation.'
+	},
+	'debate.noSourceExcerpt': {
+		en: 'No excerpt was stored for this citation.',
+		fr: 'Aucun extrait n’a été enregistré pour cette citation.'
+	},
+	'debate.openOriginalSource': { en: 'Open source file', fr: 'Ouvrir le fichier source' },
+	'debate.sourceUnavailable': { en: 'Source unavailable', fr: 'Source indisponible' },
+	'debate.unverifiedCitationWarning': {
+		en: 'Some cited references could not be fully verified.',
+		fr: 'Certaines références citées n’ont pas pu être vérifiées complètement.'
+	},
 	'debate.assessment': { en: 'Assessment', fr: 'Évaluation' },
 	'debate.concerns': { en: 'Concerns', fr: 'Préoccupations' },
 	'debate.leaning': { en: 'Leaning', fr: 'Tendance' },
@@ -212,7 +515,6 @@ const translations = {
 	'debate.stancePlaintiff': { en: '→ Plaintiff', fr: '→ Demandeur' },
 	'debate.stanceDefense': { en: '→ Defense', fr: '→ Défendeur' },
 	'debate.stanceUndecided': { en: 'Undecided', fr: 'Indécis' },
-	'debate.jurorListening': { en: 'Listening...', fr: 'À l\'écoute...' },
 	'debate.errorFallback': { en: 'Unable to process your argument.', fr: 'Impossible de traiter votre argument.' },
 	'debate.sourcesUsed': { en: 'sources matched', fr: 'sources trouvées' },
 	'debate.noSources': { en: 'No matching content found in your uploaded documents. Make sure your sources are indexed.', fr: 'Aucun contenu correspondant trouvé dans vos documents. Assurez-vous que vos sources sont indexées.' },
@@ -241,12 +543,12 @@ const translations = {
 	'court.header': { en: 'Chambers Overview', fr: 'Vue d\'ensemble' },
 	'court.hub': { en: 'Court Hub', fr: 'Centre de la cour' },
 	'court.description': {
-		en: 'Review every dispute staged inside Verdict. Ongoing matters live on the left; finished rulings are preserved for later study.',
-		fr: 'Consultez chaque litige créé dans Verdict. Les dossiers en cours sont à gauche; les décisions rendues sont archivées.'
+		en: 'Review every practice exercise staged inside Verdict. Ongoing sessions stay active; finished rulings are preserved for later study.',
+		fr: 'Consultez chaque exercice de pratique créé dans Verdict. Les sessions en cours restent actives; les décisions terminées sont archivées.'
 	},
 	'court.ongoing': { en: 'Ongoing', fr: 'En cours' },
 	'court.finished': { en: 'Finished', fr: 'Terminé' },
-	'court.stageNew': { en: 'Stage New Case', fr: 'Nouvelle cause' },
+	'court.stageNew': { en: 'Open Create', fr: 'Ouvrir Créer' },
 	'court.refineSources': { en: 'Refine Library Sources', fr: 'Raffiner les sources' },
 	'court.activeDockets': { en: 'Active Dockets', fr: 'Dossiers actifs' },
 	'court.ongoingCases': { en: 'Ongoing Cases', fr: 'Causes en cours' },
@@ -288,12 +590,12 @@ const translations = {
 	'court.dayAgo': { en: 'day ago', fr: 'jour' },
 	'court.daysAgo': { en: 'days ago', fr: 'jours' },
 	'court.welcomeKicker': { en: 'Welcome to Verdict', fr: 'Bienvenue sur Verdict' },
-	'court.welcomeTitle': { en: 'Stage your first case in 90 seconds', fr: 'Créez votre première cause en 90 secondes' },
+	'court.welcomeTitle': { en: 'Build your first exercise in 90 seconds', fr: 'Créez votre premier exercice en 90 secondes' },
 	'court.welcomeDesc': {
-		en: 'Pick a legal pack, describe a dispute, debate it before an AI judge or jury. We\'ll cite the law for you.',
-		fr: 'Choisissez un pack juridique, décrivez un litige, plaidez devant un juge ou jury IA. Nous citons le droit pour vous.'
+		en: 'Pick a legal pack, describe the skill to train, and send a grounded exercise into judge mode. We\'ll stay inside your sources.',
+		fr: 'Choisissez un pack juridique, décrivez la compétence à entraîner et envoyez un exercice fondé en mode juge. Tout reste dans vos sources.'
 	},
-	'court.welcomeStart': { en: 'Stage a Case', fr: 'Créer une cause' },
+	'court.welcomeStart': { en: 'Open Create', fr: 'Ouvrir Créer' },
 	'court.welcomeHow': { en: 'How it works', fr: 'Comment ça marche' },
 
 	// ===== LIBRARY =====
@@ -318,18 +620,14 @@ const translations = {
 		fr: 'Ce domaine n\'est pas vérifié. Vérifiez bien la source avant de l\'utiliser en simulation.'
 	},
 	'library.saveSource': { en: 'Save Source', fr: 'Enregistrer la source' },
-	'library.indexing': { en: 'Indexing document for AI search...', fr: 'Indexation du document pour la recherche IA...' },
-	'library.indexingBadge': { en: 'Indexing…', fr: 'Indexation…' },
 	'error.notFound': { en: 'Page not found', fr: 'Page introuvable' },
 	'error.generic': { en: 'Something went wrong', fr: 'Une erreur est survenue' },
 	'error.backHome': { en: 'Back to Home', fr: 'Retour à l\'accueil' },
-	'library.indexed': { en: 'Indexed — {count} sections ready for AI', fr: 'Indexé — {count} sections prêtes pour l\'IA' },
-	'library.indexError': { en: 'Indexing failed — the document was saved but won\'t be searchable by AI', fr: 'Échec de l\'indexation — le document est sauvegardé mais ne sera pas recherchable par l\'IA' },
 	'library.statsChars': { en: 'characters', fr: 'caractères' },
 	'library.statsPages': { en: 'pages (est.)', fr: 'pages (est.)' },
 	'library.statsChunks': { en: 'AI sections (est.)', fr: 'sections IA (est.)' },
 	'library.remove': { en: 'Remove', fr: 'Retirer' },
-	'library.myPacks': { en: 'My Legal Packs', fr: 'Mes packs juridiques' },
+	'library.myPacks': { en: 'My Source Packs', fr: 'Mes packs de sources' },
 	'library.createPack': { en: 'Create Pack', fr: 'Créer un pack' },
 	'library.editPack': { en: 'Edit Pack', fr: 'Modifier le pack' },
 	'library.edit': { en: 'Edit', fr: 'Modifier' },
@@ -338,9 +636,11 @@ const translations = {
 	'library.uploadPdf': { en: 'Upload PDF', fr: 'Téléverser PDF' },
 	'library.uploadDoc': { en: 'Upload Document', fr: 'Téléverser un document' },
 	'library.pasteText': { en: 'Paste Text', fr: 'Coller texte' },
-	'library.noPackSelected': { en: 'Select a legal pack to view and manage its sources.', fr: 'Sélectionnez un pack juridique pour voir et gérer ses sources.' },
+	'library.noPackSelected': { en: 'Select a source pack to view and manage its documents.', fr: 'Sélectionnez un pack de sources pour voir et gérer ses documents.' },
 	'library.packName': { en: 'Pack name', fr: 'Nom du pack' },
-	'library.packJurisdiction': { en: 'Jurisdiction', fr: 'Juridiction' },
+	'library.packLanguage': { en: 'Pack language', fr: 'Langue du pack' },
+	'library.languageEnglish': { en: 'English', fr: 'Anglais' },
+	'library.languageFrench': { en: 'French', fr: 'Français' },
 	'library.packDomain': { en: 'Domain', fr: 'Domaine' },
 	'library.packDescription': { en: 'Description', fr: 'Description' },
 	'library.cancel': { en: 'Cancel', fr: 'Annuler' },
@@ -363,6 +663,12 @@ const translations = {
 	'library.noTextExtracted': { en: 'No text could be extracted from this document.', fr: 'Aucun texte n\'a pu être extrait de ce document.' },
 	'library.unsupportedFormat': { en: 'Unsupported file format. Please upload a PDF or Word document (.docx).', fr: 'Format de fichier non supporté. Veuillez téléverser un PDF ou un document Word (.docx).' },
 	'library.openDocument': { en: 'Open document', fr: 'Ouvrir le document' },
+	'library.structureReady': { en: 'Classroom-ready structure', fr: 'Structure prête pour la classe' },
+	'library.structureReview': { en: 'Structure needs review', fr: 'Structure à vérifier' },
+	'library.structureFallback': { en: 'Generic text indexing', fr: 'Indexation texte générique' },
+	'library.structureUnits': { en: '{count} legal units', fr: '{count} unités juridiques' },
+	'library.structureScore': { en: '{score}% quality', fr: 'qualité {score} %' },
+	'library.bilingualRisk': { en: 'Language mixing detected', fr: 'Mélange de langues détecté' },
 	'library.rename': { en: 'Rename', fr: 'Renommer' },
 	'library.renameTitle': { en: 'Rename document', fr: 'Renommer le document' },
 	'library.downloadOriginal': { en: 'Download original', fr: 'Télécharger l\'original' },
@@ -376,10 +682,10 @@ const translations = {
 		fr: 'Aucune source — cliquez sur « Téléverser un document » pour ajouter votre première loi ou jurisprudence.'
 	},
 	'library.helpTitle': { en: 'How to Use the Library', fr: 'Comment utiliser la bibliothèque' },
-	'library.helpWhatPackTitle': { en: 'What is a Legal Pack?', fr: 'Qu\'est-ce qu\'un pack juridique ?' },
+	'library.helpWhatPackTitle': { en: 'What is a Source Pack?', fr: 'Qu\'est-ce qu\'un pack de sources ?' },
 	'library.helpWhatPackDesc': {
-		en: 'A Legal Pack is a folder that groups related laws together. For example, you might create one pack for "Canadian Criminal Law" and another for "Quebec Civil Law." When you start a debate, you pick a pack — and the AI will only cite the laws inside it.',
-		fr: 'Un pack juridique est un dossier qui regroupe des lois connexes. Par exemple, vous pourriez créer un pack « Droit criminel canadien » et un autre pour « Droit civil québécois. » Quand vous lancez un débat, vous choisissez un pack — et l\'IA ne citera que les lois qu\'il contient.'
+		en: 'A Source Pack is a folder for the documents you want Verdict to read. Create one for a course, topic, or assignment; Create and judge mode will stay inside the selected documents.',
+		fr: 'Un pack de sources est un dossier pour les documents que Verdict doit lire. Créez-en un pour un cours, un sujet ou un devoir; Créer et le mode juge resteront dans les documents sélectionnés.'
 	},
 	'library.helpCreatePackTitle': { en: 'How to Create a Pack', fr: 'Comment créer un pack' },
 	'library.helpCreateStep1': {
@@ -387,8 +693,8 @@ const translations = {
 		fr: '1. Cliquez sur le bouton « Créer un pack » dans la barre latérale à gauche.'
 	},
 	'library.helpCreateStep2': {
-		en: '2. Give it a name, jurisdiction (e.g. Canada, France), and a domain (e.g. Criminal, Civil).',
-		fr: '2. Donnez-lui un nom, une juridiction (ex. Canada, France) et un domaine (ex. Criminel, Civil).'
+		en: '2. Give it a name, language, and optional domain (e.g. Criminal, Civil).',
+		fr: '2. Donnez-lui un nom, une langue et un domaine optionnel (ex. Criminel, Civil).'
 	},
 	'library.helpCreateStep3': {
 		en: '3. Done! Your pack is ready — now upload PDFs or Word documents into it.',
@@ -425,8 +731,8 @@ const translations = {
 	'about.title': { en: 'About Verdict', fr: 'À propos de Verdict' },
 	'about.kicker': { en: 'What is Verdict?', fr: 'Qu\'est-ce que Verdict ?' },
 	'about.description': {
-		en: 'Verdict is your AI-powered legal debate coach. Upload real laws as PDFs, build a case, and argue against an adaptive AI opponent — then get scored on your performance.',
-		fr: 'Verdict est votre coach de débat juridique propulsé par l\'IA. Téléversez de vraies lois en PDF, construisez une cause et plaidez contre un adversaire IA adaptatif — puis recevez une note sur votre performance.'
+		en: 'Verdict is your AI-powered legal reasoning coach. Upload real laws as PDFs, build a case, and argue before a demanding AI judge — then get scored on your performance.',
+		fr: 'Verdict est votre coach de raisonnement juridique propulsé par l\'IA. Téléversez de vraies lois en PDF, construisez une cause et plaidez devant un juge IA exigeant — puis recevez une note sur votre performance.'
 	},
 	'about.mission': { en: 'Why Verdict?', fr: 'Pourquoi Verdict ?' },
 	'about.missionText': {
@@ -439,10 +745,10 @@ const translations = {
 		en: 'Upload PDF legislation (Criminal Code, Labour Code, etc.) into organized packs. The AI reads and indexes them so it can cite real law during debates.',
 		fr: 'Téléversez des lois en PDF (Code criminel, Code du travail, etc.) dans des packs organisés. L\'IA les lit et les indexe pour citer le vrai droit durant les débats.'
 	},
-	'about.highlightDebateLabel': { en: 'Realistic Courtroom Debates', fr: 'Débats judiciaires réalistes' },
+	'about.highlightDebateLabel': { en: 'Judge-Led Practice', fr: 'Pratique guidée par le juge' },
 	'about.highlightDebateText': {
-		en: 'Pick plaintiff or defendant, choose jury or bench trial, and face an AI lawyer that adapts to your arguments and pushes back with real legal reasoning.',
-		fr: 'Choisissez demandeur ou défendeur, procès devant jury ou juge seul, et affrontez un avocat IA qui s\'adapte à vos arguments et réplique avec un raisonnement juridique réel.'
+		en: 'Pick plaintiff or defendant and face an AI judge that pressures your argument with source-bound questions, credibility checks, and legal reasoning.',
+		fr: 'Choisissez demandeur ou défendeur et faites face à un juge IA qui met votre argument à l\'épreuve avec des questions fondées sur les sources, des vérifications de crédibilité et du raisonnement juridique.'
 	},
 	'about.highlightScoreLabel': { en: 'Performance Feedback', fr: 'Retour de performance' },
 	'about.highlightScoreText': {
@@ -474,14 +780,14 @@ const translations = {
 	},
 	'how.step4Title': { en: 'Fill In or Auto-Generate', fr: 'Remplir ou générer automatiquement' },
 	'how.step4Desc': {
-		en: 'Choose your side (plaintiff or defendant) and court mode (jury or bench). Then either write your own case details or hit Auto-Fill to let the AI generate a realistic scenario based on your uploaded laws.',
-		fr: 'Choisissez votre camp (demandeur ou défendeur) et le mode de procès (jury ou juge seul). Ensuite, rédigez vos détails de cause ou appuyez sur Remplissage auto pour que l\'IA génère un scénario réaliste basé sur vos lois téléversées.'
+		en: 'Choose your side (plaintiff or defendant). Then either write your own case details or hit Auto-Fill to let the AI generate a realistic scenario based on your uploaded laws.',
+		fr: 'Choisissez votre camp (demandeur ou défendeur). Ensuite, rédigez vos détails de cause ou appuyez sur Remplissage auto pour que l\'IA génère un scénario réaliste basé sur vos lois téléversées.'
 	},
 	'how.sectionDebate': { en: 'Step 3 — Debate & Get Scored', fr: 'Étape 3 — Débattre et être noté' },
 	'how.step5Title': { en: 'Argue Your Case', fr: 'Plaidez votre cause' },
 	'how.step5Desc': {
-		en: 'Enter the courtroom and present your arguments. The AI opponent responds with counter-arguments citing your uploaded laws. Jurors or the judge react in real time.',
-		fr: 'Entrez dans la salle d\'audience et présentez vos arguments. L\'adversaire IA réplique avec des contre-arguments citant vos lois téléversées. Les jurés ou le juge réagissent en temps réel.'
+		en: 'Enter the courtroom and present your arguments. The AI judge responds with source-grounded questions, concerns, and direction in real time.',
+		fr: 'Entrez dans la salle d\'audience et présentez vos arguments. Le juge IA répond en temps réel avec des questions, des réserves et des orientations fondées sur les sources.'
 	},
 	'how.step6Title': { en: 'Get Your Verdict', fr: 'Obtenez votre verdict' },
 	'how.step6Desc': {
@@ -502,44 +808,6 @@ const translations = {
 		fr: 'Essayez les deux camps ! Plaider comme demandeur et défendeur sur la même cause double votre apprentissage.'
 	},
 	'how.return': { en: 'Return to Dashboard', fr: 'Retour au tableau de bord' },
-
-	// ===== JURY TELEMETRY =====
-	'jury.title': { en: 'Jury Telemetry', fr: 'Télémétrie du jury' },
-	'jury.subtitle': {
-		en: 'Monitor how every persona is trending mid-hearing.',
-		fr: 'Suivez les tendances de chaque juré en cours d\'audience.'
-	},
-	'jury.description': {
-		en: 'The MVP keeps juror reasoning explainable: each agent stores scoring matrices in Supabase so you can replay how they shifted between plaintiff, defense, or hung outcomes.',
-		fr: 'Le MVP garde le raisonnement des jurés explicable: chaque agent stocke ses matrices de score dans Supabase pour que vous puissiez revoir comment ils ont évolué.'
-	},
-	'jury.signatureMove': { en: 'Signature move:', fr: 'Trait distinctif:' },
-	'jury.telemetryFeed': { en: 'Telemetry feed:', fr: 'Flux de données:' },
-	'jury.telemetryPlaceholder': {
-		en: 'Score progression snapshots will appear here once LLM hooks are connected.',
-		fr: 'Les aperçus de progression des scores apparaîtront ici une fois les connexions IA établies.'
-	},
-	'jury.scoringRubric': { en: 'Scoring rubric blueprint', fr: 'Grille d\'évaluation' },
-	'jury.scoringDesc': {
-		en: 'Submissions are graded across persuasion, citation discipline, and realism.',
-		fr: 'Les soumissions sont évaluées selon la persuasion, la rigueur des citations et le réalisme.'
-	},
-	'jury.weightPersuasion': {
-		en: 'Weight persuasive clarity (40%) — track concessions and reframed issues.',
-		fr: 'Clarté de persuasion (40 %) — suivi des concessions et des reformulations.'
-	},
-	'jury.weightCitation': {
-		en: 'Weight citation discipline (35%) — penalize references outside uploaded packets.',
-		fr: 'Rigueur des citations (35 %) — pénaliser les références hors des documents soumis.'
-	},
-	'jury.weightRealism': {
-		en: 'Weight realism (25%) — how practical is the remedy or defence.',
-		fr: 'Réalisme (25 %) — le caractère pratique du recours ou de la défense.'
-	},
-	'jury.scoresExport': {
-		en: 'Scores and rationales are saved for dashboards and performance tracking.',
-		fr: 'Les scores et justifications sont sauvegardés pour les tableaux de bord et le suivi.'
-	},
 
 	// ===== PRICING =====
 	'pricing.kicker': { en: 'Plans & Pricing', fr: 'Plans et tarifs' },
@@ -656,7 +924,82 @@ const translations = {
 	'dashboard.noScores': { en: 'No scored debates yet. End a case to see your performance.', fr: 'Aucun débat noté. Terminez une cause pour voir votre performance.' },
 	'dashboard.basedOn': { en: 'Based on', fr: 'Basé sur' },
 	'dashboard.debate': { en: 'debate', fr: 'débat' },
-	'dashboard.debates': { en: 'debates', fr: 'débats' }
+	'dashboard.debates': { en: 'debates', fr: 'débats' },
+
+	// ===== V2 STUDIO (source-bound create + hearing) =====
+	'v2.title': { en: 'Create a Case', fr: 'Créer une cause' },
+	'v2.subtitle': {
+		en: 'Describe the exercise. Verdict grounds it only in your selected sources.',
+		fr: 'Décrivez l\'exercice. Verdict le fonde uniquement sur vos sources sélectionnées.'
+	},
+	'v2.pack': { en: 'Legal pack', fr: 'Trousse juridique' },
+	'v2.noPacks': {
+		en: 'No legal packs yet. Add sources in the Library first.',
+		fr: 'Aucune trousse juridique. Ajoutez d\'abord des sources dans Sources.'
+	},
+	'v2.sources': { en: 'Sources', fr: 'Sources' },
+	'v2.allSources': { en: 'All sources in pack', fr: 'Toutes les sources de la trousse' },
+	'v2.role': { en: 'Argue as', fr: 'Plaider en tant que' },
+	'v2.plaintiff': { en: 'Plaintiff', fr: 'Demandeur' },
+	'v2.defendant': { en: 'Defendant', fr: 'Défendeur' },
+	'v2.yourSide': { en: 'You argue as', fr: 'Vous plaidez pour' },
+	'v2.requestLabel': { en: 'Your request', fr: 'Votre demande' },
+	'v2.requestPlaceholder': {
+		en: 'e.g. Build a case on article 1457 about civil liability',
+		fr: 'ex. Fais un cas sur l\'article 1457 sur la responsabilité civile'
+	},
+	'v2.build': { en: 'Build dossier', fr: 'Construire le dossier' },
+	'v2.building': { en: 'Building…', fr: 'Construction…' },
+	'v2.grounded': { en: 'Grounded in sources', fr: 'Fondé sur les sources' },
+	'v2.notGrounded': { en: 'Limited source support', fr: 'Appui documentaire limité' },
+	'v2.facts': { en: 'Facts', fr: 'Faits' },
+	'v2.issues': { en: 'Issues', fr: 'Questions en litige' },
+	'v2.remedy': { en: 'Remedy sought', fr: 'Réparation demandée' },
+	'v2.objective': { en: 'Objective', fr: 'Objectif' },
+	'v2.citations': { en: 'Verified citations', fr: 'Citations vérifiées' },
+	'v2.boundaries': { en: 'Source boundaries', fr: 'Limites des sources' },
+	'v2.warnings': { en: 'Honest notes', fr: 'Notes de transparence' },
+	'v2.enterHearing': { en: 'Enter the hearing', fr: 'Entrer à l\'audience' },
+	'v2.newCase': { en: 'New case', fr: 'Nouvelle cause' },
+	'v2.leaveHearing': { en: 'Leave', fr: 'Quitter' },
+	'v2.viewCase': { en: 'View case file', fr: 'Voir le dossier' },
+	'v2.openingPrompt': { en: 'The bench is seated. Make your opening submission.', fr: 'La cour est constituée. Présentez vos premières observations.' },
+	'v2.judgeMind': { en: 'The bench', fr: 'La cour' },
+	'v2.judgeMindHint': { en: 'How your case is landing — grounded only in the record.', fr: 'Comment votre cause est reçue — fondée uniquement sur le dossier.' },
+	'v2.persuasion': { en: 'Persuaded', fr: 'Convaincue' },
+	'v2.leanUndecided': { en: 'Undecided — the record is balanced.', fr: 'Indécise — le dossier est équilibré.' },
+	'v2.thoughts': { en: 'On the bench\u2019s mind', fr: 'Réflexions de la cour' },
+	'v2.citationCheck': { en: 'On your authorities', fr: 'Sur vos autorités' },
+	'v2.nextChallenge': { en: 'What would move the bench', fr: 'Ce qui ferait pencher la cour' },
+	'v2.mindEmpty': { en: 'Make a submission and the bench will weigh in.', fr: 'Présentez vos observations et la cour se prononcera.' },
+	'v2.hearing': { en: 'The Hearing', fr: 'L\'audience' },
+	'v2.you': { en: 'You', fr: 'Vous' },
+	'v2.submitPlaceholder': { en: 'Make your submission to the Court…', fr: 'Présentez vos arguments à la Cour…' },
+	'v2.submit': { en: 'Submit', fr: 'Soumettre' },
+	'v2.thinking': { en: 'The Court is considering…', fr: 'La Cour délibère…' },
+	'v2.refused': {
+		en: 'The Court declined to rely on unsupported authority.',
+		fr: 'La Cour a refusé de s\'appuyer sur une autorité non étayée.'
+	},
+	'v2.error': { en: 'Something went wrong. Please try again.', fr: 'Une erreur est survenue. Veuillez réessayer.' },
+	'v2.emptyRequest': { en: 'Describe the case you want to build.', fr: 'Décrivez la cause à construire.' },
+	'v2.noSources': { en: 'Select at least one source.', fr: 'Sélectionnez au moins une source.' },
+	'v2.chatIntro': {
+		en: 'Tell me about the case you want to build from your sources. I\'ll only use what\'s in them.',
+		fr: 'Parlez-moi de la cause que vous voulez bâtir à partir de vos sources. Je n\'utiliserai que ce qu\'elles contiennent.'
+	},
+	'v2.chatPlaceholder': {
+		en: 'Ask Verdict',
+		fr: 'Demandez à Verdict'
+	},
+	'v2.send': { en: 'Send', fr: 'Envoyer' },
+	'v2.assistant': { en: 'Assistant', fr: 'Assistant' },
+	'v2.chatThinking': { en: 'Reading your sources…', fr: 'Lecture de vos sources…' },
+	'v2.buildNow': { en: 'Build this case', fr: 'Construire cette cause' },
+	'v2.readyHint': { en: 'Ready when you are — or keep refining.', fr: 'Prêt quand vous l\'êtes — ou continuez à préciser.' },
+	'v2.openCase': { en: 'Open the case file', fr: 'Ouvrir le dossier' },
+	'v2.close': { en: 'Close', fr: 'Fermer' },
+	'v2.editSources': { en: 'Sources & role', fr: 'Sources et rôle' }
 } as const;
 
 type TranslationKey = keyof typeof translations;

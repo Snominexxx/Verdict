@@ -42,6 +42,7 @@ export const maybeSeedDemo = async (lang: 'en' | 'fr' = 'en') => {
 	legalPacksStore.createPack({
 		name: lang === 'fr' ? 'Démo — Droit civil québécois' : 'Demo — Quebec Civil Law',
 		jurisdiction: 'Quebec',
+		language: lang,
 		domain: lang === 'fr' ? 'Travail / Civil' : 'Employment / Civil',
 		description:
 			lang === 'fr'

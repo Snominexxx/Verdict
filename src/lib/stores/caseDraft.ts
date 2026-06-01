@@ -1,26 +1,22 @@
 import { writable } from 'svelte/store';
-import type { CourtType } from '$lib/types';
+import type { ExerciseDraftData } from '$lib/types';
 
-export type CaseDraft = {
-	title: string;
-	synopsis: string;
-	issues: string;
-	remedy: string;
-	defendantPosition: string;
-	role: '' | 'plaintiff' | 'defendant';
-	sources: string[];
-	courtType: CourtType;
-};
+export type CaseDraft = ExerciseDraftData;
 
 const empty: CaseDraft = {
 	title: '',
 	synopsis: '',
 	issues: '',
 	remedy: '',
+	objective: '',
+	targetSkill: '',
+	practicePoints: [],
+	judgeBrief: null,
+	groundingAudit: null,
 	defendantPosition: '',
 	role: '',
 	sources: [],
-	courtType: 'jury'
+	courtType: 'bench'
 };
 
 const { subscribe, set, update } = writable<CaseDraft>({ ...empty });

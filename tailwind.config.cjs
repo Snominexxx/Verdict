@@ -12,12 +12,12 @@ const config = {
         ink: '#020617',          /* Slate 950 — primary background */
         dusk: '#0f172a',         /* Slate 900 — secondary background */
 
-        // Brand accent — warm gold (justice, prestige, distinctive)
+        // Brand accent — cool blue tuned to the site's slate palette
         accent: {
-          DEFAULT: '#c9a96e',
-          hover: '#d6b97f',
-          muted: '#9c834f',
-          soft: 'rgba(201, 169, 110, 0.15)'
+          DEFAULT: '#7dd3fc',
+          hover: '#bae6fd',
+          muted: '#38bdf8',
+          soft: 'rgba(125, 211, 252, 0.15)'
         },
 
         // Legacy tokens
@@ -45,7 +45,7 @@ const config = {
       },
       boxShadow: {
         card: '0 20px 60px rgba(12, 5, 29, 0.45)',
-        accent: '0 8px 24px rgba(201, 169, 110, 0.25)'
+        accent: '0 8px 24px rgba(56, 189, 248, 0.25)'
       }
     }
   },

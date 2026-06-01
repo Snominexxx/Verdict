@@ -50,9 +50,13 @@ create table if not exists pack_sources (
   is_custom   boolean not null default true,
   last_updated text,
   note        text,
+  ingestion_audit jsonb,
   created_at  timestamptz not null default now(),
   primary key (id, pack_id)
 );
+
+alter table pack_sources
+  add column if not exists ingestion_audit jsonb;
 
 alter table pack_sources enable row level security;
 
@@ -80,16 +84,25 @@ create table if not exists cases (
   synopsis    text not null default '',
   issues      text not null default '',
   remedy      text not null default '',
+  objective   text not null default '',
+  target_skill text not null default '',
+  practice_points jsonb not null default '[]'::jsonb,
+  judge_brief jsonb,
+  grounding_audit jsonb,
   role        text not null default 'plaintiff',
   sources     jsonb not null default '[]',
   pack_id     text,
-  court_type  text not null default 'jury',
+  court_type  text not null default 'bench',
   status      text not null default 'ongoing',
   started_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now(),
   performance jsonb,
   created_at  timestamptz not null default now()
 );
+
+alter table cases
+  add column if not exists paper_snapshot jsonb,
+  add column if not exists judge_packet jsonb;
 
 alter table cases enable row level security;
 
@@ -138,11 +151,21 @@ create table if not exists staged_cases (
   synopsis    text not null,
   issues      text,
   remedy      text,
+  objective   text not null default '',
+  target_skill text not null default '',
+  practice_points jsonb not null default '[]'::jsonb,
+  judge_brief jsonb,
+  grounding_audit jsonb,
   role        text not null check (role in ('plaintiff','defendant')),
   sources     jsonb default '[]'::jsonb,
-  court_type  text not null default 'jury',
+  court_type  text not null default 'bench',
   created_at  timestamptz default now()
 );
+
+alter table staged_cases
+  add column if not exists pack_id text,
+  add column if not exists paper_snapshot jsonb,
+  add column if not exists judge_packet jsonb;
 
 alter table staged_cases enable row level security;
 
@@ -157,6 +180,80 @@ create policy "Users can insert own staged cases"
 create policy "Users can delete own staged cases"
   on staged_cases for delete
   using (auth.uid() = user_id);
+
+-- 5b. Saved Drafts (pre-judge exercise papers)
+create table if not exists saved_drafts (
+  id             text primary key,
+  user_id        uuid not null references auth.users(id) on delete cascade,
+  title          text not null default '',
+  draft_data     jsonb not null default '{}'::jsonb,
+  selected_option jsonb not null default '{}'::jsonb,
+  paper_snapshot jsonb not null default '{}'::jsonb,
+  analysis       jsonb,
+  workflow       jsonb,
+  pack_id        text,
+  pack_context   jsonb,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+
+alter table saved_drafts enable row level security;
+
+create policy "Users can read own drafts"
+  on saved_drafts for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own drafts"
+  on saved_drafts for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own drafts"
+  on saved_drafts for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete own drafts"
+  on saved_drafts for delete
+  using (auth.uid() = user_id);
+
+-- 5c. Shared Cases (read-only published exercise capsules)
+create table if not exists shared_cases (
+  id             uuid primary key default gen_random_uuid(),
+  teacher_id     uuid not null references auth.users(id) on delete cascade,
+  token          text not null unique,
+  title          text not null default '',
+  paper_snapshot jsonb not null default '{}'::jsonb,
+  pack_context   jsonb,
+  language       text not null default 'en',
+  status         text not null default 'active',
+  expires_at     timestamptz,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+
+create index if not exists idx_shared_cases_token
+  on shared_cases(token);
+
+create index if not exists idx_shared_cases_teacher
+  on shared_cases(teacher_id, created_at desc);
+
+alter table shared_cases enable row level security;
+
+create policy "Teachers can read own shared cases"
+  on shared_cases for select
+  using (auth.uid() = teacher_id);
+
+create policy "Teachers can insert own shared cases"
+  on shared_cases for insert
+  with check (auth.uid() = teacher_id);
+
+create policy "Teachers can update own shared cases"
+  on shared_cases for update
+  using (auth.uid() = teacher_id)
+  with check (auth.uid() = teacher_id);
+
+create policy "Teachers can delete own shared cases"
+  on shared_cases for delete
+  using (auth.uid() = teacher_id);
 
 -- 6. Debate Turns (conversation history per case)
 create table if not exists debate_turns (
@@ -269,6 +366,47 @@ begin
   limit match_count;
 end;
 $$;
+
+-- 7b. Pack Memories — durable Gemini-read source maps + cache metadata
+create table if not exists pack_memories (
+  id                       uuid primary key default gen_random_uuid(),
+  user_id                  uuid not null references auth.users(id) on delete cascade,
+  pack_signature           text not null,
+  pack_id                  text,
+  source_fingerprint       text not null,
+  language                 text not null default 'en',
+  jurisdiction             text not null default '',
+  memory                   jsonb not null default '{}'::jsonb,
+  gemini_cache             jsonb,
+  gemini_cache_expires_at  timestamptz,
+  created_at               timestamptz not null default now(),
+  updated_at               timestamptz not null default now()
+);
+
+create unique index if not exists idx_pack_memories_unique
+  on pack_memories(user_id, pack_signature, source_fingerprint);
+
+create index if not exists idx_pack_memories_user_pack
+  on pack_memories(user_id, pack_id, updated_at desc);
+
+alter table pack_memories enable row level security;
+
+create policy "Users can read own pack memories"
+  on pack_memories for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own pack memories"
+  on pack_memories for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own pack memories"
+  on pack_memories for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete own pack memories"
+  on pack_memories for delete
+  using (auth.uid() = user_id);
 
 -- 8. Usage Log — tracks credit consumption per billing period
 create table if not exists usage_log (

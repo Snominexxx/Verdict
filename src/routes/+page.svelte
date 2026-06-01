@@ -11,7 +11,7 @@
 			{t('home.description', $language)}
 		</p>
 		<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
-			<a href="/cases" class="px-7 py-3 rounded bg-white text-black font-semibold text-sm uppercase tracking-wider hover:bg-white/90 transition-colors">{t('home.initCase', $language)}</a>
+			<a href="/create" class="px-7 py-3 rounded bg-white text-black font-semibold text-sm uppercase tracking-wider hover:bg-white/90 transition-colors">{t('home.initCase', $language)}</a>
 			<a href="/library" class="px-7 py-3 rounded border border-white/40 text-white font-semibold text-sm uppercase tracking-wider hover:bg-white/10 transition-colors">{t('home.browseLibrary', $language)}</a>
 		</div>
 	</div>
