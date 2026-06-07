@@ -4,23 +4,32 @@ import type { LibraryDocument } from '$lib/data/library';
 import { getJudgePersona, type JudgePersona } from '$lib/data/judge';
 import { callLLM, getProvider, isNewStackEnabled, type LLMTask } from './providers';
 
+const hasOpenAIKey = (): boolean => Boolean(env.LLM_API_KEY ?? env.OPENAI_API_KEY);
+
 const hasConfiguredProviderKey = (task: LLMTask): boolean => {
-	if (!isNewStackEnabled()) return Boolean(env.LLM_API_KEY);
+	if (!isNewStackEnabled()) return hasOpenAIKey();
 	const provider = getProvider(task);
-	return provider.name === 'gemini' ? Boolean(env.GOOGLE_API_KEY) : Boolean(env.ANTHROPIC_API_KEY);
+	if (provider.name === 'gemini') {
+		return Boolean(env.GOOGLE_API_KEY) || hasOpenAIKey();
+	}
+	return Boolean(env.ANTHROPIC_API_KEY) || hasOpenAIKey();
 };
 
 const requireLLMKeys = (task: LLMTask): void => {
 	if (isNewStackEnabled()) {
 		const provider = getProvider(task);
 		if (provider.name === 'gemini') {
-			if (!env.GOOGLE_API_KEY) throw new Error('GOOGLE_API_KEY is not configured.');
+			if (!env.GOOGLE_API_KEY && !hasOpenAIKey()) {
+				throw new Error('GOOGLE_API_KEY is not configured (and no OpenAI fallback key found).');
+			}
 		} else {
-			if (!env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not configured.');
+			if (!env.ANTHROPIC_API_KEY && !hasOpenAIKey()) {
+				throw new Error('ANTHROPIC_API_KEY is not configured (and no OpenAI fallback key found).');
+			}
 		}
 		return;
 	}
-	if (!env.LLM_API_KEY) throw new Error('LLM_API_KEY is not configured.');
+	if (!hasOpenAIKey()) throw new Error('LLM_API_KEY or OPENAI_API_KEY is not configured.');
 };
 
 type PerformanceTurn = {

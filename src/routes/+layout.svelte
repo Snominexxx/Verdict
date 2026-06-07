@@ -135,7 +135,7 @@
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:title" content="Verdict — AI Judge Practice" />
 	<meta name="twitter:description" content={t('meta.description', $language)} />
-	<meta name="twitter:image" content="https://verdictmvp.netlify.app/og-image.png" />
+	<meta name="twitter:image" content="https://tryverdict.net/og-image.png" />
 
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />

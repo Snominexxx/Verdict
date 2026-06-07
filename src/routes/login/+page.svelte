@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto, invalidate } from '$app/navigation';
 	import { language } from '$lib/stores/language';
 	import { t } from '$lib/i18n';
 
@@ -47,7 +48,8 @@
 			if (error) {
 				errorMsg = error.message;
 			} else if (signUpData.session) {
-				window.location.href = '/court';
+				await invalidate('supabase:auth');
+				await goto('/court', { replaceState: true });
 			} else {
 				successMsg = t('auth.checkEmail', $language);
 			}
@@ -59,7 +61,8 @@
 			if (error) {
 				errorMsg = error.message;
 			} else {
-				window.location.href = '/court';
+				await invalidate('supabase:auth');
+				await goto('/court', { replaceState: true });
 			}
 		}
 		loading = false;

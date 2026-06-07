@@ -9,8 +9,9 @@ export const openaiProvider: LLMProvider = {
 	name: 'openai',
 	async call(req: LLMRequest): Promise<string> {
 		const model = env.OPENAI_MODEL ?? 'gpt-4o-mini';
-		if (!env.LLM_API_KEY) {
-			throw new Error('LLM_API_KEY is not configured.');
+		const key = env.LLM_API_KEY ?? env.OPENAI_API_KEY;
+		if (!key) {
+			throw new Error('LLM_API_KEY or OPENAI_API_KEY is not configured.');
 		}
 
 		const body: Record<string, unknown> = {
@@ -37,7 +38,7 @@ export const openaiProvider: LLMProvider = {
 		const response = await fetch('https://api.openai.com/v1/chat/completions', {
 			method: 'POST',
 			headers: {
-				Authorization: `Bearer ${env.LLM_API_KEY}`,
+				Authorization: `Bearer ${key}`,
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify(body)

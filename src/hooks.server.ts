@@ -29,9 +29,16 @@ const supabase: Handle = async ({ event, resolve }) => {
 				data: { user },
 				error
 			} = await event.locals.supabase.auth.getUser();
-			if (error) return { session: null, user: null };
+			if (error) {
+				// Some environments intermittently fail the user re-validation call
+				// even with a valid session cookie. Keep the current session instead
+				// of hard-failing to logged-out, so authenticated API calls (uploads,
+				// create chat, etc.) do not randomly return 401.
+				console.warn('safeGetSession: getUser failed, falling back to session user:', error.message);
+				return { session, user: session.user ?? null };
+			}
 
-			return { session, user };
+			return { session, user: user ?? session.user ?? null };
 		} catch {
 			// Stale / invalid refresh token in dev cookies — treat as logged out
 			// instead of letting the AuthApiError spam the server console.

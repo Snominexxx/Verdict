@@ -38,5 +38,34 @@ export const getProvider = (task: LLMTask): LLMProvider => {
 
 export const callLLM = async (req: LLMRequest): Promise<string> => {
 	const provider = getProvider(req.task);
-	return provider.call(req);
+	try {
+		return await provider.call(req);
+	} catch (primaryErr) {
+		// New-stack resilience: if Gemini/Anthropic fails (key missing, quota,
+		// transient provider outage), fall back to OpenAI when available so the
+		// conversation does not hard-stop for the user.
+		if (provider.name === 'openai') {
+			throw primaryErr;
+		}
+
+		const hasOpenAIFallback = Boolean(env.LLM_API_KEY ?? env.OPENAI_API_KEY);
+		if (!hasOpenAIFallback) {
+			throw primaryErr;
+		}
+
+		console.error(
+			`Primary LLM provider failed (provider=${provider.name}, task=${req.task}); attempting OpenAI fallback.`,
+			primaryErr
+		);
+
+		try {
+			return await openaiProvider.call(req);
+		} catch (fallbackErr) {
+			const primaryMsg = primaryErr instanceof Error ? primaryErr.message : String(primaryErr);
+			const fallbackMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+			throw new Error(
+				`Primary provider failed (${provider.name}): ${primaryMsg}. OpenAI fallback failed: ${fallbackMsg}`
+			);
+		}
+	}
 };

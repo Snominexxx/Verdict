@@ -43,6 +43,15 @@
 	let parseProgress = '';
 	let fileInputEl: HTMLInputElement;
 
+	const fetchWithAuthRetry = async (resource: string, init?: RequestInit): Promise<Response> => {
+		const response = await fetch(resource, init);
+		if (response.status !== 401) return response;
+
+		// Immediately retry once: right after sign-in there can be a brief race
+		// before auth cookies are visible to server endpoints.
+		return fetch(resource, init);
+	};
+
 	// Inline rename state
 	let renamingId = '';
 	let renameValue = '';
@@ -398,7 +407,7 @@
 				const uploadForm = new FormData();
 				uploadForm.set('file', file);
 				uploadForm.set('sourceId', sourceId);
-				const uploadRes = await fetch('/api/library/upload-file', {
+				const uploadRes = await fetchWithAuthRetry('/api/library/upload-file', {
 					method: 'POST',
 					body: uploadForm
 				});
@@ -445,7 +454,7 @@
 					? `${t('library.storingChunks', $language)} (${i + 1}/${segments.length})`
 					: t('library.storingChunks', $language);
 
-				const response = await fetch('/api/library/ingest-text', {
+				const response = await fetchWithAuthRetry('/api/library/ingest-text', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
@@ -495,7 +504,7 @@
 		if (!selectedPack) return;
 		legalPacksStore.removeSourceFromPack(selectedPack.id, sourceId);
 		// Clean up indexed chunks
-		fetch(`/api/library/index?sourceId=${encodeURIComponent(sourceId)}`, { method: 'DELETE' }).catch(() => {});
+		fetchWithAuthRetry(`/api/library/index?sourceId=${encodeURIComponent(sourceId)}`, { method: 'DELETE' }).catch(() => {});
 	};
 
 	const openOriginalDocument = async (doc: LibraryDocument) => {
@@ -532,7 +541,7 @@
 		previewOpen = true;
 
 		try {
-			const res = await fetch(`/api/library/source-file-url?sourceId=${encodeURIComponent(doc.id)}`);
+			const res = await fetchWithAuthRetry(`/api/library/source-file-url?sourceId=${encodeURIComponent(doc.id)}`);
 			if (!res.ok) {
 				previewOpen = false;
 				return false;
@@ -617,7 +626,7 @@
 		try {
 			const isUploadedDoc = !!doc.isCustom || doc.sourceUrl?.startsWith('uploaded://');
 			if (isUploadedDoc) {
-				const response = await fetch(`/api/library/source-text?sourceId=${encodeURIComponent(doc.id)}`);
+				const response = await fetchWithAuthRetry(`/api/library/source-text?sourceId=${encodeURIComponent(doc.id)}`);
 				if (response.ok) {
 					const payload = await response.json().catch(() => null);
 					if (payload?.text && typeof payload.text === 'string') {
