@@ -38,14 +38,17 @@ create index if not exists idx_chunks_user
 -- 4. RLS
 alter table document_chunks enable row level security;
 
+drop policy if exists "Users can read own chunks" on document_chunks;
 create policy "Users can read own chunks"
   on document_chunks for select
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can insert own chunks" on document_chunks;
 create policy "Users can insert own chunks"
   on document_chunks for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "Users can delete own chunks" on document_chunks;
 create policy "Users can delete own chunks"
   on document_chunks for delete
   using (auth.uid() = user_id);

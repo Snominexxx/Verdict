@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { legalPacksStore, selectedLegalPackId } from '$lib/stores/legalPacks';
 	import { dossierStore } from '$lib/stores/dossier';
+	import { assignmentContext } from '$lib/stores/assignment';
 	import { focusMode } from '$lib/stores/ui';
 	import { language } from '$lib/stores/language';
 	import { t } from '$lib/i18n';
@@ -31,6 +32,19 @@
 	let hearingLogEl = $state<HTMLDivElement | null>(null);
 	let caseViewOpen = $state(false);
 
+	// Teacher: publish a built dossier as a uniform assignment
+	let publishOpen = $state(false);
+	let publishInstructions = $state('');
+	let publishing = $state(false);
+	let assignmentUrl = $state('');
+	let publishError = $state('');
+	let copied = $state(false);
+
+	// Student: recorded-assignment hearing
+	let submitting = $state(false);
+	let submitted = $state(false);
+	let submitError = $state('');
+
 	const scrollHearing = async () => {
 		await tick();
 		if (hearingLogEl) hearingLogEl.scrollTop = hearingLogEl.scrollHeight;
@@ -40,6 +54,13 @@
 		legalPacksStore.hydrate();
 		selectedLegalPackId.hydrate();
 		dossierStore.hydrate();
+		assignmentContext.hydrate();
+		// A student arriving from an assignment link lands straight in the hearing.
+		if ($assignmentContext && $dossierStore.dossier) {
+			submission = '';
+			phase = 'hearing';
+			focusMode.set(true);
+		}
 	});
 
 	// Always release the immersive hearing layout when leaving the page.
@@ -170,6 +191,90 @@
 		goto('/');
 	};
 
+	// Teacher: freeze the built dossier into a uniform, shareable assignment.
+	const publishAssignment = async () => {
+		if (!dossier || publishing) return;
+		publishing = true;
+		publishError = '';
+		assignmentUrl = '';
+		try {
+			const res = await fetch('/api/assignments', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ dossier, instructions: publishInstructions.trim() })
+			});
+			if (res.status === 401) {
+				publishError = t('assignment.loginToPublish', $language);
+				return;
+			}
+			if (!res.ok) {
+				const data = await res.json().catch(() => null);
+				publishError = (data && data.message) || t('v2.error', $language);
+				return;
+			}
+			const data = await res.json();
+			assignmentUrl = data.url as string;
+		} catch (err) {
+			console.error(err);
+			publishError = t('v2.error', $language);
+		} finally {
+			publishing = false;
+		}
+	};
+
+	const copyAssignmentUrl = async () => {
+		if (!assignmentUrl) return;
+		try {
+			await navigator.clipboard.writeText(assignmentUrl);
+			copied = true;
+			setTimeout(() => (copied = false), 2000);
+		} catch {
+			/* clipboard may be blocked; the link stays visible to copy manually */
+		}
+	};
+
+	// Student: record the hearing back to the teacher and close out.
+	const finishAssignment = async () => {
+		const ctx = $assignmentContext;
+		const state = $dossierStore;
+		if (!ctx || submitting) return;
+		submitting = true;
+		submitError = '';
+		try {
+			const res = await fetch(`/api/assignments/${ctx.token}/submit`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					studentName: ctx.studentName,
+					studentEmail: ctx.studentEmail,
+					role: ctx.role,
+					transcript: state.transcript,
+					finalMind: state.mind,
+					startedAt: ctx.startedAt
+				})
+			});
+			if (!res.ok) {
+				const data = await res.json().catch(() => null);
+				submitError = (data && data.message) || t('v2.error', $language);
+				return;
+			}
+			submitted = true;
+			assignmentContext.clear();
+		} catch (err) {
+			console.error(err);
+			submitError = t('v2.error', $language);
+		} finally {
+			submitting = false;
+		}
+	};
+
+	const exitSubmitted = () => {
+		submitted = false;
+		dossierStore.clear();
+		focusMode.set(false);
+		goto('/');
+	};
+
 	const newCase = () => {
 		dossierStore.clear();
 		focusMode.set(false);
@@ -199,7 +304,8 @@
 				body: JSON.stringify({
 					dossier: state.dossier,
 					transcript: state.transcript,
-					userTurn: text
+					userTurn: text,
+					assignmentToken: $assignmentContext?.token
 				})
 			});
 			if (!res.ok) throw new Error(`judge failed: ${res.status}`);
@@ -227,6 +333,27 @@
 		}
 	};
 </script>
+
+{#if submitted}
+	<div class="fixed inset-0 z-[60] flex items-center justify-center bg-ink px-6">
+		<div class="max-w-md text-center">
+			<div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-accent/15 text-accent">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-7 w-7">
+					<path d="m5 12 5 5L20 7" />
+				</svg>
+			</div>
+			<h1 class="mt-5 font-display text-2xl font-semibold text-white">{t('assignment.submittedTitle', $language)}</h1>
+			<p class="mt-2 text-sm leading-7 text-white/65">{t('assignment.submittedBody', $language)}</p>
+			<button
+				type="button"
+				onclick={exitSubmitted}
+				class="mt-6 rounded-xl bg-white px-6 py-3 text-sm font-medium text-ink transition hover:bg-white/90"
+			>
+				{t('assignment.done', $language)}
+			</button>
+		</div>
+	</div>
+{/if}
 
 {#if phase === 'create'}
 	<div class="mx-auto max-w-4xl px-6 py-10">
@@ -459,14 +586,103 @@
 					{/if}
 				</dl>
 
-				<button
-					type="button"
-					onclick={enterHearing}
-					class="mt-6 rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-ink transition hover:bg-accent-hover"
-				>
-					{t('v2.enterHearing', $language)}
-				</button>
+				<div class="mt-6 flex flex-wrap gap-2">
+					<button
+						type="button"
+						onclick={enterHearing}
+						class="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-ink transition hover:bg-accent-hover"
+					>
+						{t('v2.enterHearing', $language)}
+					</button>
+					<button
+						type="button"
+						onclick={() => { dossierOpen = false; publishError = ''; assignmentUrl = ''; publishOpen = true; }}
+						class="inline-flex items-center gap-2 rounded-lg border border-white/15 px-5 py-2.5 text-sm font-medium text-white/80 transition hover:bg-white/5"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="h-4 w-4">
+							<path d="M18 8a3 3 0 1 0-2.83-4" />
+							<circle cx="6" cy="12" r="3" />
+							<path d="M18 19a3 3 0 1 0-2.83-4" />
+							<path d="m8.6 13.5 6.8 4M15.4 6.5 8.6 10.5" />
+						</svg>
+						{t('assignment.assignToStudents', $language)}
+					</button>
+				</div>
 			</section>
+			</div>
+		{/if}
+
+		<!-- Publish: freeze this dossier into a uniform assignment link -->
+		{#if dossier && publishOpen}
+			<div
+				class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+				role="presentation"
+				onclick={(e) => { if (e.target === e.currentTarget) publishOpen = false; }}
+			>
+				<section class="relative w-full max-w-lg rounded-2xl border border-white/10 bg-dusk p-6 shadow-card">
+					<div class="flex items-start justify-between gap-4">
+						<div>
+							<h2 class="font-display text-xl font-semibold text-white">{t('assignment.publishTitle', $language)}</h2>
+							<p class="mt-1 text-sm text-white/60">{t('assignment.publishHint', $language)}</p>
+						</div>
+						<button
+							type="button"
+							onclick={() => (publishOpen = false)}
+							aria-label={t('v2.close', $language)}
+							class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/10 hover:text-white"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+								<path d="M18 6 6 18" /><path d="m6 6 12 12" />
+							</svg>
+						</button>
+					</div>
+
+					{#if assignmentUrl}
+						<div class="mt-5">
+							<p class="font-mono text-xs uppercase tracking-wide text-white/40">{t('assignment.shareLink', $language)}</p>
+							<div class="mt-2 flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.03] px-3 py-2">
+								<input
+									type="text"
+									readonly
+									value={assignmentUrl}
+									class="flex-1 bg-transparent text-sm text-white/90 focus:outline-none"
+								/>
+								<button
+									type="button"
+									onclick={copyAssignmentUrl}
+									class="shrink-0 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-ink transition hover:bg-white/90"
+								>
+									{copied ? t('assignment.copied', $language) : t('assignment.copyLink', $language)}
+								</button>
+							</div>
+							<p class="mt-3 text-xs text-white/50">{t('assignment.shareLinkHint', $language)}</p>
+						</div>
+					{:else}
+						<label for="assign-instructions" class="mt-5 block font-mono text-xs uppercase tracking-wide text-white/40">
+							{t('assignment.instructionsLabel', $language)}
+						</label>
+						<textarea
+							id="assign-instructions"
+							rows="4"
+							bind:value={publishInstructions}
+							placeholder={t('assignment.instructionsPlaceholder', $language)}
+							class="mt-2 w-full resize-none rounded-xl border border-white/15 bg-white/[0.03] px-4 py-3 text-[15px] leading-7 text-white placeholder:text-white/35 focus:border-accent/50 focus:outline-none"
+						></textarea>
+
+						{#if publishError}
+							<p class="mt-3 text-sm text-rose-300">{publishError}</p>
+						{/if}
+
+						<button
+							type="button"
+							onclick={publishAssignment}
+							disabled={publishing}
+							class="mt-4 w-full rounded-xl bg-accent px-5 py-3 font-medium text-ink transition hover:bg-accent-hover disabled:opacity-60"
+						>
+							{publishing ? t('assignment.publishing', $language) : t('assignment.publishCta', $language)}
+						</button>
+					{/if}
+				</section>
 			</div>
 		{/if}
 	</div>
@@ -480,14 +696,23 @@
 					<h1 class="font-display text-lg font-semibold text-white">{t('v2.hearing', $language)}</h1>
 					<p class="truncate text-xs text-white/55">{$dossierStore.dossier.title}</p>
 				</div>
-				<button type="button" onclick={leaveHearing} class="flex shrink-0 items-center gap-2 rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/70 transition hover:bg-white/5">
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4">
-						<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-						<path d="m16 17 5-5-5-5" />
-						<path d="M21 12H9" />
-					</svg>
-					{t('v2.leaveHearing', $language)}
-				</button>
+				{#if $assignmentContext}
+					<button type="button" onclick={finishAssignment} disabled={submitting} class="flex shrink-0 items-center gap-2 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-ink transition hover:bg-accent-hover disabled:opacity-50">
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+							<path d="m5 12 5 5L20 7" />
+						</svg>
+						{submitting ? t('assignment.submitting', $language) : t('assignment.finishSubmit', $language)}
+					</button>
+				{:else}
+					<button type="button" onclick={leaveHearing} class="flex shrink-0 items-center gap-2 rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/70 transition hover:bg-white/5">
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4">
+							<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+							<path d="m16 17 5-5-5-5" />
+							<path d="M21 12H9" />
+						</svg>
+						{t('v2.leaveHearing', $language)}
+					</button>
+				{/if}
 			</header>
 
 			<!-- Scrollable transcript -->
@@ -520,6 +745,9 @@
 
 			<!-- Static composer at the bottom -->
 			<div class="shrink-0 border-t border-white/10 px-6 py-4">
+				{#if submitError}
+					<p class="mx-auto mb-2 w-full max-w-3xl text-sm text-rose-300">{submitError}</p>
+				{/if}
 				<div class="mx-auto flex w-full max-w-3xl items-end gap-2 rounded-3xl border border-white/15 bg-white/[0.05] px-5 py-3 focus-within:border-white/30">
 					<textarea
 						rows="3"

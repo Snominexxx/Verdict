@@ -347,6 +347,58 @@ export type SharedCase = {
 	expiresAt?: string | null;
 };
 
+// ─────────────────────────────────────────────────────────
+// Teacher assignments — frozen, source-bound dossiers handed
+// to every student, with recorded hearings for review.
+// ─────────────────────────────────────────────────────────
+
+/** A frozen exercise capsule a student opens via a share link. */
+export type Assignment = {
+	token: string;
+	title: string;
+	instructions: string;
+	language: 'en' | 'fr';
+	/** The immutable CaseDossier every student argues — typed as unknown here to keep types.ts free of server contracts. */
+	dossier: unknown;
+	createdAt: string;
+	expiresAt?: string | null;
+};
+
+/** Teacher-side row in the assignments roster (with submission count). */
+export type AssignmentSummary = {
+	token: string;
+	title: string;
+	instructions: string;
+	language: 'en' | 'fr';
+	status: string;
+	submissionCount: number;
+	createdAt: string;
+};
+
+/** One recorded student hearing. */
+export type ExerciseSubmission = {
+	id: string;
+	token: string;
+	studentName: string;
+	studentEmail: string;
+	role: 'plaintiff' | 'defendant';
+	transcript: { role: 'litigant' | 'judge'; speaker: string; message: string }[];
+	finalMind: unknown;
+	turnCount: number;
+	startedAt?: string | null;
+	submittedAt: string;
+};
+
+/** Client-side context that marks the current hearing as an assigned exercise. */
+export type AssignmentContext = {
+	token: string;
+	studentName: string;
+	studentEmail: string;
+	role: 'plaintiff' | 'defendant';
+	instructions: string;
+	startedAt: string;
+};
+
 export type JudgePacket = {
 	version: 'judge-packet-v1';
 	createdAt: string;

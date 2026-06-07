@@ -18,6 +18,7 @@ import {
 	parseLegalStructure,
 	type LegalStructureAudit
 } from '$lib/server/legalStructure';
+import { embedTexts } from '$lib/server/verdict/embeddings';
 
 // ─────────────────────────────────────────────────────────
 // Types
@@ -287,8 +288,87 @@ export const deleteDocumentChunks = async (args: {
 	await supabase.from('document_chunks').delete().match({ user_id: userId, source_id: sourceId });
 };
 
+// ─────────────────────────────────────────────────────────
+// 2b. BACKFILL — Embed pre-existing text-only chunks
+// ─────────────────────────────────────────────────────────
+
+type ChunkRowToEmbed = { id: string; heading: string | null; content: string };
+
 /**
- * Store chunks (text only, no embeddings) for later batch embedding.
+ * Embed chunks that were stored before semantic retrieval was enabled (rows
+ * with a null embedding). Best-effort and idempotent: processes in pages,
+ * skips silently when embedding is unavailable, and only updates rows it
+ * successfully embedded. Returns how many chunks were embedded and how many
+ * remain pending.
+ */
+export const backfillEmbeddings = async (args: {
+	supabase: SupabaseClient;
+	userId: string;
+	/** Limit to one source; omit to backfill the whole library. */
+	sourceId?: string;
+	/** Max chunks to process in this call (safety cap). Default 500. */
+	maxChunks?: number;
+}): Promise<{ embedded: number; remaining: number }> => {
+	const { supabase, userId, sourceId } = args;
+	const maxChunks = Math.min(Math.max(args.maxChunks ?? 500, 1), 2000);
+	const PAGE = 96;
+	let embedded = 0;
+
+	while (embedded < maxChunks) {
+		let query = supabase
+			.from('document_chunks')
+			.select('id, heading, content')
+			.eq('user_id', userId)
+			.is('embedding', null)
+			.order('chunk_index', { ascending: true })
+			.limit(PAGE);
+		if (sourceId) query = query.eq('source_id', sourceId);
+
+		const { data, error } = await query;
+		if (error) {
+			console.warn('Backfill read failed:', error.message);
+			break;
+		}
+		const rows = (data ?? []) as ChunkRowToEmbed[];
+		if (!rows.length) break;
+
+		const vectors = await embedTexts(rows.map((r) => `${r.heading ? r.heading + '\n' : ''}${r.content}`));
+		if (vectors.length !== rows.length) {
+			// Embedding unavailable/disabled — stop without churning.
+			break;
+		}
+
+		for (let i = 0; i < rows.length; i++) {
+			const { error: updateErr } = await supabase
+				.from('document_chunks')
+				.update({ embedding: vectors[i] })
+				.eq('id', rows[i].id);
+			if (updateErr) {
+				console.warn('Backfill update failed:', updateErr.message);
+				continue;
+			}
+			embedded++;
+		}
+
+		if (rows.length < PAGE) break;
+	}
+
+	// Count what is still pending.
+	let pendingQuery = supabase
+		.from('document_chunks')
+		.select('id', { count: 'exact', head: true })
+		.eq('user_id', userId)
+		.is('embedding', null);
+	if (sourceId) pendingQuery = pendingQuery.eq('source_id', sourceId);
+	const { count } = await pendingQuery;
+
+	return { embedded, remaining: count ?? 0 };
+};
+
+/**
+ * Store a document's chunks. Embeds each chunk for semantic retrieval when
+ * `ENABLE_SEMANTIC_RETRIEVAL` is on (best-effort; embeddings stay null and the
+ * lexical retriever remains authoritative when embedding is unavailable).
  * Returns the number of chunks stored.
  */
 export const storeChunksOnly = async (args: {
@@ -327,8 +407,19 @@ export const storeChunksOnly = async (args: {
 	const chunks = prepared.chunks;
 	if (!chunks.length) return { chunkCount: 0, ingestionAudit: prepared.ingestionAudit };
 
-	// Store chunks without embeddings
-	const rows = chunks.map((chunk) => ({
+	// Embed the chunks for semantic retrieval (best-effort). When semantic
+	// retrieval is disabled or the provider is unavailable, `embedTexts` returns
+	// an empty array and every embedding stays null — the lexical retriever
+	// remains the source of truth, so ingestion never fails on embedding errors.
+	let embeddings: number[][] = [];
+	try {
+		embeddings = await embedTexts(chunks.map((c) => `${c.heading ? c.heading + '\n' : ''}${c.content}`));
+	} catch (embedErr) {
+		console.warn('Chunk embedding failed (non-fatal):', embedErr instanceof Error ? embedErr.message : embedErr);
+		embeddings = [];
+	}
+
+	const rows = chunks.map((chunk, i) => ({
 		user_id: userId,
 		source_id: sourceId,
 		pack_id: packId || null,
@@ -336,7 +427,7 @@ export const storeChunksOnly = async (args: {
 		heading: chunk.heading,
 		content: chunk.content,
 		token_count: chunk.tokenCount,
-		embedding: null,
+		embedding: embeddings[i] ?? null,
 		metadata: {
 			...metadata,
 			ingestionAudit: prepared.ingestionAudit,

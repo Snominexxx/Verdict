@@ -6,6 +6,7 @@ const translations = {
 	'nav.drafts': { en: 'Drafts', fr: 'Brouillons' },
 	'nav.court': { en: 'Court', fr: 'Cour' },
 	'nav.library': { en: 'Library', fr: 'Sources' },
+	'nav.assignments': { en: 'Assignments', fr: 'Exercices' },
 	'nav.about': { en: 'About Verdict', fr: 'À propos' },
 	'nav.howItWorks': { en: 'How it Works', fr: 'Comment ça marche' },
 	'nav.contact': { en: 'Contact', fr: 'Contact' },
@@ -999,7 +1000,75 @@ const translations = {
 	'v2.readyHint': { en: 'Ready when you are — or keep refining.', fr: 'Prêt quand vous l\'êtes — ou continuez à préciser.' },
 	'v2.openCase': { en: 'Open the case file', fr: 'Ouvrir le dossier' },
 	'v2.close': { en: 'Close', fr: 'Fermer' },
-	'v2.editSources': { en: 'Sources & role', fr: 'Sources et rôle' }
+	'v2.editSources': { en: 'Sources & role', fr: 'Sources et rôle' },
+
+	// Teacher assignments — publish, student entry, recorded review
+	'assignment.assignToStudents': { en: 'Assign to students', fr: 'Attribuer aux étudiants' },
+	'assignment.publishTitle': { en: 'Assign this exercise', fr: 'Attribuer cet exercice' },
+	'assignment.publishHint': {
+		en: 'Freeze this case so every student argues the exact same exercise. Their hearings are recorded for your review.',
+		fr: 'Figez cette cause pour que chaque étudiant plaide exactement le même exercice. Leurs audiences sont enregistrées pour votre révision.'
+	},
+	'assignment.instructionsLabel': { en: 'Guidelines for students (optional)', fr: 'Consignes pour les étudiants (facultatif)' },
+	'assignment.instructionsPlaceholder': {
+		en: 'e.g. Focus on the duty of good faith. You represent the defendant. Address the bench formally.',
+		fr: 'p. ex. Concentrez-vous sur l\'obligation de bonne foi. Vous représentez le défendeur. Adressez-vous formellement à la cour.'
+	},
+	'assignment.publishCta': { en: 'Create assignment link', fr: 'Créer le lien d\'exercice' },
+	'assignment.publishing': { en: 'Creating…', fr: 'Création…' },
+	'assignment.loginToPublish': { en: 'Please sign in to assign exercises.', fr: 'Veuillez vous connecter pour attribuer des exercices.' },
+	'assignment.shareLink': { en: 'Share this link with your students', fr: 'Partagez ce lien avec vos étudiants' },
+	'assignment.shareLinkHint': {
+		en: 'Everyone who opens it argues the identical case. Track their work under Assignments.',
+		fr: 'Tous ceux qui l\'ouvrent plaident la cause identique. Suivez leur travail sous Exercices.'
+	},
+	'assignment.copyLink': { en: 'Copy link', fr: 'Copier le lien' },
+	'assignment.copied': { en: 'Copied', fr: 'Copié' },
+	// Student entry
+	'assignment.label': { en: 'Assigned exercise', fr: 'Exercice attribué' },
+	'assignment.youRepresent': { en: 'You represent', fr: 'Vous représentez' },
+	'assignment.guidelines': { en: 'Instructions', fr: 'Consignes' },
+	'assignment.identify': { en: 'Before you begin', fr: 'Avant de commencer' },
+	'assignment.identifyHint': {
+		en: 'Your name and email let your instructor identify your recorded hearing.',
+		fr: 'Votre nom et votre courriel permettent à votre enseignant d\'identifier votre audience enregistrée.'
+	},
+	'assignment.fullName': { en: 'Full name', fr: 'Nom complet' },
+	'assignment.email': { en: 'Email', fr: 'Courriel' },
+	'assignment.nameRequired': { en: 'Please enter your name.', fr: 'Veuillez saisir votre nom.' },
+	'assignment.emailRequired': { en: 'Please enter a valid email.', fr: 'Veuillez saisir un courriel valide.' },
+	'assignment.enterHearing': { en: 'Enter the hearing', fr: 'Entrer dans l\'audience' },
+	'assignment.entering': { en: 'Entering…', fr: 'Entrée…' },
+	'assignment.recordedNotice': {
+		en: 'Your hearing is recorded and shared with your instructor.',
+		fr: 'Votre audience est enregistrée et transmise à votre enseignant.'
+	},
+	// Finish + submitted
+	'assignment.finishSubmit': { en: 'Finish & submit', fr: 'Terminer et soumettre' },
+	'assignment.submitting': { en: 'Submitting…', fr: 'Soumission…' },
+	'assignment.submittedTitle': { en: 'Hearing submitted', fr: 'Audience soumise' },
+	'assignment.submittedBody': {
+		en: 'Your hearing has been recorded and sent to your instructor. You may close this window.',
+		fr: 'Votre audience a été enregistrée et transmise à votre enseignant. Vous pouvez fermer cette fenêtre.'
+	},
+	'assignment.done': { en: 'Done', fr: 'Terminé' },
+	// Teacher roster / review
+	'assignment.rosterTitle': { en: 'Assignments', fr: 'Exercices' },
+	'assignment.rosterHint': {
+		en: 'Exercises you have assigned and the hearings your students recorded.',
+		fr: 'Les exercices que vous avez attribués et les audiences enregistrées par vos étudiants.'
+	},
+	'assignment.rosterEmpty': {
+		en: 'No assignments yet. Build a case, then choose “Assign to students”.',
+		fr: 'Aucun exercice pour l\'instant. Construisez une cause, puis choisissez « Attribuer aux étudiants ».'
+	},
+	'assignment.submissionsCount': { en: '{n} submissions', fr: '{n} soumissions' },
+	'assignment.review': { en: 'Review', fr: 'Réviser' },
+	'assignment.hide': { en: 'Hide', fr: 'Masquer' },
+	'assignment.loading': { en: 'Loading…', fr: 'Chargement…' },
+	'assignment.noSubmissions': { en: 'No submissions yet.', fr: 'Aucune soumission pour l\'instant.' },
+	'assignment.turns': { en: '{n} submissions made', fr: '{n} interventions' },
+	'assignment.submittedAt': { en: 'Submitted', fr: 'Soumis le' }
 } as const;
 
 type TranslationKey = keyof typeof translations;

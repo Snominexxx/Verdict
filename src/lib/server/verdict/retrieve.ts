@@ -34,6 +34,8 @@ import { loadFullSources, loadPackSourceIds } from '../sources';
 import { buildRelevantSourceBundle } from '../sourcePackets';
 import { parseSources, renderSourceMap, extractLegalRefs, resolveCrossReferences } from './sourceMap';
 import { planRetrieval } from './planner';
+import { semanticPassages } from './semanticRetrieve';
+import { semanticRetrievalEnabled } from './embeddings';
 
 export type RetrieveArgs = {
 	supabase: SupabaseClient;
@@ -173,6 +175,34 @@ export const retrieveSourcePacket = async (args: RetrieveArgs): Promise<SourcePa
 		heading: e.heading,
 		text: e.excerpt
 	}));
+
+	// ── Hybrid: augment lexical hits with semantic (vector) matches ──────────
+	// Source-bound + additive: the lexical bundle above is always the floor.
+	// Semantic search only surfaces ADDITIONAL passages from the user's own
+	// stored chunks that the lexical ranker may have missed (paraphrases,
+	// concept matches). Fails open to lexical-only when disabled/unavailable.
+	if (semanticRetrievalEnabled()) {
+		const titleBySource = new Map<string, string>();
+		for (const s of sources) titleBySource.set(s.id, s.title);
+		const semantic = await semanticPassages({
+			supabase,
+			userId,
+			query,
+			sourceIds,
+			packId,
+			titleBySource,
+			limit: Math.max(args.maxExcerpts ?? 10, 8)
+		});
+		if (semantic.length) {
+			const seen = new Set(passages.map(passageKey));
+			for (const p of semantic) {
+				const key = passageKey(p);
+				if (seen.has(key)) continue;
+				seen.add(key);
+				passages.push(p);
+			}
+		}
+	}
 
 	// ── 1-hop cross-reference expansion ──────────────────────
 	// Scan the retrieved passages for references to OTHER articles and pull

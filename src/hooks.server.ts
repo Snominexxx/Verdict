@@ -51,9 +51,14 @@ const authGuard: Handle = async ({ event, resolve }) => {
 	const isLoginPage = event.url.pathname === '/login';
 	const isAuthCallback = event.url.pathname.startsWith('/auth/');
 	const isPublicPage = event.url.pathname === '/' || event.url.pathname === '/about' || event.url.pathname === '/how-it-works' || event.url.pathname === '/pricing';
+	// Students open assignments without an account: the entry page and the
+	// hearing studio must be reachable anonymously. The teacher roster
+	// (/assignments) and all mutating studio endpoints stay protected.
+	const isAssignmentEntry = event.url.pathname.startsWith('/assignment/');
+	const isStudentHearing = event.url.pathname === '/create';
 	const isApiRoute = event.url.pathname.startsWith('/api/');
 
-	if (!session && !isLoginPage && !isAuthCallback && !isPublicPage && !isApiRoute) {
+	if (!session && !isLoginPage && !isAuthCallback && !isPublicPage && !isAssignmentEntry && !isStudentHearing && !isApiRoute) {
 		throw redirect(303, '/login');
 	}
 

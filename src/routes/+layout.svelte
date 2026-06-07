@@ -122,13 +122,14 @@
 	<link rel="icon" href={favicon} />
 	<meta name="theme-color" content="#020617" />
 	<meta name="description" content={t('meta.description', $language)} />
+	<link rel="canonical" href="https://tryverdict.net{$page.url.pathname}" />
 
 	<!-- Open Graph -->
 	<meta property="og:type" content="website" />
 	<meta property="og:title" content="Verdict — AI Judge Practice" />
 	<meta property="og:description" content={t('meta.description', $language)} />
-	<meta property="og:url" content="https://verdictmvp.netlify.app" />
-	<meta property="og:image" content="https://verdictmvp.netlify.app/og-image.png" />
+	<meta property="og:url" content="https://tryverdict.net{$page.url.pathname}" />
+	<meta property="og:image" content="https://tryverdict.net/og-image.png" />
 
 	<!-- Twitter Card -->
 	<meta name="twitter:card" content="summary_large_image" />
@@ -177,6 +178,12 @@
 			<a href="/library" class="flex flex-col items-center gap-1 py-2 px-1 text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition w-[78px]" title={t('nav.library', $language)}>
 				<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="square" stroke-linejoin="miter" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
 				<span class="text-xs font-semibold uppercase tracking-wide">{t('nav.library', $language)}</span>
+			</a>
+			<a href="/assignments" class="flex flex-col items-center gap-1 py-2 px-1 text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition w-[78px]" title={t('nav.assignments', $language)}>
+				<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z" />
+				</svg>
+				<span class="text-xs font-semibold uppercase tracking-wide">{t('nav.assignments', $language)}</span>
 			</a>
 			<a href="/pricing" class="flex flex-col items-center gap-1 py-2 px-1 text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition w-[78px]" title={t('nav.pricing', $language)}>
 				<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" /></svg>
