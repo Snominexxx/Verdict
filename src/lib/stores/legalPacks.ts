@@ -59,11 +59,26 @@ const scheduleSync = (packs: LegalPack[], deletedIds?: string[]) => {
 	syncTimer = setTimeout(() => {
 		const payload: Record<string, unknown> = { packs };
 		if (deletedIds?.length) payload.deletedPackIds = deletedIds;
-		fetch('/api/user-data', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(payload)
-		}).catch((err) => console.warn('Pack sync failed (offline?):', err));
+		const syncOnce = async () =>
+			fetch('/api/user-data', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+
+		void (async () => {
+			let response = await syncOnce();
+			if (response.status === 401) {
+				// Right after auth transitions there can be a short cookie propagation
+				// race. Retry once before surfacing a sync failure.
+				await new Promise((resolve) => setTimeout(resolve, 250));
+				response = await syncOnce();
+			}
+			if (!response.ok) {
+				const details = await response.text().catch(() => '');
+				throw new Error(`Pack sync failed (${response.status})${details ? `: ${details}` : ''}`);
+			}
+		})().catch((err) => console.warn('Pack sync failed:', err));
 	}, 800);
 };
 

@@ -170,6 +170,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const userId = session.user.id;
 	const supabase = locals.supabase;
 	const body = await request.json();
+	const syncErrors: string[] = [];
 
 	// Sync packs
 	if (body.packs && Array.isArray(body.packs)) {
@@ -191,7 +192,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				const { language: _language, ...legacyPackRow } = packRow;
 				({ error: packErr } = await supabase.from('legal_packs').upsert(legacyPackRow, { onConflict: 'id' }));
 			}
-			if (packErr) console.error('Pack upsert error:', packErr.message);
+			if (packErr) {
+				console.error('Pack upsert error:', packErr.message);
+				syncErrors.push(`Pack ${packRow.id}: ${packErr.message}`);
+			}
 
 			// Sync sources for this pack
 			if (pack.sources && Array.isArray(pack.sources)) {
@@ -225,7 +229,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 						});
 						({ error: srcErr } = await supabase.from('pack_sources').insert(legacyRows));
 					}
-					if (srcErr) console.error('Sources insert error:', srcErr.message);
+					if (srcErr) {
+						console.error('Sources insert error:', srcErr.message);
+						syncErrors.push(`Sources for pack ${packRow.id}: ${srcErr.message}`);
+					}
 				}
 			}
 		}
@@ -264,7 +271,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				(row) => supabase.from('cases').upsert(row, { onConflict: 'id' }),
 				caseRow
 			);
-			if (caseErr) console.error('Case upsert error:', caseErr.message);
+			if (caseErr) {
+				console.error('Case upsert error:', caseErr.message);
+				syncErrors.push(`Case ${caseRow.id}: ${caseErr.message}`);
+			}
 		}
 	}
 
@@ -293,6 +303,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					break;
 				}
 				console.error('Draft upsert error:', draftErr.message);
+				syncErrors.push(`Draft ${draftRow.id}: ${draftErr.message}`);
 			}
 		}
 	}
@@ -315,8 +326,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			const { error: draftDeleteErr } = await supabase.from('saved_drafts').delete().eq('id', id).eq('user_id', userId);
 			if (draftDeleteErr && !isMissingDraftTableError(draftDeleteErr.message)) {
 				console.error('Draft delete error:', draftDeleteErr.message);
+				syncErrors.push(`Delete draft ${id}: ${draftDeleteErr.message}`);
 			}
 		}
+	}
+
+	if (syncErrors.length) {
+		throw error(500, `User data sync failed: ${syncErrors.slice(0, 3).join(' | ')}`);
 	}
 
 	return json({ ok: true });

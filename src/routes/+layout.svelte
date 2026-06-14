@@ -18,36 +18,51 @@
 	import { page } from '$app/stores';
 
 	let { data, children } = $props();
+	let session = $derived(data.session);
+	let initializedUserId = $state<string | null>(null);
+
+	const hydrateAndLoadUserStores = (userId: string) => {
+		// Hydrate from user-namespaced localStorage first (fast)
+		caseHistoryStore.hydrateCaseHistory();
+		draftsStore.hydrate();
+		legalPacksStore.hydrate();
+		subscriptionStore.hydrate();
+
+		// Then load from Supabase
+		draftsStore.loadFromRemote();
+		legalPacksStore.loadFromRemote();
+		caseHistoryStore.loadFromRemote();
+		subscriptionStore.loadFromRemote();
+
+		// First-run demo seed (idempotent — runs at most once per user)
+		// Wait briefly for remote data to arrive so we don't seed over real content
+		setTimeout(() => {
+			maybeSeedDemo($language);
+		}, 1500);
+
+		initializedUserId = userId;
+	};
 
 	onMount(() => {
-		const userId = data.session?.user?.id ?? null;
-		setActiveUser(userId);
-
-		if (userId) {
-			// Hydrate from user-namespaced localStorage first (fast)
-			caseHistoryStore.hydrateCaseHistory();
-			draftsStore.hydrate();
-			legalPacksStore.hydrate();
-			subscriptionStore.hydrate();
-
-			// Then load from Supabase
-			draftsStore.loadFromRemote();
-			legalPacksStore.loadFromRemote();
-			caseHistoryStore.loadFromRemote();
-			subscriptionStore.loadFromRemote();
-
-			// First-run demo seed (idempotent — runs at most once per user)
-			// Wait briefly for remote data to arrive so we don't seed over real content
-			setTimeout(() => {
-				maybeSeedDemo($language);
-			}, 1500);
-		}
-
 		const { data: { subscription } } = data.supabase.auth.onAuthStateChange((_event: string, _session: unknown) => {
 			invalidate('supabase:auth');
 		});
 
 		return () => subscription.unsubscribe();
+	});
+
+	$effect(() => {
+		const userId = session?.user?.id ?? null;
+		const changed = setActiveUser(userId);
+
+		if (!userId) {
+			initializedUserId = null;
+			return;
+		}
+
+		if (changed || initializedUserId !== userId) {
+			hydrateAndLoadUserStores(userId);
+		}
 	});
 
 	const signOut = async () => {
@@ -57,7 +72,6 @@
 		window.location.href = '/login';
 	};
 
-	let session = $derived(data.session);
 	let userEmail = $derived(session?.user?.email ?? '');
 	let userInitial = $derived((session?.user?.user_metadata?.full_name?.[0] ?? userEmail?.[0] ?? '?').toUpperCase());
 

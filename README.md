@@ -1,109 +1,182 @@
-# Verdict — AI Litigation Simulator
+# Verdict — Source-Bound AI Litigation Studio
 
-Verdict is a source-bound legal training cockpit where lawyers, teachers, and law students upload materials, build grounded exercise papers, save drafts, and argue before an AI judge.
+Verdict is a legal training platform where users build hearings from selected sources, argue before an AI judge, and review outcomes. The current architecture is source-bound: the model can only reason over retrieved authority from the user's selected materials.
 
-## Stack
+## What Is Live Now
 
-- **SvelteKit + TypeScript** for the UI and routing
-- **Tailwind CSS** with a bespoke cockpit theme
-- **Supabase** (auth, Postgres, storage) for persisting cases, uploads, and transcripts
-- **Netlify adapter** to deploy the whole app (UI + server endpoints) as Edge/Functions
-- **FR/EN i18n** — full bilingual UI with language toggle (persisted to localStorage); AI responses adapt to selected language
+- V2 Create flow: conversation-first case building at /create
+- Source-bound CaseDossier pipeline (intent -> retrieval -> dossier -> hearing)
+- Teacher Assignments workflow with per-student identity and recorded submissions
+- Hybrid retrieval (lexical + optional semantic vector retrieval)
+- FR/EN UI and language-aware prompting
+- Supabase-backed persistence for packs, sources, cases, drafts, assignments, and submissions
 
-## Getting Started
+## Tech Stack
+
+- SvelteKit 2 + Svelte 5 + TypeScript
+- Tailwind CSS
+- Supabase (Auth, Postgres, Storage)
+- Netlify adapter for deployment
+- Vitest for tests
+
+## Quick Start
 
 ```sh
 npm install
-npm run dev -- --open
+npm run dev
 ```
 
-Environment variables (copy `.env.example` → `.env`):
+Run quality checks:
 
+```sh
+npm run check
+npm run test
 ```
-VITE_SUPABASE_URL=your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=public-anon-key
-SUPABASE_SERVICE_ROLE_KEY=service-role-key (server-side only)
-LLM_PROVIDER=openai|anthropic|azure-openai
-LLM_API_KEY=sk-...
+
+## Environment Variables
+
+Minimum required:
+
+```dotenv
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_STORAGE_BUCKET=verdict-sources
+```
+
+AI stack (recommended current setup):
+
+```dotenv
+USE_NEW_AI_STACK=true
+GOOGLE_API_KEY=your-gemini-key
+
+# OpenAI is used for fallback and embeddings
+LLM_API_KEY=your-openai-key
+# or OPENAI_API_KEY=your-openai-key
+
 OPENAI_MODEL=gpt-4o-mini
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
-AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
-AZURE_OPENAI_API_VERSION=2024-02-15-preview
-ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
-LLM_TEMPERATURE=0.2
 ```
 
-- The service-role key is only read on the server (Netlify function) to persist staged cases.
-- Pick one provider (`LLM_PROVIDER`) and fill in the accompanying fields.
-- Temperature can be nudged if you want looser or stricter arguments.
+Semantic retrieval (optional but recommended):
 
-## Available Pages
-
-- **/** — overview with primary call-to-action buttons
-- **/cases** — Create workspace for source-aware chat, grounded exercise building, and launch into judge mode
-- **/drafts** — saved pre-judge exercise papers that can be reopened in Create
-- **/court** — case management hub showing ongoing and finished cases
-- **/debate** — judge-mode hearing with source-grounded citations, judge focus, and scoring
-- **/library** — upload, read, and manage source packs and legal documents
-- **/about** — project mission statement
-- **/how-it-works** — step-by-step guide to the Verdict engine
-
-## i18n Architecture
-
-- `src/lib/stores/language.ts` — writable store (`'en' | 'fr'`) with localStorage persistence
-- `src/lib/i18n.ts` — all ~120+ translation keys with `t(key, lang)` helper
-- Language toggle in sidebar; all pages use `t()` calls for every user-visible string
-- AI prompts include a `LANGUAGE INSTRUCTION` block so LLM responses match the selected language
-- Auto-fill endpoint accepts `{ language }` in the POST body
-
-## Development Workflow
-
-1. Upload and organize sources in Library (Supabase Storage + Postgres)
-2. Use Create to chat naturally, review selected documents, and build a grounded exercise paper
-3. Save the paper as a Draft or launch it into Judge mode
-4. Judge mode sends the staged case + sources to your configured LLM (OpenAI, Azure OpenAI, or Anthropic)
-5. Persist drafts, hearings, scores, and transcripts for later review
-
-### Library content
-
-- `static/library/canadian-charter-of-rights-and-freedoms.md` ships with the full Charter text.
-- `static/library/civil-code-of-quebec.md` currently holds a placeholder + sample articles—replace with the official consolidated code to expose every article in-app.
-
-- `src/routes/api/cases/+server.ts` writes staged cases to the `staged_cases` table and stores the ID in the `verdict_case_id` cookie so `/debate` can reload the context after a refresh.
-- `src/routes/debate/+page.server.ts` hydrates the current case from Supabase before rendering.
-- `src/routes/api/debate/+server.ts` now calls your actual LLM for a bench-only judge hearing grounded in the selected sources.
-
-### Supabase schema
-
-Create the backing table with RLS rules of your choice (example):
-
-```sql
-create table if not exists public.staged_cases (
-	id uuid primary key default gen_random_uuid(),
-	title text not null,
-	synopsis text not null,
-	issues text,
-	remedy text,
-	role text not null check (role in ('plaintiff','defendant')),
-	sources jsonb default '[]'::jsonb,
-	created_at timestamptz default now()
-);
+```dotenv
+ENABLE_SEMANTIC_RETRIEVAL=true
+EMBEDDING_MODEL=text-embedding-3-large
+EMBEDDING_DIM=1536
 ```
 
-Grant insert/select to the service role key (already implied) and configure RLS if you later add user auth.
+Model overrides (optional):
 
-## Production Build & Deploy
+```dotenv
+GEMINI_PRO_MODEL=gemini-2.5-pro
+GEMINI_CHAT_MODEL=gemini-2.5-pro
+GEMINI_DOSSIER_MODEL=gemini-2.5-pro
+GEMINI_BUILD_MODEL=gemini-2.5-pro
+GEMINI_PLAN_MODEL=gemini-2.5-flash
+GEMINI_BENCH_MODEL=gemini-2.5-flash
+```
+
+Notes:
+
+- If Gemini/Anthropic fails at runtime and an OpenAI key is present, Verdict now attempts an OpenAI fallback for LLM calls.
+- Never commit real secrets.
+
+## Database Setup (Supabase)
+
+For a fresh project, run:
+
+- supabase/migration.sql
+
+For existing projects or incremental rollout, also run:
+
+- supabase/add-assignments.sql
+- supabase/add-document-chunks.sql
+
+The document chunk script is rerun-safe for policies (it drops/recreates existing policy names).
+
+## Core Product Flows
+
+### 1) Library and Source Packs
+
+- Create/manage packs in /library
+- Upload PDF or DOCX
+- Text is parsed, quality-checked, chunked, and stored in document_chunks
+- Original file is stored in Supabase Storage for preview/download
+
+### 2) Create and Hearing
+
+- Chat in /create to define the exercise
+- Build a CaseDossier grounded in retrieved source passages
+- Enter hearing mode and submit turns to the AI judge
+- Judge responses are citation-checked against the dossier packet
+
+### 3) Drafts
+
+- Save in-progress work for later refinement
+- Reopen and continue from /drafts
+
+### 4) Assignments (Teacher Workflow)
+
+- Publish a frozen dossier as a shareable assignment link
+- Students open /assignment/[token], enter identity, and complete the same exercise
+- Student submissions are recorded in exercise_submissions
+- Teachers review all submissions at /assignments
+
+## Semantic Retrieval
+
+When ENABLE_SEMANTIC_RETRIEVAL=true:
+
+- Ingest stores embeddings for chunks (best-effort)
+- Retrieval augments lexical results with vector matches from match_chunks
+- Lexical retrieval remains the floor and fallback
+
+Backfill existing text-only chunks:
+
+- POST /api/library/embed while authenticated
+- Repeat until remaining = 0
+
+Example body:
+
+```json
+{ "maxChunks": 500 }
+```
+
+## Important Routes
+
+- /create - V2 case build + hearing
+- /library - packs and uploads
+- /drafts - saved work
+- /court - hearing history/management
+- /assignments - teacher assignment roster and submissions
+- /assignment/[token] - student entry page (public)
+
+Legacy routes (/cases, /debate, /share) still exist for compatibility but are no longer the primary path.
+
+## Troubleshooting
+
+### Upload says "Authentication required" even after login
+
+- Hard refresh and sign in again
+- Confirm Supabase Auth Site URL and redirect URLs match your domain
+- Check browser Network for failing /api/library/* or /api/user-data calls
+- Verify VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY are set in the running environment
+
+### Uploaded docs appear, then disappear after refresh
+
+- This usually means /api/user-data sync failed
+- Check Network response body for /api/user-data
+- Ensure legal_packs and pack_sources tables exist (run migration.sql)
+
+### AI conversation fails
+
+- Verify GOOGLE_API_KEY when USE_NEW_AI_STACK=true
+- Verify LLM_API_KEY or OPENAI_API_KEY for fallback
+- Confirm deploy environment has the updated keys and redeploy after changes
+
+## Deployment
 
 ```sh
 npm run build
 ```
 
-Netlify reads `netlify.toml`, runs the build, and serves the generated server bundle via Edge/Functions. Supabase keys should be added as Netlify environment variables (never committed).
-
-## Next Steps
-
-- Continue refining the Create-to-Draft-to-Judge workflow
-- Expand Supabase auth/storage for private source workspaces
-- Add richer export/review options for saved hearings and draft exercise papers
-
-Happy litigating! ✨
+Deploy with Netlify using netlify.toml. Add all environment variables in Netlify Site Configuration -> Environment Variables.
